@@ -223,6 +223,11 @@ async function runImpactSimulation() {
         const result = await response.json();
         
         if (result.success) {
+            
+        if (result.usgs_context) {
+            // logUSGSData(result.usgs_context);  // Comentado temporalmente
+            console.log('📊 USGS Context:', result.usgs_context);
+        }
             // Get location info with impact radii for population calculation
             const destructionRadius = result.calculations.destruction_radius_km;
             const damageRadius = result.calculations.damage_radius_km;
@@ -1389,6 +1394,7 @@ function generateFullResultsHTML(result) {
     const severity = result.severity;
     const locationInfo = result.locationInfo || {};
     const popData = locationInfo.populationData || {};
+    const usgsContext = result.usgs_context;
     
     // Construir sección de población completa
     let populationSection = '';
@@ -1465,6 +1471,8 @@ function generateFullResultsHTML(result) {
         <div class="severity-badge" style="background: ${severity.color}20; border: 2px solid ${severity.color}; font-size: 16px; padding: 1rem;">
             <strong>${severity.level}:</strong> ${severity.description}
         </div>
+
+        ${usgsContext ? displayUSGSContext(usgsContext, result) : ''}
         
         ${locationInfo.display_name ? `
             <div style="background: rgba(0, 168, 232, 0.1); padding: 1.5rem; border-radius: 8px; border: 2px solid #00A8E8; margin: 1.5rem 0;">
@@ -1780,10 +1788,110 @@ document.addEventListener('keydown', (e) => {
 });
 
 // Cerrar modal al hacer clic fuera
+// Cerrar modal al hacer clic fuera
 document.addEventListener('click', (e) => {
     const modal = document.getElementById('results-modal');
     if (e.target === modal) {
         closeResultsModal();
     }
-});
+});  // ← AGREGAR ESTE CIERRE
+
+// ============================================
+// USGS INTEGRATION
+// ============================================
+
+function displayUSGSContext(usgsContext, result) {
+    if (!usgsContext) return '';
+    
+    let usgsHTML = `
+        <div class="collapsible-section" data-section="usgs-data">
+            <div class="section-header" onclick="toggleSection('usgs-data')">
+                <strong style="font-size: 16px;">📊 CONTEXTO GEOGRÁFICO (USGS)</strong>
+                <span class="toggle-icon">▼</span>
+            </div>
+            <div class="section-content" id="usgs-data-content">
+    `;
+    
+    if (usgsContext.elevation) {
+        const elev = usgsContext.elevation;
+        let terrainIcon = elev.is_oceanic ? '🌊' : '🏔️';
+        
+        usgsHTML += `
+            <div class="result-stat" style="background: ${elev.is_oceanic ? 'rgba(65,105,225,0.2)' : 'rgba(76,175,80,0.2)'}; border-left-color: ${elev.is_oceanic ? '#4169E1' : '#4CAF50'};">
+                <strong>${terrainIcon} Tipo de Terreno:</strong><br>
+                <span style="font-size: 18px;">${elev.description}</span><br>
+                <span style="font-size: 14px; color: var(--text-medium);">
+                    Elevación: ${elev.elevation_m.toFixed(1)} metros
+                </span>
+            </div>
+        `;
+    }
+    
+    if (usgsContext.seismic_history) {
+        const seismic = usgsContext.seismic_history;
+        usgsHTML += `
+            <div class="result-stat" style="background: rgba(255,152,0,0.2); border-left-color: #FF9800; margin-top: 1rem;">
+                <strong>📈 Historial Sísmico:</strong><br>
+                <span style="font-size: 16px;">${seismic.count} sismos registrados</span><br>
+        `;
+        
+        if (seismic.count > 0) {
+            const impactMag = result.calculations.seismic_magnitude;
+            usgsHTML += `
+                <span style="font-size: 14px; color: var(--text-medium);">
+                    Máx: ${seismic.max_magnitude.toFixed(1)} | Promedio: ${seismic.avg_magnitude.toFixed(1)}
+                </span>
+                <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255,68,68,0.2); border-radius: 4px;">
+                    <span style="font-size: 12px;">
+                        Impacto generaría magnitud <strong>${impactMag.toFixed(1)}</strong>
+                        (${(impactMag - seismic.max_magnitude).toFixed(1)} puntos más fuerte)
+                    </span>
+                </div>
+            `;
+        }
+        usgsHTML += `</div>`;
+    }
+    
+    if (usgsContext.coastal_distance_km !== undefined) {
+        const dist = usgsContext.coastal_distance_km;
+        let warning = dist === 0 ? '⚠️ IMPACTO OCEÁNICO - TSUNAMI GARANTIZADO' : 
+                      dist < 50 ? '⚠️ ZONA COSTERA - ALTO RIESGO' : 
+                      '✅ Zona interior - Tsunami improbable';
+        
+        usgsHTML += `
+            <div class="result-stat" style="background: rgba(0,168,232,0.2); border-left-color: #00A8E8; margin-top: 1rem;">
+                <strong>🌊 Distancia a Costa:</strong><br>
+                <span style="font-size: 18px;">${dist === 0 ? 'Impacto oceánico' : dist.toFixed(1) + ' km'}</span><br>
+                <span style="font-size: 13px;">${warning}</span>
+            </div>
+        `;
+    }
+    
+    usgsHTML += `</div></div>`;
+    return usgsHTML;
+}
+
+function logUSGSData(usgsContext) {
+    if (!usgsContext) return;
+    
+    console.log('═══════════════════════════════════════════');
+    console.log('📊 DATOS USGS - CONTEXTO GEOGRÁFICO');
+    console.log('═══════════════════════════════════════════');
+    
+    if (usgsContext.elevation) {
+        console.log(`\n🏔️ Terreno: ${usgsContext.elevation.description}`);
+        console.log(`   Elevación: ${usgsContext.elevation.elevation_m.toFixed(1)}m`);
+    }
+    
+    if (usgsContext.seismic_history && usgsContext.seismic_history.count > 0) {
+        console.log(`\n📈 Sismos: ${usgsContext.seismic_history.count}`);
+        console.log(`   Magnitud máx: ${usgsContext.seismic_history.max_magnitude.toFixed(1)}`);
+    }
+    
+    if (usgsContext.coastal_distance_km !== undefined) {
+        console.log(`\n🌊 Distancia costa: ${usgsContext.coastal_distance_km === 0 ? 'OCEÁNICO' : usgsContext.coastal_distance_km.toFixed(1) + ' km'}`);
+    }
+    
+    console.log('═══════════════════════════════════════════\n');
+}
 
