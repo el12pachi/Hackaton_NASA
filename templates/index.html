@@ -1,0 +1,224 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Asteroid Impact Simulator</title>
+
+    <!-- Styles -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+
+    <!-- Leaflet for 2D maps -->
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+    <!-- Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+
+<body>
+    <!-- Header -->
+    <header class="main-header">
+        <div class="header-content">
+            <div class="header-title-container">
+                <h1 id="header-title" class="logo">Asteroid Impact Simulator</h1>
+                <p class="subtitle">NASA Space Apps 2025</p>
+            </div>
+            <div class="theme-toggle">
+                <button class="mode-btn active" data-mode="simulation">Simulación de Impacto</button>
+                <button class="mode-btn" data-mode="mitigation">Estrategias de Mitigación</button>
+                <button id="theme-toggle-btn" class="theme-toggle-btn" title="Cambiar tema">
+                    <span class="theme-icon">◐</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content -->
+    <div class="main-content">
+        <!-- Sidebar -->
+        <aside class="sidebar">
+            <!-- <div class="sidebar-header">
+                <h1 class="logo">Asteroid Impact Simulator</h1>
+                <p class="subtitle">NASA Space Apps 2025</p>
+            </div> -->
+
+            <!-- Mode Selector -->
+            <!-- <div class="mode-selector">
+                <button class="mode-btn active" data-mode="simulation">Simulación de Impacto</button>
+                <button class="mode-btn" data-mode="mitigation">Estrategias de Mitigación</button>
+            </div> -->
+
+            <!-- Simulation Controls -->
+            <div id="simulation-controls" class="controls-section active">
+                <div class="section-title">Parámetros del Asteroide</div>
+
+                <div class="control-panel">
+                    <!-- Asteroid Selection -->
+                    <div class="control-group">
+                        <label for="asteroid-select">Asteroide</label>
+                        <select id="asteroid-select">
+                            <option value="custom">Personalizado</option>
+                            <option value="IMPACTOR-2025">Impactor-2025</option>
+                        </select>
+                    </div>
+
+                    <!-- Diameter -->
+                    <div class="control-group">
+                        <label for="diameter">Diámetro (metros)</label>
+                        <input type="range" id="diameter" min="10" max="1000" value="150" step="10">
+                        <span id="diameter-value" class="value-display">150 m</span>
+                    </div>
+
+                    <!-- Velocity -->
+                    <div class="control-group">
+                        <label for="velocity">Velocidad (km/s)</label>
+                        <input type="range" id="velocity" min="5" max="50" value="25" step="1">
+                        <span id="velocity-value" class="value-display">25 km/s</span>
+                    </div>
+
+                    <!-- Entry Angle -->
+                    <div class="control-group">
+                        <label for="angle">Ángulo de Entrada (°)</label>
+                        <input type="range" id="angle" min="15" max="90" value="45" step="5">
+                        <span id="angle-value" class="value-display">45°</span>
+                    </div>
+
+                    <!-- Impact Location -->
+                    <div class="control-group">
+                        <label>Punto de Impacto</label>
+                        <div class="location-inputs">
+                            <input type="number" id="latitude" placeholder="Latitud" min="-90" max="90" value="40.7"
+                                step="0.1">
+                            <input type="number" id="longitude" placeholder="Longitud" min="-180" max="180"
+                                value="-74.0" step="0.1">
+                        </div>
+                    </div>
+
+                    <button id="simulate-btn" class="btn-primary">Simular Impacto</button>
+                </div>
+
+                <!-- Results Preview -->
+                <div class="results-preview">
+                    <div id="results-content" class="results-content">
+                        <div class="placeholder">Ejecute una simulación para ver los resultados</div>
+                    </div>
+                    <button id="view-full-results-btn" class="btn-view-results" onclick="openResultsModal()"
+                        style="display: none;">
+                        Ver Resultados Completos
+                    </button>
+                </div>
+
+            </div>
+
+            <!-- Mitigation Controls -->
+            <div id="mitigation-controls" class="controls-section">
+                <div class="section-title">Estrategia de Deflexión</div>
+
+                <div class="control-panel">
+                    <!-- Strategy Selection -->
+                    <div class="control-group">
+                        <label for="strategy-select">Método</label>
+                        <select id="strategy-select">
+                            <option value="kinetic_impactor">Impactador Cinético</option>
+                            <option value="gravity_tractor">Tractor de Gravedad</option>
+                        </select>
+                    </div>
+
+                    <!-- Asteroid Parameters -->
+                    <div class="control-group">
+                        <label for="mit-diameter">Diámetro (m)</label>
+                        <input type="range" id="mit-diameter" min="50" max="500" value="150" step="10">
+                        <span id="mit-diameter-value" class="value-display">150 m</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="mit-velocity">Velocidad (km/s)</label>
+                        <input type="range" id="mit-velocity" min="10" max="40" value="25" step="1">
+                        <span id="mit-velocity-value" class="value-display">25 km/s</span>
+                    </div>
+
+                    <!-- Mission Parameters -->
+                    <div class="control-group">
+                        <label for="time-before-impact">Tiempo (días)</label>
+                        <input type="range" id="time-before-impact" min="30" max="3650" value="365" step="30">
+                        <span id="time-before-impact-value" class="value-display">365 días</span>
+                    </div>
+
+                    <div id="kinetic-params" class="strategy-params">
+                        <div class="control-group">
+                            <label for="impactor-mass">Masa Impactador (kg)</label>
+                            <input type="range" id="impactor-mass" min="100" max="10000" value="1000" step="100">
+                            <span id="impactor-mass-value" class="value-display">1000 kg</span>
+                        </div>
+
+                        <div class="control-group">
+                            <label for="impactor-velocity">Velocidad Impactador (km/s)</label>
+                            <input type="range" id="impactor-velocity" min="5" max="20" value="10" step="1">
+                            <span id="impactor-velocity-value" class="value-display">10 km/s</span>
+                        </div>
+                    </div>
+
+                    <button id="deflection-btn" class="btn-primary">Calcular Deflexión</button>
+                </div>
+
+                <!-- Deflection Results -->
+                <div class="results-preview">
+                    <div id="deflection-results" class="results-content">
+                        <div class="placeholder">Ejecute una simulación de deflexión para ver los resultados</div>
+                    </div>
+                </div>
+
+            </div>
+        </aside>
+
+        <!-- Map Container -->
+        <main class="map-main">
+            <div id="map-container" class="map-container"></div>
+
+            <!-- Map Legend -->
+            <div class="map-legend">
+                <div class="legend-item">
+                    <span class="legend-dot destruction"></span>
+                    <span>Destrucción Total</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot damage"></span>
+                    <span>Daño Severo</span>
+                </div>
+                <div class="legend-item">
+                    <span class="legend-dot affected"></span>
+                    <span>Área Afectada</span>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <!-- Loading Overlay -->
+    <div id="loading-overlay" class="loading-overlay" style="display: none;">
+        <div class="loader"></div>
+        <p>Calculando...</p>
+    </div>
+
+    <!-- Results Modal -->
+    <div id="results-modal" class="results-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>Resultados Completos del Impacto</h2>
+                <button class="modal-close" onclick="closeResultsModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-results-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeResultsModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/main.js') }}"></script>
+</body>
+
+</html>
