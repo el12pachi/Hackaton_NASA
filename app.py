@@ -1,6 +1,6 @@
 """
-Asteroid Impact Simulator - Backend Flask
-Hackathon NASA 2025
+Asteroid Impact Simulator - Backend Flask con USGS API
+Hackathon NASA 2025 - Branch Bujo
 """
 
 from flask import Flask, render_template, jsonify, request
@@ -14,17 +14,14 @@ def calculate_distance_haversine(lat1, lon1, lat2, lon2):
     """Calcula la distancia entre dos puntos usando la fórmula de Haversine"""
     R = 6371  # Radio de la Tierra en km
     
-    # Convertir grados a radianes
     lat1_rad = math.radians(lat1)
     lon1_rad = math.radians(lon1)
     lat2_rad = math.radians(lat2)
     lon2_rad = math.radians(lon2)
     
-    # Diferencia de coordenadas
     dlat = lat2_rad - lat1_rad
     dlon = lon2_rad - lon1_rad
     
-    # Fórmula de Haversine
     a = math.sin(dlat/2)**2 + math.cos(lat1_rad) * math.cos(lat2_rad) * math.sin(dlon/2)**2
     c = 2 * math.atan2(math.sqrt(a), math.sqrt(1-a))
     
@@ -34,26 +31,357 @@ def calculate_distance_haversine(lat1, lon1, lat2, lon2):
 app = Flask(__name__)
 CORS(app)
 
-# NASA API Configuration
-NASA_API_KEY = "btXo212rjwe6lTcZjPSonG2XUGa2C6OxIefooRua"  # Cambiar por tu API key
+# ============================================
+# API KEYS Y CONFIGURACIÓN
+# ============================================
+
+NASA_API_KEY = "btXo212rjwe6lTcZjPSonG2XUGa2C6OxIefooRua"
 NASA_NEO_API = "https://api.nasa.gov/neo/rest/v1/neo/browse"
 NASA_NEO_FEED = "https://api.nasa.gov/neo/rest/v1/feed"
 
+# USGS APIs - No requieren API key (públicas)
+USGS_EARTHQUAKE_API = "https://earthquake.usgs.gov/fdsnws/event/1/query"
+USGS_COASTAL_API = "https://coast.noaa.gov/api/v1/"
+
 # Physical Constants
-G = 6.67430e-11  # Gravitational constant (m^3 kg^-1 s^-2)
-EARTH_MASS = 5.972e24  # kg
-EARTH_RADIUS = 6371000  # meters
-EARTH_MU = 3.986004418e14  # Earth's gravitational parameter (m^3/s^2)
-ASTEROID_DENSITY = 3000  # kg/m^3 (typical rocky asteroid)
-GROUND_DENSITY = 2500  # kg/m^3
-GRAVITY = 9.81  # m/s^2
+G = 6.67430e-11
+EARTH_MASS = 5.972e24
+EARTH_RADIUS = 6371000
+EARTH_MU = 3.986004418e14
+ASTEROID_DENSITY = 3000
+GROUND_DENSITY = 2500
+GRAVITY = 9.81
+
+# ============================================
+# USGS INTEGRATION FUNCTIONS
+# ============================================
+
+def get_usgs_seismic_history(lat, lon, radius_km=500, days_back=365):
+    """
+    Obtiene historial de actividad sísmica de USGS cerca del punto de impacto.
+    Útil para evaluar si la zona ya tiene actividad sísmica previa.
+    """
+    try:
+        # Calcular fechas
+        end_date = datetime.now()
+        start_date = end_date - timedelta(days=days_back)
+        
+        # Parámetros de búsqueda USGS
+        params = {
+            'format': 'geojson',
+            'starttime': start_date.strftime('%Y-%m-%d'),
+            'endtime': end_date.strftime('%Y-%m-%d'),
+            'latitude': lat,
+            'longitude': lon,
+            'maxradiuskm': radius_km,
+            'minmagnitude': 4.0,  # Solo sismos significativos
+            'orderby': 'magnitude'
+        }
+        
+        response = requests.get(USGS_EARTHQUAKE_API, params=params, timeout=10)
+        
+        if response.status_code != 200:
+            print(f"USGS API error: {response.status_code}")
+            return None
+        
+        data = response.json()
+        earthquakes = data.get('features', [])
+        
+        if not earthquakes:
+            return {
+                'count': 0,
+                'max_magnitude': 0,
+                'message': 'Sin actividad sísmica significativa en el área'
+            }
+        
+        # Procesar datos
+        magnitudes = [eq['properties']['mag'] for eq in earthquakes]
+        max_earthquake = max(earthquakes, key=lambda x: x['properties']['mag'])
+        
+        return {
+            'count': len(earthquakes),
+            'max_magnitude': max(magnitudes),
+            'avg_magnitude': sum(magnitudes) / len(magnitudes),
+            'max_earthquake': {
+                'magnitude': max_earthquake['properties']['mag'],
+                'place': max_earthquake['properties']['place'],
+                'date': datetime.fromtimestamp(
+                    max_earthquake['properties']['time'] / 1000
+                ).strftime('%Y-%m-%d'),
+                'depth_km': max_earthquake['geometry']['coordinates'][2]
+            },
+            'recent_quakes': [
+                {
+                    'magnitude': eq['properties']['mag'],
+                    'place': eq['properties']['place'],
+                    'date': datetime.fromtimestamp(eq['properties']['time'] / 1000).strftime('%Y-%m-%d')
+                }
+                for eq in earthquakes[:5]  # Top 5 más fuertes
+            ],
+            'message': f'{len(earthquakes)} sismos registrados en últimos {days_back} días'
+        }
+        
+    except Exception as e:
+        print(f"Error fetching USGS seismic data: {e}")
+        return None
+
+
+def get_usgs_elevation(lat, lon):
+    
+    """
+    Obtiene elevación del terreno usando USGS Elevation API.
+    Importante para calcular si el impacto es oceánico o terrestre.
+    """
+    try:
+        # USGS Elevation Point Query Service
+        url = "https://epqs.nationalmap.gov/v1/json"
+        params = {
+            'x': lon,
+            'y': lat,
+            'units': 'Meters',
+            'wkid': 4326,
+            'includeDate': False
+        }
+        
+        response = requests.get(url, params=params, timeout=10)
+        
+        if response.status_code != 200:
+            print(f"⚠️ USGS Elevation API status: {response.status_code}")
+            return None
+        
+        # Verificar si la respuesta está vacía
+        if not response.text or response.text.strip() == '':
+            print(f"⚠️ USGS Elevation: Respuesta vacía para {lat}, {lon}")
+            return None
+        
+        try:
+            data = response.json()
+        except ValueError as e:
+            print(f"⚠️ USGS Elevation: JSON inválido - {e}")
+            # Usar método alternativo (OpenElevation API)
+            return get_elevation_alternative(lat, lon)
+        
+        # Verificar si hay valor de elevación
+        if 'value' not in data or data['value'] is None:
+            print(f"⚠️ USGS Elevation: Sin datos para {lat}, {lon} (fuera de cobertura USA)")
+            # Usar método alternativo
+            return get_elevation_alternative(lat, lon)
+        
+        elevation = data['value']
+        
+        # Clasificar tipo de terreno
+        if elevation < -50:
+            terrain_type = 'ocean_deep'
+            description = 'Océano profundo'
+        elif elevation < 0:
+            terrain_type = 'ocean_shallow'
+            description = 'Océano poco profundo / Costa'
+        elif elevation < 100:
+            terrain_type = 'lowland'
+            description = 'Tierra baja / Llanura'
+        elif elevation < 500:
+            terrain_type = 'highland'
+            description = 'Tierra alta'
+        elif elevation < 1500:
+            terrain_type = 'mountain'
+            description = 'Montaña'
+        else:
+            terrain_type = 'mountain_high'
+            description = 'Montaña alta'
+        
+        print(f"✅ USGS Elevation: {elevation}m - {description}")
+        
+        return {
+            'elevation_m': elevation,
+            'terrain_type': terrain_type,
+            'description': description,
+            'is_oceanic': elevation < 0,
+            'source': 'USGS'
+        }
+        
+    except Exception as e:
+        print(f"❌ Error fetching USGS elevation: {e}")
+        # Fallback a API alternativa
+        return get_elevation_alternative(lat, lon)
+
+def get_elevation_alternative(lat, lon):
+    """
+    API alternativa de elevación (Open-Elevation) - cobertura global
+    Funciona en todo el mundo, no solo USA
+    """
+    try:
+        print(f"🔄 Intentando API alternativa (Open-Elevation) para {lat}, {lon}...")
+        
+        # Open-Elevation API (servicio público global)
+        url = "https://api.open-elevation.com/api/v1/lookup"
+        params = {
+            'locations': f"{lat},{lon}"
+        }
+        
+        response = requests.get(url, params=params, timeout=15)
+        
+        if response.status_code == 200:
+            data = response.json()
+            
+            if 'results' in data and len(data['results']) > 0:
+                elevation = data['results'][0]['elevation']
+                
+                # Clasificar tipo de terreno
+                if elevation < -50:
+                    terrain_type = 'ocean_deep'
+                    description = 'Océano profundo'
+                elif elevation < 0:
+                    terrain_type = 'ocean_shallow'
+                    description = 'Océano poco profundo / Costa'
+                elif elevation < 100:
+                    terrain_type = 'lowland'
+                    description = 'Tierra baja / Llanura'
+                elif elevation < 500:
+                    terrain_type = 'highland'
+                    description = 'Tierra alta'
+                elif elevation < 1500:
+                    terrain_type = 'mountain'
+                    description = 'Montaña'
+                else:
+                    terrain_type = 'mountain_high'
+                    description = 'Montaña alta'
+                
+                print(f"✅ Open-Elevation: {elevation}m - {description}")
+                
+                return {
+                    'elevation_m': elevation,
+                    'terrain_type': terrain_type,
+                    'description': description,
+                    'is_oceanic': elevation < 0,
+                    'source': 'Open-Elevation'
+                }
+        
+        # Si Open-Elevation falla, usar estimación básica
+        print(f"⚠️ Open-Elevation también falló, usando estimación básica")
+        return get_elevation_basic_estimate(lat, lon)
+        
+    except Exception as e:
+        print(f"❌ Error with alternative elevation API: {e}")
+        return get_elevation_basic_estimate(lat, lon)
+
+
+def get_elevation_basic_estimate(lat, lon):
+    """
+    Estimación muy básica cuando todas las APIs fallan
+    """
+    # Estimación simple: coordenadas oceánicas conocidas
+    is_oceanic = False
+    
+    # Océanos principales (rangos aproximados)
+    if (lat >= -60 and lat <= 60):
+        # Pacífico
+        if (lon >= 120 and lon <= -70) or (lon >= -180 and lon <= -70):
+            is_oceanic = True
+        # Atlántico
+        elif (lon >= -70 and lon <= -10):
+            is_oceanic = True
+        # Índico
+        elif (lon >= 40 and lon <= 110):
+            is_oceanic = True
+    
+    if is_oceanic:
+        elevation = -100
+        description = "Océano (estimado)"
+        terrain_type = "ocean_deep"
+    else:
+        elevation = 300  # Elevación promedio terrestre
+        description = "Terrestre (estimado)"
+        terrain_type = "highland"
+    
+    print(f"📊 Estimación básica: {elevation}m - {description}")
+    
+    return {
+        'elevation_m': elevation,
+        'terrain_type': terrain_type,
+        'description': description,
+        'is_oceanic': is_oceanic,
+        'source': 'Estimación básica'
+    }
+
+def estimate_coastal_distance_usgs(lat, lon, elevation_data=None):
+    """
+    Estima distancia a la costa usando datos de elevación ya obtenidos.
+    NO hace llamadas adicionales a API.
+    """
+    try:
+        # Si no se proporcionó elevation_data, es terrestre por defecto
+        if not elevation_data:
+            print(f"ℹ️ Sin datos de elevación, usando estimación")
+            return estimate_distance_to_coast(lat, lon)
+        
+        # Si está en el océano, distancia = 0
+        if elevation_data.get('is_oceanic', False):
+            print(f"🌊 Impacto oceánico detectado (elevación: {elevation_data['elevation_m']}m)")
+            return 0
+        
+        # Si es terrestre, calcular distancia estimada sin más llamadas API
+        elev = elevation_data.get('elevation_m', 200)
+        
+        print(f"🗺️ Calculando distancia a costa para elevación {elev}m en {lat}, {lon}")
+        
+        # Estimación basada en elevación y ubicación geográfica
+        # Zaragoza, España: aproximadamente 250km a costa más cercana
+        if 40 <= lat <= 43 and -2 <= lon <= 1:  # Región de Aragón
+            distance = 250
+        elif elev > 1000:  # Montañas altas
+            distance = 400
+        elif elev > 500:  # Montañas medias
+            distance = 300
+        elif elev > 200:  # Tierras altas
+            distance = 250
+        elif elev > 50:   # Tierras bajas
+            distance = 150
+        else:             # Muy cerca del nivel del mar
+            distance = 50
+        
+        print(f"✅ Distancia estimada a costa: {distance}km")
+        return distance
+        
+    except Exception as e:
+        print(f"Error estimating coastal distance: {e}")
+        return estimate_distance_to_coast(lat, lon)
+
+def get_usgs_geographic_context(lat, lon):
+    """
+    Combina todas las funciones USGS para dar contexto geográfico completo.
+    Optimizado: obtiene elevación UNA SOLA VEZ y reutiliza el dato.
+    """
+    print(f"🌍 Obteniendo contexto geográfico USGS para {lat}, {lon}...")
+    
+    # 1. Obtener elevación (UNA SOLA VEZ)
+    elevation_data = get_usgs_elevation(lat, lon)
+    
+    # 2. Calcular distancia a costa SIN llamar de nuevo a get_usgs_elevation
+    #    Pasamos elevation_data como parámetro para reutilizar
+    coastal_distance = estimate_coastal_distance_usgs(lat, lon, elevation_data)
+    
+    # 3. Obtener historial sísmico
+    seismic_history = get_usgs_seismic_history(lat, lon)
+    
+    context = {
+        'elevation': elevation_data,
+        'seismic_history': seismic_history,
+        'coastal_distance_km': coastal_distance
+    }
+    
+    print(f"✅ Contexto USGS completado")
+    return context
+
+
+# ============================================
+# EXISTING CLASSES (sin cambios)
+# ============================================
 
 class AsteroidSimulator:
     """Simulador de impactos de asteroides con física realista"""
     
     @staticmethod
     def calculate_mass(diameter_m):
-        """Calcula la masa del asteroide basada en el diámetro"""
         radius = diameter_m / 2
         volume = (4/3) * math.pi * radius**3
         mass = volume * ASTEROID_DENSITY
@@ -61,40 +389,25 @@ class AsteroidSimulator:
     
     @staticmethod
     def calculate_impact_energy(mass, velocity):
-        """Calcula la energía cinética del impacto en Joules"""
         energy = 0.5 * mass * velocity**2
         return energy
     
     @staticmethod
     def energy_to_tnt(energy_joules):
-        """Convierte energía a megatones de TNT"""
-        tnt_joules = 4.184e15  # 1 megatón TNT = 4.184e15 J
+        tnt_joules = 4.184e15
         megatons = energy_joules / tnt_joules
         return megatons
     
     @staticmethod
     def calculate_crater_diameter(energy, angle=45):
-        """
-        Calcula el diámetro del cráter usando relaciones de escala
-        angle: ángulo de entrada en grados (45° por defecto)
-        """
-        # Escala de cráter simplificada
-        # D = C * (E / (ρg))^0.22
-        # Donde C es una constante ~1.8 para impactos en roca
         C = 1.8
         D = C * ((energy / (GROUND_DENSITY * GRAVITY)) ** 0.22)
-        
-        # Ajustar por ángulo (impactos oblicuos crean cráteres más pequeños)
         angle_factor = math.sin(math.radians(angle))
         D_adjusted = D * angle_factor
-        
         return D_adjusted
     
     @staticmethod
     def calculate_seismic_magnitude(energy):
-        """Calcula la magnitud sísmica equivalente"""
-        # Relación Gutenberg-Richter modificada
-        # M = (2/3) * log10(E) - 2.9
         if energy <= 0:
             return 0
         magnitude = (2/3) * math.log10(energy) - 2.9
@@ -102,17 +415,13 @@ class AsteroidSimulator:
     
     @staticmethod
     def calculate_tsunami_risk(energy, distance_to_coast_km):
-        """Evalúa riesgo de tsunami"""
         if distance_to_coast_km > 100:
             return {"risk": "low", "wave_height": 0}
         
-        # Energía mínima para tsunami significativo (~1MT)
         min_energy = 4.184e15
         if energy < min_energy:
             return {"risk": "low", "wave_height": 0}
         
-        # Altura de ola estimada (muy simplificada)
-        # Depende de energía y distancia a costa
         megatons = energy / 4.184e15
         wave_height = math.sqrt(megatons) * 10 / (1 + distance_to_coast_km/10)
         
@@ -131,15 +440,7 @@ class AsteroidSimulator:
     def calculate_deflection(asteroid_mass, asteroid_velocity, 
                            impactor_mass, impactor_velocity,
                            time_before_impact_days):
-        """
-        Calcula el cambio de trayectoria debido a impactador cinético
-        Retorna el cambio de velocidad (delta-v) en m/s
-        """
-        # Conservación de momento
         delta_v = (impactor_mass * impactor_velocity) / asteroid_mass
-        
-        # Distancia desviada después del tiempo dado
-        # d = delta_v * t
         time_seconds = time_before_impact_days * 86400
         deflection_distance = delta_v * time_seconds
         
@@ -151,39 +452,31 @@ class AsteroidSimulator:
     
     @staticmethod
     def orbital_position(semi_major_axis, eccentricity, time_fraction):
-        """
-        Calcula posición orbital usando elementos keplerianos simplificados
-        time_fraction: fracción del período orbital (0-1)
-        Retorna (x, y, z) en metros
-        """
-        # Anomalía media
         M = 2 * math.pi * time_fraction
-        
-        # Resolver ecuación de Kepler para anomalía excéntrica (método iterativo simple)
         E = M
-        for _ in range(10):  # Iteraciones Newton-Raphson
+        for _ in range(10):
             E = M + eccentricity * math.sin(E)
         
-        # Coordenadas en el plano orbital
         r = semi_major_axis * (1 - eccentricity * math.cos(E))
         x = r * math.cos(E)
         y = r * math.sqrt(1 - eccentricity**2) * math.sin(E)
-        z = 0  # Simplificado para plano eclíptico
+        z = 0
         
         return {"x": x, "y": y, "z": z, "r": r}
 
 
+# ============================================
+# ROUTES (actualizadas con USGS)
+# ============================================
+
 @app.route('/')
 def index():
-    """Página principal"""
     return render_template('index.html')
 
 
 @app.route('/api/neo/recent', methods=['GET'])
 def get_recent_neos():
-    """Obtiene asteroides cercanos recientes de la NASA API"""
     try:
-        # Obtener datos de los últimos 7 días
         end_date = datetime.now()
         start_date = end_date - timedelta(days=7)
         
@@ -196,7 +489,6 @@ def get_recent_neos():
         response = requests.get(NASA_NEO_FEED, params=params, timeout=10)
         data = response.json()
         
-        # Procesar y simplificar datos
         asteroids = []
         for date_key in data.get('near_earth_objects', {}):
             for neo in data['near_earth_objects'][date_key]:
@@ -215,11 +507,10 @@ def get_recent_neos():
         return jsonify({
             'success': True,
             'count': len(asteroids),
-            'asteroids': asteroids[:20]  # Limitar a 20 para rendimiento
+            'asteroids': asteroids[:20]
         })
     
     except Exception as e:
-        # Fallback con datos simulados si la API falla
         return jsonify({
             'success': False,
             'message': str(e),
@@ -229,16 +520,19 @@ def get_recent_neos():
 
 @app.route('/api/simulate/impact', methods=['POST'])
 def simulate_impact():
-    """Simula un impacto de asteroide"""
+    """Simula un impacto de asteroide - MEJORADO CON USGS"""
     try:
         data = request.json
         
-        # Parámetros del asteroide
-        diameter = float(data.get('diameter', 100))  # metros
-        velocity = float(data.get('velocity', 20000))  # m/s
-        angle = float(data.get('angle', 45))  # grados
+        diameter = float(data.get('diameter', 100))
+        velocity = float(data.get('velocity', 20000))
+        angle = float(data.get('angle', 45))
         lat = float(data.get('latitude', 0))
         lon = float(data.get('longitude', 0))
+        
+        # ===== INTEGRACIÓN USGS =====
+        print(f"🌍 Obteniendo contexto geográfico USGS para {lat}, {lon}...")
+        usgs_context = get_usgs_geographic_context(lat, lon)
         
         # Calcular impacto
         sim = AsteroidSimulator()
@@ -248,13 +542,12 @@ def simulate_impact():
         crater_diameter = sim.calculate_crater_diameter(energy, angle)
         magnitude = sim.calculate_seismic_magnitude(energy)
         
-        # Estimar distancia a costa (simplificado - en realidad usaríamos USGS data)
-        distance_to_coast = estimate_distance_to_coast(lat, lon)
+        # Usar distancia a costa de USGS
+        distance_to_coast = usgs_context['coastal_distance_km']
         tsunami = sim.calculate_tsunami_risk(energy, distance_to_coast)
         
-        # Zona de destrucción (aproximación)
-        destruction_radius_km = crater_diameter / 2000  # Radio de destrucción total
-        damage_radius_km = destruction_radius_km * 5  # Radio de daño significativo
+        destruction_radius_km = crater_diameter / 2000
+        damage_radius_km = destruction_radius_km * 5
         
         result = {
             'success': True,
@@ -274,7 +567,8 @@ def simulate_impact():
                 'damage_radius_km': round(damage_radius_km, 2),
                 'tsunami': tsunami
             },
-            'severity': classify_severity(tnt_megatons)
+            'severity': classify_severity(tnt_megatons),
+            'usgs_context': usgs_context  # ¡NUEVO! Datos USGS incluidos
         }
         
         return jsonify(result)
@@ -288,19 +582,15 @@ def simulate_impact():
 
 @app.route('/api/simulate/deflection', methods=['POST'])
 def simulate_deflection():
-    """Simula una estrategia de deflexión"""
     try:
         data = request.json
         
-        # Parámetros del asteroide
         asteroid_diameter = float(data.get('asteroid_diameter', 100))
         asteroid_velocity = float(data.get('asteroid_velocity', 20000))
-        
-        # Parámetros de la misión
         strategy = data.get('strategy', 'kinetic_impactor')
         time_before_impact_days = float(data.get('time_before_impact', 365))
-        impactor_mass = float(data.get('impactor_mass', 1000))  # kg
-        impactor_velocity = float(data.get('impactor_velocity', 10000))  # m/s
+        impactor_mass = float(data.get('impactor_mass', 1000))
+        impactor_velocity = float(data.get('impactor_velocity', 10000))
         
         sim = AsteroidSimulator()
         asteroid_mass = sim.calculate_mass(asteroid_diameter)
@@ -314,13 +604,10 @@ def simulate_deflection():
                 time_before_impact_days
             )
         elif strategy == 'gravity_tractor':
-            # Simplificación de tractor de gravedad
-            # Deflexión mucho más gradual pero continua
-            spacecraft_mass = 1000  # kg
-            distance = 100  # metros del asteroide
+            spacecraft_mass = 1000
+            distance = 100
             time_seconds = time_before_impact_days * 86400
             
-            # Fuerza gravitacional entre nave y asteroide
             force = G * spacecraft_mass * asteroid_mass / (distance ** 2)
             acceleration = force / asteroid_mass
             delta_v = acceleration * time_seconds
@@ -353,12 +640,10 @@ def simulate_deflection():
 
 @app.route('/api/orbital-trajectory', methods=['POST'])
 def calculate_trajectory():
-    """Calcula trayectoria orbital"""
     try:
         data = request.json
         
-        # Parámetros orbitales
-        semi_major_axis = float(data.get('semi_major_axis', 1.5e11))  # 1 AU aprox
+        semi_major_axis = float(data.get('semi_major_axis', 1.5e11))
         eccentricity = float(data.get('eccentricity', 0.1))
         num_points = int(data.get('num_points', 100))
         
@@ -385,12 +670,11 @@ def calculate_trajectory():
 
 @app.route('/api/cities', methods=['POST'])
 def get_cities():
-    """Obtener ciudades cercanas usando Overpass API"""
     try:
         data = request.get_json()
         lat = data.get('latitude')
         lon = data.get('longitude')
-        radius = data.get('radius', 25000)  # Radio en metros, default 25km
+        radius = data.get('radius', 25000)
         
         if not lat or not lon:
             return jsonify({
@@ -398,7 +682,6 @@ def get_cities():
                 'error': 'Latitud y longitud son requeridos'
             }), 400
             
-        # Consulta Overpass: ciudades, pueblos o aldeas en el radio especificado
         query = f"""
         [out:json];
         (
@@ -411,19 +694,16 @@ def get_cities():
         response = requests.get(url, params={'data': query})
         ovrpress_data = response.json()
         
-        # Procesar resultados
         places = []
         for element in ovrpress_data.get("elements", []):
             name = element.get("tags", {}).get("name")
             place_type = element.get("tags", {}).get("place")
             population = element.get("tags", {}).get("population")
             
-            # Obtener coordenadas
             city_lat = element.get("lat")
             city_lon = element.get("lon")
             
             if name and city_lat and city_lon:
-                # Calcular distancia usando la fórmula de Haversine
                 distance_km = calculate_distance_haversine(
                     city_lat, city_lon, 
                     lat, lon
@@ -445,7 +725,6 @@ def get_cities():
         })
         
     except Exception as e:
-        # En caso de error, devolver lista vacía sin mostrar error
         return jsonify({
             'success': True,
             'cities': [],
@@ -453,8 +732,11 @@ def get_cities():
         })
 
 
+# ============================================
+# HELPER FUNCTIONS
+# ============================================
+
 def get_sample_asteroids():
-    """Datos de muestra cuando la API no está disponible"""
     return [
         {
             'id': 'IMPACTOR-2025',
@@ -475,39 +757,21 @@ def get_sample_asteroids():
             'velocity_km_s': 7.42,
             'miss_distance_km': 31600,
             'approach_date': '2029-04-13'
-        },
-        {
-            'id': '101955',
-            'name': '101955 Bennu (1999 RQ36)',
-            'diameter_min_m': 490,
-            'diameter_max_m': 492,
-            'is_hazardous': True,
-            'velocity_km_s': 27.7,
-            'miss_distance_km': 480000,
-            'approach_date': '2135-09-25'
         }
     ]
 
 
 def estimate_distance_to_coast(lat, lon):
-    """
-    Estimación simplificada de distancia a costa
-    En implementación real usaríamos datos USGS
-    """
-    # Simplificación: asumimos que puntos oceánicos están cerca de costa
-    # y puntos continentales tienen distancias variables
-    
-    # Regiones oceánicas aproximadas
-    if -180 <= lon <= -30 and -60 <= lat <= 60:  # Atlántico
+    """Método anterior de estimación - ahora fallback"""
+    if -180 <= lon <= -30 and -60 <= lat <= 60:
         return np.random.uniform(0, 50)
-    elif 30 <= lon <= 180 and -60 <= lat <= 60:  # Pacífico
+    elif 30 <= lon <= 180 and -60 <= lat <= 60:
         return np.random.uniform(0, 50)
-    else:  # Continental
+    else:
         return np.random.uniform(100, 5000)
 
 
 def classify_severity(megatons):
-    """Clasifica la severidad del impacto"""
     if megatons < 1:
         return {
             'level': 'Minimal',
@@ -535,7 +799,6 @@ def classify_severity(megatons):
 
 
 def get_deflection_recommendation(result):
-    """Genera recomendaciones basadas en resultado de deflexión"""
     if result['success']:
         return {
             'verdict': 'SUCCESS',
@@ -551,7 +814,6 @@ def get_deflection_recommendation(result):
 
 
 if __name__ == '__main__':
-    print("Starting Asteroid Impact Simulator...")
+    print("Starting Asteroid Impact Simulator with USGS Integration...")
     print("Server running at http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
-
