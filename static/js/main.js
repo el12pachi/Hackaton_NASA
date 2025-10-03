@@ -138,6 +138,8 @@ function setupSimulationMode() {
         simulateBtn.addEventListener('click', runImpactSimulation);
     }
     
+        // NASA data loading removed - simplified interface
+    
     // Initialize map
     initializeImpactMap();
 }
@@ -176,29 +178,247 @@ function handleAsteroidSelection(e) {
     }
 }
 
+// Función eliminada - interfaz simplificada
+
+// Función eliminada - interfaz simplificada
+function displayNasaAsteroidData_ELIMINADA(data) {
+    console.log('📊 Datos de la NASA cargados:', data);
+    
+    // Crear modal para mostrar datos detallados
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+        align-items: center; justify-content: center; padding: 2rem;
+    `;
+    
+    const orbital = data.orbital_elements;
+    const diameter = data.diameter_km ? data.diameter_km * 1000 : 'N/A';
+    
+    modal.innerHTML = `
+        <div style="background: var(--bg-primary); border-radius: 12px; padding: 2rem; max-width: 800px; max-height: 90vh; overflow-y: auto; border: 2px solid #00A8E8;">
+            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="color: #00A8E8; margin: 0;">🔬 Datos Científicos de la NASA</h2>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #A0A0A0; font-size: 24px; cursor: pointer; padding: 0; margin-left: auto;">×</button>
+            </div>
+            
+            <div style="background: rgba(0,168,232,0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h3 style="color: #00A8E8; margin: 0 0 0.5rem 0;">${data.name}</h3>
+                <p style="margin: 0; color: #A0A0A0; font-size: 14px;">
+                    Designación: ${data.designation || 'N/A'} | 
+                    Clasificación: ${data.classification || 'N/A'} | 
+                    Fuente: ${data.source}
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: rgba(255,193,7,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #FFC107;">
+                    <h4 style="color: #FFC107; margin: 0 0 0.5rem 0;">📏 Parámetros Físicos</h4>
+                    <div style="font-size: 14px; line-height: 1.6;">
+                        <strong>Diámetro:</strong> ${diameter !== 'N/A' ? diameter.toFixed(0) + ' m' : 'N/A'}<br>
+                        <strong>Albedo:</strong> ${data.albedo || 'N/A'}<br>
+                        <strong>Período de rotación:</strong> ${data.rotation_period_h ? data.rotation_period_h + ' h' : 'N/A'}<br>
+                        <strong>Magnitud absoluta:</strong> ${data.absolute_magnitude || 'N/A'}
+                    </div>
+                </div>
+                
+                <div style="background: rgba(0,230,118,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #00E676;">
+                    <h4 style="color: #00E676; margin: 0 0 0.5rem 0;">🌍 Elementos Orbitales</h4>
+                    <div style="font-size: 14px; line-height: 1.6;">
+                        <strong>Semieje mayor:</strong> ${orbital.semi_major_axis_au ? orbital.semi_major_axis_au.toFixed(3) + ' AU' : 'N/A'}<br>
+                        <strong>Excentricidad:</strong> ${orbital.eccentricity || 'N/A'}<br>
+                        <strong>Inclinación:</strong> ${orbital.inclination_deg ? orbital.inclination_deg.toFixed(2) + '°' : 'N/A'}<br>
+                        <strong>Período orbital:</strong> ${orbital.orbital_period_days ? orbital.orbital_period_days.toFixed(0) + ' días' : 'N/A'}
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(156,39,176,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #9C27B0;">
+                <h4 style="color: #9C27B0; margin: 0 0 0.5rem 0;">🎯 Parámetros de Impacto Estimados</h4>
+                <div style="font-size: 14px; line-height: 1.6;">
+                    <strong>Diámetro promedio:</strong> ${diameter !== 'N/A' ? (diameter/2).toFixed(0) + ' m' : 'Estimado 150 m'}<br>
+                    <strong>Velocidad típica:</strong> 15-25 km/s (promedio: 20 km/s)<br>
+                    <strong>Densidad estimada:</strong> 3000 kg/m³ (asteroide rocoso)<br>
+                    <strong>Masa estimada:</strong> ${diameter !== 'N/A' ? formatNumber((4/3) * Math.PI * Math.pow(diameter/2, 3) * 3000) + ' kg' : '~2.1 × 10¹² kg'}
+                </div>
+            </div>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <button onclick="applyNasaDataToSimulation('${data.asteroid_id}', ${diameter !== 'N/A' ? diameter/2 : 150}, 20)" 
+                        style="background: #00A8E8; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; margin-right: 1rem;">
+                    🚀 Usar estos datos en la simulación
+                </button>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                        style="background: #666; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+// Función eliminada - interfaz simplificada
+function displayNasaNEOData_ELIMINADA(asteroid) {
+    console.log('📊 Datos de la NASA NEO API cargados:', asteroid);
+    
+    // Crear modal para mostrar datos de la NASA NEO API
+    const modal = document.createElement('div');
+    modal.style.cssText = `
+        position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+        background: rgba(0,0,0,0.8); z-index: 10000; display: flex;
+        align-items: center; justify-content: center; padding: 2rem;
+    `;
+    
+    const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
+    
+    modal.innerHTML = `
+        <div style="background: var(--bg-primary); border-radius: 12px; padding: 2rem; max-width: 700px; max-height: 90vh; overflow-y: auto; border: 2px solid #00A8E8;">
+            <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1.5rem;">
+                <h2 style="color: #00A8E8; margin: 0;">🛰️ Datos de la NASA NEO API</h2>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #A0A0A0; font-size: 24px; cursor: pointer; padding: 0; margin-left: auto;">×</button>
+            </div>
+            
+            <div style="background: rgba(255,193,7,0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h3 style="color: #FFC107; margin: 0 0 0.5rem 0;">⚠️ Datos Limitados</h3>
+                <p style="margin: 0; color: #A0A0A0; font-size: 14px;">
+                    La NASA JPL Small Body Database no está disponible para este asteroide. 
+                    Mostrando datos básicos de la NASA NEO API.
+                </p>
+            </div>
+            
+            <div style="background: rgba(0,168,232,0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+                <h3 style="color: #00A8E8; margin: 0 0 0.5rem 0;">${asteroid.name}</h3>
+                <p style="margin: 0; color: #A0A0A0; font-size: 14px;">
+                    ID: ${asteroid.id} | Fuente: ${asteroid.source || 'NASA NEO API'}
+                </p>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+                <div style="background: rgba(255,193,7,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #FFC107;">
+                    <h4 style="color: #FFC107; margin: 0 0 0.5rem 0;">📏 Parámetros Físicos</h4>
+                    <div style="font-size: 14px; line-height: 1.6;">
+                        <strong>Diámetro mínimo:</strong> ${asteroid.diameter_min_m.toFixed(0)} m<br>
+                        <strong>Diámetro máximo:</strong> ${asteroid.diameter_max_m.toFixed(0)} m<br>
+                        <strong>Diámetro promedio:</strong> ${avgDiameter.toFixed(0)} m<br>
+                        <strong>Potencialmente peligroso:</strong> ${asteroid.is_hazardous ? 'SÍ ⚠️' : 'No'}
+                    </div>
+                </div>
+                
+                <div style="background: rgba(0,230,118,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #00E676;">
+                    <h4 style="color: #00E676; margin: 0 0 0.5rem 0;">🚀 Parámetros de Aproximación</h4>
+                    <div style="font-size: 14px; line-height: 1.6;">
+                        <strong>Velocidad relativa:</strong> ${asteroid.velocity_km_s.toFixed(2)} km/s<br>
+                        <strong>Distancia de fallo:</strong> ${asteroid.miss_distance_km.toLocaleString()} km<br>
+                        <strong>Fecha de acercamiento:</strong> ${asteroid.approach_date}<br>
+                        <strong>Masa estimada:</strong> ${formatNumber((4/3) * Math.PI * Math.pow(avgDiameter/2, 3) * 3000)} kg
+                    </div>
+                </div>
+            </div>
+            
+            <div style="background: rgba(156,39,176,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #9C27B0;">
+                <h4 style="color: #9C27B0; margin: 0 0 0.5rem 0;">🎯 Parámetros de Impacto Estimados</h4>
+                <div style="font-size: 14px; line-height: 1.6;">
+                    <strong>Diámetro para simulación:</strong> ${avgDiameter.toFixed(0)} m<br>
+                    <strong>Velocidad típica:</strong> ${asteroid.velocity_km_s.toFixed(1)} km/s<br>
+                    <strong>Densidad estimada:</strong> 3000 kg/m³ (asteroide rocoso)<br>
+                    <strong>Energía de impacto estimada:</strong> ~${formatNumber(0.5 * (4/3) * Math.PI * Math.pow(avgDiameter/2, 3) * 3000 * Math.pow(asteroid.velocity_km_s * 1000, 2) / 4.184e15)} MT TNT
+                </div>
+            </div>
+            
+            <div style="margin-top: 1.5rem; text-align: center;">
+                <button onclick="applyNasaDataToSimulation('${asteroid.id}', ${avgDiameter}, ${asteroid.velocity_km_s})" 
+                        style="background: #00A8E8; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; margin-right: 1rem;">
+                    🚀 Usar estos datos en la simulación
+                </button>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" 
+                        style="background: #666; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer;">
+                    Cerrar
+                </button>
+            </div>
+        </div>
+    `;
+    
+    document.body.appendChild(modal);
+}
+
+function applyNasaDataToSimulation(asteroidId, diameter, velocity) {
+    // Aplicar datos de la NASA a los controles
+    document.getElementById('asteroid-select').value = asteroidId;
+    document.getElementById('diameter').value = Math.round(diameter);
+    document.getElementById('diameter-value').textContent = Math.round(diameter) + ' m';
+    document.getElementById('velocity').value = velocity;
+    document.getElementById('velocity-value').textContent = velocity + ' km/s';
+    
+    // Cerrar modal
+    const modal = document.querySelector('[style*="z-index: 10000"]');
+    if (modal) modal.remove();
+    
+    console.log(`✅ Datos de ${asteroidId} aplicados a la simulación`);
+}
+
 async function loadNEOData() {
+    const asteroidSelect = document.getElementById('asteroid-select');
+    
     try {
+        console.log('🔄 Cargando datos de asteroides de la NASA...');
+        
         const response = await fetch('/api/neo/recent');
         const data = await response.json();
         
-        if (data.success || data.asteroids) {
+        if (data.success && data.asteroids && data.asteroids.length > 0) {
             currentAsteroidData = data;
             populateAsteroidSelector(data.asteroids);
+            console.log(`✅ Cargados ${data.count} asteroides de la NASA`);
+        } else {
+            throw new Error(data.message || 'No se pudieron obtener datos de asteroides');
         }
     } catch (error) {
-        console.error('Error loading NEO data:', error);
+        console.error('❌ Error cargando datos de la NASA:', error);
+        
+        // Limpiar selector y mostrar error
+        while (asteroidSelect.children.length > 1) {
+            asteroidSelect.removeChild(asteroidSelect.lastChild);
+        }
+        
+        // Agregar opción de error
+        const errorOption = document.createElement('option');
+        errorOption.value = 'error';
+        errorOption.textContent = '❌ Error cargando datos de la NASA';
+        errorOption.disabled = true;
+        asteroidSelect.appendChild(errorOption);
     }
 }
 
 function populateAsteroidSelector(asteroids) {
     const select = document.getElementById('asteroid-select');
     
+    // Limpiar opciones anteriores (mantener solo "Personalizado")
+    while (select.children.length > 1) {
+        select.removeChild(select.lastChild);
+    }
+    
+    // Agregar asteroides reales de la NASA
     asteroids.forEach(asteroid => {
         const option = document.createElement('option');
         option.value = asteroid.id;
-        option.textContent = `${asteroid.name} ${asteroid.is_hazardous ? '[PELIGROSO]' : ''}`;
+        
+        // Crear texto descriptivo
+        let displayText = asteroid.name;
+        if (asteroid.is_hazardous) {
+            displayText += ' ⚠️ [PELIGROSO]';
+        }
+        
+        // Agregar información adicional
+        const diameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
+        displayText += ` (${Math.round(diameter)}m, ${asteroid.velocity_km_s.toFixed(1)} km/s)`;
+        
+        option.textContent = displayText;
         select.appendChild(option);
     });
+    
+    console.log(`✅ ${asteroids.length} asteroides agregados al selector`);
 }
 
 async function runImpactSimulation() {
@@ -232,34 +452,83 @@ async function runImpactSimulation() {
             const destructionRadius = result.calculations.destruction_radius_km;
             const damageRadius = result.calculations.damage_radius_km;
             
-           
-           // Llamar al nuevo endpoint Python que usa Overpass API
-           const airPressureRadius = damageRadius * 1.5; // Zona azul es 50% más grande que zona de daño
-           const maxRadius = Math.max(destructionRadius, damageRadius, airPressureRadius); // Incluir zona azul
-           
-           const citiesResponse = await fetch('/api/cities', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                   latitude: params.latitude,
-                   longitude: params.longitude,
-                   radius: maxRadius * 1000 // Convertir km a metros
-               })
-           });
-           
-           const citiesData = await citiesResponse.json();
-           
-           if (citiesData.success) {
-               console.log(`CIUDADES CERCANAS ENCONTRADAS:`);
-               citiesData.cities.forEach((city, index) => {
-                   const poblacion = city.poblacion ? ` - ${city.poblacion} hab.` : '';
-                   console.log(`${index + 1}. ${city.nombre} (${city.tipo})${poblacion}`);
-               });
-               
-               result.cities = citiesData.cities;
-           } else {
-               result.cities = [];
-           }
+            // ============================================
+            // LLAMADAS A APIs EXTERNAS DESDE EL FRONTEND
+            // ============================================
+            
+            // 1. Obtener ciudades cercanas (Overpass API)
+            const airPressureRadius = damageRadius * 1.5;
+            const maxRadius = Math.max(destructionRadius, damageRadius, airPressureRadius);
+            
+            try {
+                const citiesResponse = await fetch('/api/cities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude: params.latitude,
+                        longitude: params.longitude,
+                        radius: maxRadius * 1000
+                    })
+                });
+                
+                const citiesData = await citiesResponse.json();
+                if (citiesData.success) {
+                    result.cities = citiesData.cities;
+                    console.log(`✅ ${citiesData.cities.length} ciudades encontradas`);
+                } else {
+                    result.cities = [];
+                }
+            } catch (error) {
+                console.warn('❌ Error obteniendo ciudades:', error);
+                result.cities = [];
+            }
+            
+            // 2. Correlación sísmica con USGS (opcional)
+            try {
+                const seismicResponse = await fetch('/api/usgs/earthquake-correlation', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        impact_energy_megatons: result.calculations.energy_megatons_tnt
+                    })
+                });
+                
+                if (seismicResponse.ok) {
+                    const seismicData = await seismicResponse.json();
+                    if (seismicData.success) {
+                        result.seismic_analysis = seismicData;
+                        console.log('✅ Análisis sísmico obtenido del USGS');
+                    }
+                }
+            } catch (error) {
+                console.warn('⚠️ No se pudo obtener análisis sísmico del USGS:', error);
+            }
+            
+            // 3. Análisis de tsunami con NASA-NOAA (solo si está cerca de costa)
+            if (destructionRadius < 200) { // Solo si está cerca de la costa
+                try {
+                    const tsunamiResponse = await fetch('/api/nasa-noaa/tsunami-analysis', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            latitude: params.latitude,
+                            longitude: params.longitude,
+                            energy_megatons: result.calculations.energy_megatons_tnt,
+                            radius_km: Math.min(200, damageRadius)
+                        })
+                    });
+                    
+                    if (tsunamiResponse.ok) {
+                        const tsunamiData = await tsunamiResponse.json();
+                        if (tsunamiData.success) {
+                            result.tsunami_analysis = tsunamiData;
+                            console.log('✅ Análisis de tsunami obtenido de NASA-NOAA');
+                        }
+                    }
+                } catch (error) {
+                    console.warn('⚠️ No se pudo obtener análisis de tsunami de NASA-NOAA:', error);
+                }
+            }
             
             displayImpactResults(result);
             await updateImpactMap(result);
@@ -1394,7 +1663,12 @@ function generateFullResultsHTML(result) {
     const severity = result.severity;
     const locationInfo = result.locationInfo || {};
     const popData = locationInfo.populationData || {};
+<<<<<<< Updated upstream
     const usgsContext = result.usgs_context;
+=======
+    const seismicData = result.seismic_analysis || null;
+    const tsunamiData = result.tsunami_analysis || null;
+>>>>>>> Stashed changes
     
     // Construir sección de población completa
     let populationSection = '';
@@ -1466,6 +1740,8 @@ function generateFullResultsHTML(result) {
             </div>
         `;
     }
+    
+    // No mostrar sección separada de NASA/USGS - se integra en parámetros
     
     return `
         <div class="severity-badge" style="background: ${severity.color}20; border: 2px solid ${severity.color}; font-size: 16px; padding: 1rem;">
@@ -1589,6 +1865,22 @@ function generateFullResultsHTML(result) {
                     ${calc.tsunami.wave_height > 0 ? `Altura ola: ${calc.tsunami.wave_height}m` : 'No aplicable'}
                 </div>
                 
+                ${seismicData ? `
+                    <div class="result-stat" style="background: rgba(255,193,7,0.1); border-left-color: #FFC107;">
+                        <strong>Magnitud Sísmica Equivalente:</strong><br>
+                        <span style="font-size: 18px; color: #FFC107;">M ${seismicData.impact_analysis.equivalent_seismic_magnitude}</span><br>
+                        <span style="font-size: 12px; color: #A0A0A0;">${seismicData.impact_analysis.interpretation}</span>
+                    </div>
+                ` : ''}
+                
+                ${tsunamiData && tsunamiData.tsunami_analysis ? `
+                    <div class="result-stat" style="background: rgba(33,150,243,0.1); border-left-color: #2196F3;">
+                        <strong>Análisis de Tsunami (NASA-NOAA):</strong><br>
+                        <span style="font-size: 16px; color: ${getTsunamiRiskColor(tsunamiData.tsunami_analysis.tsunami_risk)}; text-transform: uppercase;">${tsunamiData.tsunami_analysis.tsunami_risk}</span><br>
+                        <span style="font-size: 12px; color: #A0A0A0;">${tsunamiData.tsunami_analysis.interpretation}</span>
+                    </div>
+                ` : ''}
+                
                 <div class="result-stat">
                     <strong>Diámetro Asteroide:</strong><br>
                     ${result.input.diameter_m} metros
@@ -1609,6 +1901,30 @@ function generateFullResultsHTML(result) {
         
         ${generateCasualtyEstimates(calc, result.cities || [])}
     `;
+}
+
+// Funciones de análisis eliminadas - datos integrados en parámetros del impacto
+
+function getDataSourceLabel(key) {
+    const labels = {
+        'impact_calculations': 'Cálculos de Impacto',
+        'seismic_correlation': 'Correlación Sísmica', 
+        'elevation_data': 'Datos de Elevación',
+        'orbital_data': 'Datos Orbitales',
+        'population_data': 'Datos de Población'
+    };
+    return labels[key] || key;
+}
+
+function getTsunamiRiskColor(risk) {
+    const colors = {
+        'extreme': '#8B0000',
+        'high': '#FF4444',
+        'medium': '#FFB84D', 
+        'low': '#FFC107',
+        'minimal': '#00E676'
+    };
+    return colors[risk] || '#A0A0A0';
 }
 
 // Función para generar estimaciones de muertes y zonas destruidas
