@@ -48,9 +48,55 @@ G = 6.67430e-11
 EARTH_MASS = 5.972e24
 EARTH_RADIUS = 6371000
 EARTH_MU = 3.986004418e14
-ASTEROID_DENSITY = 3000
 GROUND_DENSITY = 2500
 GRAVITY = 9.81
+
+# Composiciones de asteroides
+ASTEROID_COMPOSITIONS = {
+    'rocky': {
+        'name': 'Rocoso (S-type)',
+        'density': 3000,  # kg/m³
+        'icon': '🪨',
+        'description': 'Silicatos y compuestos rocosos',
+        'fragmentation_resistance': 0.8,  # 0-1 (resistencia a fragmentación)
+        'thermal_emission': 1.0,  # Factor de radiación térmica
+        'atmospheric_penetration': 0.9,  # Probabilidad de llegar intacto
+        'metal_content': 0.1
+    },
+    'metallic': {
+        'name': 'Metálico (M-type)',
+        'density': 7800,  # Hierro-níquel
+        'icon': '⚙️',
+        'description': 'Hierro-níquel metálico',
+        'fragmentation_resistance': 1.0,
+        'thermal_emission': 1.2,  # Emite más calor por conductividad
+        'atmospheric_penetration': 1.0,  # Muy resistente
+        'metal_content': 0.9
+    },
+    'carbonaceous': {
+        'name': 'Carbonáceo (C-type)',
+        'density': 1500,  # Más ligero
+        'icon': '🌑',
+        'description': 'Compuestos orgánicos y carbono',
+        'fragmentation_resistance': 0.4,  # Más frágil
+        'thermal_emission': 0.8,
+        'atmospheric_penetration': 0.6,  # Puede fragmentarse en atmósfera
+        'metal_content': 0.05
+    },
+    'icy': {
+        'name': 'Helado (Cometa)',
+        'density': 600,  # Muy ligero
+        'icon': '❄️',
+        'description': 'Hielo de agua y compuestos volátiles',
+        'fragmentation_resistance': 0.2,  # Muy frágil
+        'thermal_emission': 1.5,  # Sublimación masiva
+        'atmospheric_penetration': 0.3,  # Probablemente se desintegre
+        'metal_content': 0.01
+    }
+}
+
+# Densidad por defecto
+ASTEROID_DENSITY = 3000
 
 # ============================================
 # USGS INTEGRATION FUNCTIONS
@@ -381,10 +427,12 @@ class AsteroidSimulator:
     """Simulador de impactos de asteroides con física realista"""
     
     @staticmethod
-    def calculate_mass(diameter_m):
+    def calculate_mass(diameter_m, composition='rocky'):
+        """Calcula masa según diámetro y composición"""
+        density = ASTEROID_COMPOSITIONS.get(composition, ASTEROID_COMPOSITIONS['rocky'])['density']
         radius = diameter_m / 2
         volume = (4/3) * math.pi * radius**3
-        mass = volume * ASTEROID_DENSITY
+        mass = volume * density
         return mass
     
     @staticmethod
@@ -520,7 +568,6 @@ def get_recent_neos():
 
 @app.route('/api/simulate/impact', methods=['POST'])
 def simulate_impact():
-    """Simula un impacto de asteroide - MEJORADO CON USGS"""
     try:
         data = request.json
         
@@ -529,25 +576,35 @@ def simulate_impact():
         angle = float(data.get('angle', 45))
         lat = float(data.get('latitude', 0))
         lon = float(data.get('longitude', 0))
+        composition = data.get('composition', 'rocky')  # NUEVO
         
-        # ===== INTEGRACIÓN USGS =====
-        print(f"🌍 Obteniendo contexto geográfico USGS para {lat}, {lon}...")
         usgs_context = get_usgs_geographic_context(lat, lon)
         
-        # Calcular impacto
         sim = AsteroidSimulator()
-        mass = sim.calculate_mass(diameter)
+        mass = sim.calculate_mass(diameter, composition)  # NUEVO: pasar composición
         energy = sim.calculate_impact_energy(mass, velocity)
         tnt_megatons = sim.energy_to_tnt(energy)
         crater_diameter = sim.calculate_crater_diameter(energy, angle)
         magnitude = sim.calculate_seismic_magnitude(energy)
         
-        # Usar distancia a costa de USGS
         distance_to_coast = usgs_context['coastal_distance_km']
         tsunami = sim.calculate_tsunami_risk(energy, distance_to_coast)
         
         destruction_radius_km = crater_diameter / 2000
         damage_radius_km = destruction_radius_km * 5
+        
+        # Efectos secundarios con composición
+        secondary_effects = calculate_secondary_effects(
+            tnt_megatons,
+            diameter,
+            velocity,
+            angle,
+            lat,
+            lon,
+            crater_diameter,
+            composition,  # NUEVO
+            usgs_context
+        )
         
         result = {
             'success': True,
@@ -555,7 +612,8 @@ def simulate_impact():
                 'diameter_m': diameter,
                 'velocity_m_s': velocity,
                 'angle_deg': angle,
-                'impact_location': {'lat': lat, 'lon': lon}
+                'impact_location': {'lat': lat, 'lon': lon},
+                'composition': composition  # NUEVO
             },
             'calculations': {
                 'mass_kg': mass,
@@ -568,7 +626,9 @@ def simulate_impact():
                 'tsunami': tsunami
             },
             'severity': classify_severity(tnt_megatons),
-            'usgs_context': usgs_context  # ¡NUEVO! Datos USGS incluidos
+            'usgs_context': usgs_context,
+            'secondary_effects': secondary_effects,
+            'composition_data': ASTEROID_COMPOSITIONS[composition]  # NUEVO
         }
         
         return jsonify(result)
@@ -594,6 +654,10 @@ def simulate_deflection():
         
         sim = AsteroidSimulator()
         asteroid_mass = sim.calculate_mass(asteroid_diameter)
+        
+        # Calcular energía para contexto
+        energy = sim.calculate_impact_energy(asteroid_mass, asteroid_velocity)
+        energy_megatons = sim.energy_to_tnt(energy)
         
         if strategy == 'kinetic_impactor':
             result = sim.calculate_deflection(
@@ -625,10 +689,19 @@ def simulate_deflection():
         result['time_before_impact_days'] = time_before_impact_days
         result['asteroid_mass_kg'] = asteroid_mass
         
+        # NUEVO: Obtener estrategias avanzadas
+        advanced_strategies = get_advanced_mitigation_strategy(
+            asteroid_diameter,
+            asteroid_velocity,
+            time_before_impact_days,
+            energy_megatons
+        )
+        
         return jsonify({
             'success': True,
             'result': result,
-            'recommendation': get_deflection_recommendation(result)
+            'recommendation': get_deflection_recommendation(result),
+            'advanced_strategies': advanced_strategies  # NUEVO
         })
     
     except Exception as e:
@@ -812,6 +885,323 @@ def get_deflection_recommendation(result):
             'color': '#FF5722'
         }
 
+def calculate_secondary_effects(energy_megatons, diameter, velocity, angle, lat, lon, crater_diameter_m, composition='rocky', usgs_context=None):
+    """
+    Calcula efectos secundarios considerando composición del asteroide
+    """
+    effects = []
+    comp_data = ASTEROID_COMPOSITIONS.get(composition, ASTEROID_COMPOSITIONS['rocky'])
+    
+    # Ajustar energía efectiva por composición
+    # Asteroides más densos (metálicos) transfieren más energía
+    # Asteroides frágiles (hielo, carbonáceos) se fragmentan
+    energy_multiplier = comp_data['atmospheric_penetration']
+    effective_energy = energy_megatons * energy_multiplier
+    
+    # 1. RADIACIÓN TÉRMICA (afectada por composición)
+    if effective_energy > 0.001:
+        thermal_multiplier = comp_data['thermal_emission']
+        fireball_radius_km = 0.1 * (effective_energy ** 0.4) * thermal_multiplier
+        thermal_radius_km = 0.5 * (effective_energy ** 0.41) * thermal_multiplier
+        
+        if thermal_radius_km > 50:
+            thermal_severity = "EXTREMA"
+            thermal_color = "#FF4444"
+        elif thermal_radius_km > 20:
+            thermal_severity = "ALTA"
+            thermal_color = "#FF9800"
+        elif thermal_radius_km > 5:
+            thermal_severity = "MODERADA"
+            thermal_color = "#FFB84D"
+        else:
+            thermal_severity = "BAJA"
+            thermal_color = "#FFC107"
+        
+        thermal_effects = [
+            f'Quemaduras de 3er grado hasta {thermal_radius_km:.1f} km',
+            f'Ignición instantánea de materiales hasta {thermal_radius_km * 0.7:.1f} km',
+            f'Temperaturas >1000°C en epicentro',
+            'Vaporización completa en zona de impacto'
+        ]
+        
+        # Efectos específicos por composición
+        if composition == 'metallic':
+            thermal_effects.append('Fragmentos metálicos fundidos esparcidos hasta 50 km')
+            thermal_effects.append('Mayor penetración térmica por conductividad')
+        elif composition == 'icy':
+            thermal_effects.append('Vaporización explosiva de hielo genera onda de choque adicional')
+            thermal_effects.append('Inyección masiva de vapor de agua a atmósfera')
+        
+        effects.append({
+            'type': 'thermal_radiation',
+            'name': 'Radiación Térmica Intensa',
+            'icon': '🔥',
+            'severity': thermal_severity,
+            'color': thermal_color,
+            'description': f'Bola de fuego de {fireball_radius_km:.1f} km. Radiación hasta {thermal_radius_km:.1f} km.',
+            'effects': thermal_effects,
+            'radius_km': thermal_radius_km,
+            'composition_note': f'Composición {comp_data["name"]} modifica radiación térmica'
+        })
+    
+    # 2. EFECTOS ESPECÍFICOS DE COMPOSICIÓN
+    
+    # METÁLICO: Contaminación por metales pesados
+    if composition == 'metallic' and energy_megatons > 1:
+        effects.append({
+            'type': 'metal_contamination',
+            'name': 'Contaminación por Metales Pesados',
+            'icon': '☢️',
+            'severity': 'ALTA',
+            'color': '#9E9E9E',
+            'description': f'Dispersión de {(diameter ** 3) * 0.001:.0f} toneladas de hierro y níquel.',
+            'effects': [
+                'Contaminación del suelo por metales pesados',
+                'Toxicidad en aguas subterráneas',
+                'Material magnético interfiere con brújulas hasta 100 km',
+                'Fragmentos metálicos peligrosos esparcidos',
+                'Posible recuperación de metales valiosos post-impacto'
+            ],
+            'radius_km': crater_diameter_m / 500
+        })
+    
+    # CARBONÁCEO: Compuestos orgánicos y químicos peligrosos
+    if composition == 'carbonaceous' and energy_megatons > 0.1:
+        effects.append({
+            'type': 'chemical_contamination',
+            'name': 'Liberación de Compuestos Orgánicos',
+            'icon': '🧪',
+            'severity': 'MODERADA',
+            'color': '#424242',
+            'description': 'Compuestos orgánicos y carbono esparcidos en área.',
+            'effects': [
+                'Liberación de hidrocarburos aromáticos policíclicos (PAHs)',
+                'Posible toxicidad en el ecosistema local',
+                'Cambio en química del suelo',
+                'Compuestos orgánicos pueden afectar vida acuática',
+                'Interés científico: aminoácidos y precursores de vida'
+            ],
+            'radius_km': crater_diameter_m / 800
+        })
+    
+    # HIELO: Efectos de sublimación y vapor
+    if composition == 'icy':
+        effects.append({
+            'type': 'ice_vaporization',
+            'name': 'Vaporización Explosiva de Hielo',
+            'icon': '💨',
+            'severity': 'ALTA',
+            'color': '#00BCD4',
+            'description': 'Sublimación instantánea genera efectos únicos.',
+            'effects': [
+                'Explosión de vapor aumenta radio de onda de choque',
+                f'Inyección de {(diameter ** 3) * 0.0001:.0f} toneladas de vapor de agua',
+                'Formación de nubes de hielo a gran altitud',
+                'Efecto invernadero temporal por vapor',
+                'Lluvia química por compuestos volátiles',
+                'Posible fragmentación en atmósfera (explosión aérea)'
+            ],
+            'warning': 'Puede explotar en atmósfera antes de impactar (evento Tunguska)'
+        })
+        
+        # Si es grande y de hielo, más probable explosión aérea
+        if diameter > 50 and diameter < 200:
+            effects.append({
+                'type': 'airburst',
+                'name': 'Explosión Atmosférica (Airburst)',
+                'icon': '💥',
+                'severity': 'CRÍTICA',
+                'color': '#FF6F00',
+                'description': 'Asteroide se desintegra en atmósfera generando explosión aérea.',
+                'effects': [
+                    'Explosión a 5-15 km de altitud',
+                    'Onda de choque devastadora sin cráter',
+                    'Destrucción comparable a bomba nuclear',
+                    'Aplastamiento de bosques en radio amplio',
+                    'Similar a evento Tunguska (1908)',
+                    'Incendios forestales masivos'
+                ],
+                'radius_km': thermal_radius_km * 2
+            })
+    
+    # 3. INCENDIOS (afectados por composición)
+    if effective_energy > 1:
+        is_urban = False
+        has_vegetation = True
+        
+        if usgs_context and usgs_context.get('elevation'):
+            terrain = usgs_context['elevation'].get('terrain_type', '')
+            if terrain in ['ocean_deep', 'ocean_shallow']:
+                has_vegetation = False
+            elif terrain == 'mountain_high':
+                has_vegetation = False
+        
+        fire_radius_km = thermal_radius_km * 1.5
+        
+        # Metálicos causan más incendios por temperatura
+        if composition == 'metallic':
+            fire_radius_km *= 1.2
+        
+        if has_vegetation or effective_energy > 10:
+            effects.append({
+                'type': 'firestorm',
+                'name': 'Tormenta de Fuego',
+                'icon': '🔥',
+                'severity': 'CRÍTICA' if effective_energy > 100 else 'ALTA',
+                'color': '#DC3545',
+                'description': f'Incendios masivos en {fire_radius_km:.1f} km.',
+                'effects': [
+                    f'Ignición simultánea en {fire_radius_km:.1f} km',
+                    'Vientos >180 km/h hacia centro del fuego',
+                    'Consumo total de oxígeno',
+                    'Nubes pirocumulonimbus',
+                    'Propagación secundaria hasta 100+ km',
+                    'Temperatura ambiente >500°C'
+                ],
+                'duration': 'Días a semanas',
+                'radius_km': fire_radius_km
+            })
+    
+    # 4. EYECCIÓN DE MATERIAL
+    if crater_diameter_m > 1000:
+        ejecta_radius_km = (crater_diameter_m / 1000) * 10
+        
+        ejecta_effects = [
+            f'Lluvia de material hasta {ejecta_radius_km:.0f} km',
+            f'Altitud de eyección: {crater_diameter_m / 100:.0f} km',
+            'Impactos secundarios de fragmentos',
+            'Velocidades: 1-5 km/s'
+        ]
+        
+        if composition == 'metallic':
+            ejecta_effects.append('Fragmentos metálicos pesados y peligrosos')
+        elif composition == 'icy':
+            ejecta_effects.append('Eyección mayormente vapor y hielo sublimado')
+        
+        effects.append({
+            'type': 'ejecta',
+            'name': 'Eyección de Material',
+            'icon': '🌋',
+            'severity': 'ALTA',
+            'color': '#FF5722',
+            'description': f'Material eyectado hasta {ejecta_radius_km:.0f} km.',
+            'effects': ejecta_effects,
+            'radius_km': ejecta_radius_km
+        })
+    
+    # 5. INVIERNO DE IMPACTO
+    if effective_energy > 100:
+        dust_amount = effective_energy * 0.1
+        
+        # Composición afecta cantidad de polvo
+        if composition == 'carbonaceous':
+            dust_amount *= 1.3  # Más polvo y hollín
+        elif composition == 'icy':
+            dust_amount *= 0.7  # Menos polvo, más vapor
+        
+        effects.append({
+            'type': 'atmospheric',
+            'name': 'Invierno de Impacto',
+            'icon': '❄️',
+            'severity': 'CATASTRÓFICA' if effective_energy > 10000 else 'CRÍTICA',
+            'color': '#6A1B9A',
+            'description': f'{dust_amount:.0f} MT de material a estratosfera.',
+            'effects': [
+                'Oscurecimiento solar (50-90%)',
+                'Caída de temperatura: 10-30°C',
+                'Colapso de fotosíntesis',
+                'Lluvia ácida global',
+                'Destrucción de ozono',
+                f'Duración según composición: {comp_data["name"]}'
+            ],
+            'duration': 'Meses a años',
+            'global_impact': True
+        })
+    
+    # 6. PULSO ELECTROMAGNÉTICO
+    if effective_energy > 10:
+        emp_radius_km = 100 * (effective_energy ** 0.3)
+        effects.append({
+            'type': 'emp',
+            'name': 'Pulso Electromagnético',
+            'icon': '⚡',
+            'severity': 'ALTA',
+            'color': '#2196F3',
+            'description': f'EMP hasta {emp_radius_km:.0f} km.',
+            'effects': [
+                'Destrucción de electrónica no protegida',
+                'Apagón de redes eléctricas',
+                'Pérdida de comunicaciones',
+                'Daño a satélites',
+                'Interferencia magnética'
+            ],
+            'radius_km': emp_radius_km
+        })
+    
+    # 7. SÍSMICO EXTENDIDO
+    if effective_energy > 1:
+        seismic_radius_km = 50 * (effective_energy ** 0.5)
+        effects.append({
+            'type': 'seismic_extended',
+            'name': 'Actividad Sísmica Secundaria',
+            'icon': '🌊',
+            'severity': 'ALTA',
+            'color': '#FF6F00',
+            'description': f'Terremotos hasta {seismic_radius_km:.0f} km.',
+            'effects': [
+                'Activación de fallas',
+                'Réplicas durante semanas',
+                'Posible activación volcánica',
+                'Deslizamientos masivos',
+                'Licuefacción del suelo'
+            ],
+            'radius_km': seismic_radius_km
+        })
+    
+    # 8. OCEÁNICO
+    if usgs_context and usgs_context.get('elevation'):
+        if usgs_context['elevation'].get('is_oceanic', False):
+            effects.append({
+                'type': 'oceanic',
+                'name': 'Mega-Tsunami y Vaporización',
+                'icon': '🌊',
+                'severity': 'CATASTRÓFICA',
+                'color': '#0277BD',
+                'description': 'Impacto oceánico genera efectos marinos.',
+                'effects': [
+                    f'Vaporización de {(effective_energy ** 0.5) * 10:.0f} km³ de agua',
+                    'Tsunamis >100m en costas',
+                    'Vapor de agua a estratosfera',
+                    'Efecto invernadero intensificado',
+                    'Alteración de corrientes oceánicas',
+                    'Contaminación salina atmosférica'
+                ],
+                'global_impact': True
+            })
+    
+    # 9. EXTINCIÓN
+    if effective_energy > 100000:
+        effects.append({
+            'type': 'extinction',
+            'name': 'Evento de Extinción Masiva',
+            'icon': '☠️',
+            'severity': 'EXTINCIÓN',
+            'color': '#000000',
+            'description': 'Evento de extinción tipo K-Pg.',
+            'effects': [
+                'Extinción del 75%+ de especies',
+                'Colapso de cadenas alimentarias',
+                'Acidificación de océanos',
+                'Mega-incendios globales',
+                'Invierno de impacto de décadas',
+                'Alteración climática permanente',
+                'Fin de civilización actual'
+            ],
+            'global_impact': True,
+            'recovery_time': 'Millones de años'
+        })
+    
+    return effects
 
 if __name__ == '__main__':
     print("Starting Asteroid Impact Simulator with USGS Integration...")
