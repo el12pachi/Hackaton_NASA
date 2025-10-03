@@ -228,24 +228,24 @@ def get_usgs_elevation(lat, lon):
         response = requests.get(url, params=params, timeout=10)
         
         if response.status_code != 200:
-            print(f"⚠️ USGS Elevation API status: {response.status_code}")
+            print(f"WARNING: USGS Elevation API status: {response.status_code}")
             return None
         
         # Verificar si la respuesta está vacía
         if not response.text or response.text.strip() == '':
-            print(f"⚠️ USGS Elevation: Respuesta vacía para {lat}, {lon}")
+            print(f"WARNING: USGS Elevation: Respuesta vacía para {lat}, {lon}")
             return None
         
         try:
             data = response.json()
         except ValueError as e:
-            print(f"⚠️ USGS Elevation: JSON inválido - {e}")
+            print(f"WARNING: USGS Elevation: JSON inválido - {e}")
             # Usar método alternativo (OpenElevation API)
             return get_elevation_alternative(lat, lon)
         
         # Verificar si hay valor de elevación
         if 'value' not in data or data['value'] is None:
-            print(f"⚠️ USGS Elevation: Sin datos para {lat}, {lon} (fuera de cobertura USA)")
+            print(f"WARNING: USGS Elevation: Sin datos para {lat}, {lon} (fuera de cobertura USA)")
             # Usar método alternativo
             return get_elevation_alternative(lat, lon)
         
@@ -271,7 +271,7 @@ def get_usgs_elevation(lat, lon):
             terrain_type = 'mountain_high'
             description = 'Montaña alta'
         
-        print(f"✅ USGS Elevation: {elevation}m - {description}")
+        print(f"SUCCESS: USGS Elevation: {elevation}m - {description}")
         
         return {
             'elevation_m': elevation,
@@ -282,7 +282,7 @@ def get_usgs_elevation(lat, lon):
         }
         
     except Exception as e:
-        print(f"❌ Error fetching USGS elevation: {e}")
+        print(f"ERROR: Error fetching USGS elevation: {e}")
         # Fallback a API alternativa
         return get_elevation_alternative(lat, lon)
 
@@ -292,7 +292,7 @@ def get_elevation_alternative(lat, lon):
     Funciona en todo el mundo, no solo USA
     """
     try:
-        print(f"🔄 Intentando API alternativa (Open-Elevation) para {lat}, {lon}...")
+        print(f"Trying alternative API (Open-Elevation) para {lat}, {lon}...")
         
         # Open-Elevation API (servicio público global)
         url = "https://api.open-elevation.com/api/v1/lookup"
@@ -328,7 +328,7 @@ def get_elevation_alternative(lat, lon):
                     terrain_type = 'mountain_high'
                     description = 'Montaña alta'
                 
-                print(f"✅ Open-Elevation: {elevation}m - {description}")
+                print(f"SUCCESS: Open-Elevation: {elevation}m - {description}")
                 
                 return {
                     'elevation_m': elevation,
@@ -339,11 +339,11 @@ def get_elevation_alternative(lat, lon):
                 }
         
         # Si Open-Elevation falla, usar estimación básica
-        print(f"⚠️ Open-Elevation también falló, usando estimación básica")
+        print(f"WARNING: Open-Elevation también falló, usando estimación básica")
         return get_elevation_basic_estimate(lat, lon)
         
     except Exception as e:
-        print(f"❌ Error with alternative elevation API: {e}")
+        print(f"ERROR: Error with alternative elevation API: {e}")
         return get_elevation_basic_estimate(lat, lon)
 
 
@@ -375,7 +375,7 @@ def get_elevation_basic_estimate(lat, lon):
         description = "Terrestre (estimado)"
         terrain_type = "highland"
     
-    print(f"📊 Estimación básica: {elevation}m - {description}")
+    print(f"INFO: Estimación básica: {elevation}m - {description}")
     
     return {
         'elevation_m': elevation,
@@ -393,18 +393,18 @@ def estimate_coastal_distance_usgs(lat, lon, elevation_data=None):
     try:
         # Si no se proporcionó elevation_data, es terrestre por defecto
         if not elevation_data:
-            print(f"ℹ️ Sin datos de elevación, usando estimación")
+            print(f"INFO: Sin datos de elevación, usando estimación")
             return estimate_distance_to_coast(lat, lon)
         
         # Si está en el océano, distancia = 0
         if elevation_data.get('is_oceanic', False):
-            print(f"🌊 Impacto oceánico detectado (elevación: {elevation_data['elevation_m']}m)")
+            print(f"INFO: Impacto oceánico detectado (elevación: {elevation_data['elevation_m']}m)")
             return 0
         
         # Si es terrestre, calcular distancia estimada sin más llamadas API
         elev = elevation_data.get('elevation_m', 200)
         
-        print(f"🗺️ Calculando distancia a costa para elevación {elev}m en {lat}, {lon}")
+        print(f"INFO: Calculando distancia a costa para elevación {elev}m en {lat}, {lon}")
         
         # Estimación basada en elevación y ubicación geográfica
         # Zaragoza, España: aproximadamente 250km a costa más cercana
@@ -421,7 +421,7 @@ def estimate_coastal_distance_usgs(lat, lon, elevation_data=None):
         else:             # Muy cerca del nivel del mar
             distance = 50
         
-        print(f"✅ Distancia estimada a costa: {distance}km")
+        print(f"SUCCESS: Distancia estimada a costa: {distance}km")
         return distance
         
     except Exception as e:
@@ -433,7 +433,7 @@ def get_usgs_geographic_context(lat, lon):
     Combina todas las funciones USGS para dar contexto geográfico completo.
     Optimizado: obtiene elevación UNA SOLA VEZ y reutiliza el dato.
     """
-    print(f"🌍 Obteniendo contexto geográfico USGS para {lat}, {lon}...")
+    print(f"Obteniendo contexto geográfico USGS para {lat}, {lon}...")
     
     # 1. Obtener elevación (UNA SOLA VEZ)
     elevation_data = get_usgs_elevation(lat, lon)
@@ -451,7 +451,7 @@ def get_usgs_geographic_context(lat, lon):
         'coastal_distance_km': coastal_distance
     }
     
-    print(f"✅ Contexto USGS completado")
+    print(f"SUCCESS: Contexto USGS completado")
     return context
 
 
@@ -2092,7 +2092,7 @@ def analyze_impact_flora_fauna():
                 'error': 'Latitud y longitud son requeridos'
             }), 400
         
-        print(f"🌿 Analizando impacto en flora y fauna: {lat}, {lon}, radio explosión: {impact_radius_km}km, radio destrucción: {destruction_radius_km}km")
+        print(f"INFO: Analizando impacto en flora y fauna: {lat}, {lon}, radio explosión: {impact_radius_km}km, radio destrucción: {destruction_radius_km}km")
         
         # Convertir radio de km a grados (aproximado)
         radius_degrees = impact_radius_km / 111.0  # 1 grado ≈ 111 km
@@ -2622,7 +2622,190 @@ def estimate_total_organisms_affected(flora_species, fauna_species, radius_km):
         }
 
 
+def get_advanced_mitigation_strategy(result, asteroid_data, impact_data, time_available_years):
+    """
+    Genera estrategias avanzadas de mitigación basadas en datos del asteroide y tiempo disponible
+    """
+    try:
+        # Extraer datos del asteroide
+        diameter = asteroid_data.get('diameter_m', 0) if asteroid_data else impact_data.get('diameter_m', 0)
+        velocity = asteroid_data.get('velocity_km_s', 0) if asteroid_data else impact_data.get('velocity_km_s', 0)
+        mass = asteroid_data.get('mass_kg', 0) if asteroid_data else impact_data.get('mass_kg', 0)
+        energy_megatons = impact_data.get('energy_megatons', 0) if impact_data else result.get('energy', {}).get('megatons', 0)
+        
+        strategies = []
+        
+        # Estrategia 1: Impactador Cinético (Kinetic Impactor)
+        if time_available_years >= 5 and diameter <= 500:
+            kinetic_strategy = {
+                'name': 'Impactador Cinético',
+                'description': 'Envío de una nave espacial para impactar el asteroide y cambiar su velocidad',
+                'effectiveness': min(95, 70 + (time_available_years * 3)),
+                'cost_billions': diameter * 0.1,
+                'time_required_years': 5,
+                'success_probability': min(90, 60 + (time_available_years * 2)),
+                'technology_readiness': 'TRL 8-9',
+                'implementation': [
+                    'Diseño y construcción de nave impactadora',
+                    'Lanzamiento con cohete pesado',
+                    'Navegación autónoma hacia el asteroide',
+                    'Impacto a alta velocidad (>10 km/s)',
+                    'Monitoreo del cambio orbital'
+                ]
+            }
+            strategies.append(kinetic_strategy)
+        
+        # Estrategia 2: Tractor Gravitacional (Gravity Tractor)
+        if time_available_years >= 10 and diameter <= 200:
+            gravity_strategy = {
+                'name': 'Tractor Gravitacional',
+                'description': 'Nave espacial que usa su gravedad para arrastrar el asteroide gradualmente',
+                'effectiveness': min(85, 40 + (time_available_years * 2)),
+                'cost_billions': diameter * 0.2,
+                'time_required_years': 10,
+                'success_probability': min(80, 50 + (time_available_years * 1.5)),
+                'technology_readiness': 'TRL 6-7',
+                'implementation': [
+                    'Nave espacial de gran masa (>10 toneladas)',
+                    'Posicionamiento cerca del asteroide',
+                    'Mantenimiento de posición estable',
+                    'Aplicación continua de fuerza gravitacional',
+                    'Monitoreo a largo plazo'
+                ]
+            }
+            strategies.append(gravity_strategy)
+        
+        # Estrategia 3: Deflector Nuclear (Nuclear Deflection)
+        if energy_megatons >= 100 and diameter <= 1000:
+            nuclear_strategy = {
+                'name': 'Deflector Nuclear',
+                'description': 'Uso de explosión nuclear para cambiar la trayectoria del asteroide',
+                'effectiveness': min(98, 80 + (diameter * 0.02)),
+                'cost_billions': diameter * 0.05,
+                'time_required_years': 3,
+                'success_probability': min(95, 70 + (diameter * 0.03)),
+                'technology_readiness': 'TRL 9',
+                'implementation': [
+                    'Diseño de dispositivo nuclear especializado',
+                    'Lanzamiento con cohete pesado',
+                    'Navegación hacia el asteroide',
+                    'Detonación a distancia segura',
+                    'Monitoreo del cambio orbital'
+                ],
+                'risks': [
+                    'Fragmentación del asteroide',
+                    'Contaminación radiactiva',
+                    'Consideraciones políticas y legales'
+                ]
+            }
+            strategies.append(nuclear_strategy)
+        
+        # Estrategia 4: Laser Ablation
+        if time_available_years >= 8 and diameter <= 300:
+            laser_strategy = {
+                'name': 'Ablación Láser',
+                'description': 'Uso de láseres de alta potencia para vaporizar material del asteroide',
+                'effectiveness': min(80, 30 + (time_available_years * 2.5)),
+                'cost_billions': diameter * 0.15,
+                'time_required_years': 8,
+                'success_probability': min(75, 40 + (time_available_years * 2)),
+                'technology_readiness': 'TRL 5-6',
+                'implementation': [
+                    'Sistema láser de alta potencia',
+                    'Nave espacial con paneles solares grandes',
+                    'Posicionamiento óptimo',
+                    'Aplicación continua de energía láser',
+                    'Monitoreo del cambio orbital'
+                ]
+            }
+            strategies.append(laser_strategy)
+        
+        # Estrategia 5: Solar Sail
+        if time_available_years >= 15 and diameter <= 100:
+            solar_strategy = {
+                'name': 'Vela Solar',
+                'description': 'Instalación de vela solar en el asteroide para usar presión de radiación',
+                'effectiveness': min(70, 20 + (time_available_years * 1.5)),
+                'cost_billions': diameter * 0.3,
+                'time_required_years': 15,
+                'success_probability': min(65, 30 + (time_available_years * 1.2)),
+                'technology_readiness': 'TRL 4-5',
+                'implementation': [
+                    'Diseño de vela solar especializada',
+                    'Aterrizaje en el asteroide',
+                    'Despliegue de la vela',
+                    'Monitoreo a largo plazo',
+                    'Ajustes de orientación'
+                ]
+            }
+            strategies.append(solar_strategy)
+        
+        # Estrategia 6: Mass Driver
+        if time_available_years >= 12 and diameter <= 400:
+            mass_driver_strategy = {
+                'name': 'Propulsor de Masa',
+                'description': 'Instalación de sistema que lanza material del asteroide para crear empuje',
+                'effectiveness': min(85, 35 + (time_available_years * 2)),
+                'cost_billions': diameter * 0.25,
+                'time_required_years': 12,
+                'success_probability': min(80, 45 + (time_available_years * 1.8)),
+                'technology_readiness': 'TRL 3-4',
+                'implementation': [
+                    'Diseño de sistema de propulsión',
+                    'Aterrizaje en el asteroide',
+                    'Instalación del sistema',
+                    'Minería y lanzamiento de material',
+                    'Monitoreo del cambio orbital'
+                ]
+            }
+            strategies.append(mass_driver_strategy)
+        
+        # Ordenar estrategias por efectividad
+        strategies.sort(key=lambda x: x['effectiveness'], reverse=True)
+        
+        # Generar recomendación principal
+        if strategies:
+            primary_strategy = strategies[0]
+            recommendation = {
+                'primary_strategy': primary_strategy,
+                'alternative_strategies': strategies[1:],
+                'combined_approach': {
+                    'description': 'Combinación de múltiples estrategias para máxima efectividad',
+                    'total_effectiveness': min(99, sum(s['effectiveness'] for s in strategies[:3]) / 3),
+                    'total_cost_billions': sum(s['cost_billions'] for s in strategies[:2]),
+                    'total_time_years': max(s['time_required_years'] for s in strategies[:2])
+                },
+                'risk_assessment': {
+                    'low_risk': [s for s in strategies if s['success_probability'] >= 80],
+                    'medium_risk': [s for s in strategies if 60 <= s['success_probability'] < 80],
+                    'high_risk': [s for s in strategies if s['success_probability'] < 60]
+                }
+            }
+        else:
+            recommendation = {
+                'primary_strategy': None,
+                'alternative_strategies': [],
+                'combined_approach': None,
+                'risk_assessment': {'low_risk': [], 'medium_risk': [], 'high_risk': []},
+                'message': 'No hay estrategias viables con el tiempo disponible'
+            }
+        
+        return recommendation
+        
+    except Exception as e:
+        print(f"Error generando estrategias de mitigación: {e}")
+        return {
+            'primary_strategy': None,
+            'alternative_strategies': [],
+            'combined_approach': None,
+            'risk_assessment': {'low_risk': [], 'medium_risk': [], 'high_risk': []},
+            'error': str(e)
+        }
+
+
 if __name__ == '__main__':
     print("Starting Asteroid Impact Simulator with USGS Integration...")
     print("Server running at http://localhost:5000")
     app.run(debug=True, host='0.0.0.0', port=5000)
+
+
