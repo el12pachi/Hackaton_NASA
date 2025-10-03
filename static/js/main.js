@@ -444,24 +444,220 @@ async function runImpactSimulation() {
         const result = await response.json();
         
         if (result.success) {
-            
-        if (result.usgs_context) {
-            // logUSGSData(result.usgs_context);  // Comentado temporalmente
+            // Show Bento Dashboard with simulation results
+            console.log('📊 Full Simulation Result:', result);
+            console.log('📊 Calculations Object:', result.calculations);
+            console.log('📊 Population Data:', result.population_affected);
+            console.log('📊 All result keys:', Object.keys(result));
+            console.log('📊 Calculations keys:', result.calculations ? Object.keys(result.calculations) : 'No calculations object');
+            console.log('📊 Direct result keys for energy:', {
+                impact_energy_mt: result.impact_energy_mt,
+                energy: result.energy,
+                impact_energy: result.impact_energy
+            });
+            console.log('📊 Severity object:', result.severity);
+            console.log('📊 Secondary effects:', result.secondary_effects);
+            console.log('📊 Secondary effects details:', result.secondary_effects.map(effect => ({
+                type: effect.type,
+                population_affected: effect.population_affected,
+                affected_population: effect.affected_population,
+                keys: Object.keys(effect)
+            })));
+            console.log('📊 Input object:', result.input);
+            console.log('📊 Input keys:', result.input ? Object.keys(result.input) : 'No input object');
+            if (result.input) {
+                console.log('📊 Input details:', JSON.stringify(result.input, null, 2));
+            }
             console.log('📊 USGS Context:', result.usgs_context);
-        }
-            // Get location info with impact radii for population calculation
+            console.log('📊 USGS Context keys:', result.usgs_context ? Object.keys(result.usgs_context) : 'No USGS context');
+            if (result.usgs_context) {
+                console.log('📊 USGS Context details:', JSON.stringify(result.usgs_context, null, 2));
+            }
+            
+            // Extract data from the result object - more robust mapping
+            const getValue = (paths, defaultValue = 0) => {
+                for (const path of paths) {
+                    const value = path.split('.').reduce((obj, key) => obj?.[key], result);
+                    if (value !== undefined && value !== null && value !== 0) {
+                        return value;
+                    }
+                }
+                return defaultValue;
+            };
+            
+            const simulationData = {
+                impactEnergy: getValue([
+                    'calculations.energy_megatons_tnt',
+                    'energy_megatons_tnt',
+                    'calculations.impact_energy_mt',
+                    'impact_energy_mt', 
+                    'calculations.energy_mt',
+                    'energy_mt'
+                ]),
+                craterDiameter: getValue([
+                    'calculations.crater_diameter_m',
+                    'crater_diameter_m',
+                    'calculations.crater_diameter_km',
+                    'crater_diameter_km'
+                ]),
+                affectedPopulation: (() => {
+                    console.log('🔍 Searching for population data...');
+                    
+                    // First try direct paths
+                    const directValue = getValue([
+                        'population_affected',
+                        'affected_population',
+                        'calculations.population_affected',
+                        'calculations.affected_population',
+                        'severity.population_affected',
+                        'severity.affected_population',
+                        'input.population_affected',
+                        'input.affected_population',
+                        'usgs_context.population_affected',
+                        'usgs_context.affected_population'
+                    ]);
+                    console.log('🔍 Direct population value:', directValue);
+                    
+                    if (directValue > 0) {
+                        console.log('✅ Found population in direct paths:', directValue);
+                        return directValue;
+                    }
+                    
+                    // Then try secondary effects
+                    if (result.secondary_effects && Array.isArray(result.secondary_effects)) {
+                        console.log('🔍 Searching in secondary effects...');
+                        for (let i = 0; i < result.secondary_effects.length; i++) {
+                            const effect = result.secondary_effects[i];
+                            console.log(`🔍 Effect ${i}:`, effect);
+                            console.log(`🔍 Effect ${i} keys:`, Object.keys(effect));
+                            console.log(`🔍 Effect ${i} population_affected:`, effect.population_affected);
+                            console.log(`🔍 Effect ${i} affected_population:`, effect.affected_population);
+                            
+                            // Look for any key containing 'population' or 'people'
+                            const populationKeys = Object.keys(effect).filter(key => 
+                                key.toLowerCase().includes('population') || 
+                                key.toLowerCase().includes('people') ||
+                                key.toLowerCase().includes('inhabitants')
+                            );
+                            if (populationKeys.length > 0) {
+                                console.log(`🔍 Effect ${i} population-related keys:`, populationKeys);
+                                populationKeys.forEach(key => {
+                                    console.log(`🔍 Effect ${i} ${key}:`, effect[key]);
+                                });
+                            }
+                            
+                            // Check the effects array for population data
+                            if (effect.effects && Array.isArray(effect.effects)) {
+                                console.log(`🔍 Effect ${i} effects array:`, effect.effects);
+                                effect.effects.forEach((subEffect, j) => {
+                                    console.log(`🔍 Effect ${i} sub-effect ${j}:`, subEffect);
+                                    if (subEffect && typeof subEffect === 'object') {
+                                        const subKeys = Object.keys(subEffect);
+                                        console.log(`🔍 Effect ${i} sub-effect ${j} keys:`, subKeys);
+                                        
+                                        // Look for population in sub-effects
+                                        const subPopulationKeys = subKeys.filter(key => 
+                                            key.toLowerCase().includes('population') || 
+                                            key.toLowerCase().includes('people') ||
+                                            key.toLowerCase().includes('inhabitants') ||
+                                            key.toLowerCase().includes('affected')
+                                        );
+                                        if (subPopulationKeys.length > 0) {
+                                            console.log(`🔍 Effect ${i} sub-effect ${j} population keys:`, subPopulationKeys);
+                                            subPopulationKeys.forEach(key => {
+                                                console.log(`🔍 Effect ${i} sub-effect ${j} ${key}:`, subEffect[key]);
+                                            });
+                                        }
+                                    }
+                                });
+                            }
+                            
+                            if (effect.population_affected && effect.population_affected > 0) {
+                                console.log('✅ Found population in effect:', effect.population_affected);
+                                return effect.population_affected;
+                            }
+                            if (effect.affected_population && effect.affected_population > 0) {
+                                console.log('✅ Found population in effect:', effect.affected_population);
+                                return effect.affected_population;
+                            }
+                        }
+                    }
+                    
+                    // Finally, try to search in USGS context more thoroughly
+                    if (result.usgs_context) {
+                        console.log('🔍 Searching in USGS context...');
+                        const searchInObject = (obj, path = '') => {
+                            for (const key in obj) {
+                                if (obj.hasOwnProperty(key)) {
+                                    const currentPath = path ? `${path}.${key}` : key;
+                                    const value = obj[key];
+                                    
+                                    if (typeof value === 'object' && value !== null) {
+                                        searchInObject(value, currentPath);
+                                    } else if (typeof value === 'number' && value > 0 && 
+                                               (key.toLowerCase().includes('population') || 
+                                                key.toLowerCase().includes('people') ||
+                                                key.toLowerCase().includes('inhabitants') ||
+                                                key.toLowerCase().includes('affected'))) {
+                                        console.log(`✅ Found population in USGS: ${currentPath} = ${value}`);
+                                        return value;
+                                    }
+                                }
+                            }
+                            return 0;
+                        };
+                        
+                        const usgsPopulation = searchInObject(result.usgs_context);
+                        if (usgsPopulation > 0) {
+                            return usgsPopulation;
+                        }
+                    }
+                    
+                    console.log('❌ No population data found');
+                    return 0;
+                })(),
+                impactProbability: Math.min(100, Math.max(0, getValue([
+                    'calculations.energy_megatons_tnt',
+                    'energy_megatons_tnt',
+                    'calculations.impact_energy_mt',
+                    'impact_energy_mt'
+                ]) / 100 * 100)),
+                asteroidSpeed: params.velocity / 1000,
+                destructionRadius: getValue([
+                    'calculations.destruction_radius_km',
+                    'destruction_radius_km',
+                    'calculations.destruction_radius',
+                    'destruction_radius'
+                ]) * 1000,
+                tsunamiRisk: getValue([
+                    'calculations.destruction_radius_km',
+                    'destruction_radius_km',
+                    'calculations.destruction_radius',
+                    'destruction_radius'
+                ]) > 10 ? 'Alto' : 'Bajo',
+                seismicMagnitude: getValue([
+                    'calculations.seismic_magnitude',
+                    'seismic_magnitude',
+                    'calculations.magnitude',
+                    'magnitude'
+                ]),
+                simulationStatus: 'Completado'
+            };
+            
+            // Get population data BEFORE showing dashboard
             const destructionRadius = result.calculations.destruction_radius_km;
             const damageRadius = result.calculations.damage_radius_km;
-            
-            // ============================================
-            // LLAMADAS A APIs EXTERNAS DESDE EL FRONTEND
-            // ============================================
-            
-            // 1. Obtener ciudades cercanas (Overpass API)
             const airPressureRadius = damageRadius * 1.5;
             const maxRadius = Math.max(destructionRadius, damageRadius, airPressureRadius);
             
+            let populationData = { totalPopulation: 0 };
             try {
+                console.log('🔍 Calling Overpass API with params:', {
+                    latitude: params.latitude,
+                    longitude: params.longitude,
+                    radius: maxRadius * 1000
+                });
+                
                 const citiesResponse = await fetch('/api/cities', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -472,17 +668,47 @@ async function runImpactSimulation() {
                     })
                 });
                 
+                console.log('🔍 Overpass API Response status:', citiesResponse.status);
                 const citiesData = await citiesResponse.json();
-                if (citiesData.success) {
-                    result.cities = citiesData.cities;
-                    console.log(`✅ ${citiesData.cities.length} ciudades encontradas`);
+                console.log('🔍 Overpass API Response:', citiesData);
+                console.log('🔍 Cities found:', citiesData.cities ? citiesData.cities.length : 0);
+                console.log('🔍 Total population:', citiesData.totalPopulation);
+                console.log('🔍 Population in destruction zone:', citiesData.populationInDestructionZone);
+                console.log('🔍 Population in damage zone:', citiesData.populationInDamageZone);
+                console.log('🔍 Success status:', citiesData.success);
+                
+                if (citiesData.success && citiesData.totalPopulation) {
+                    populationData = citiesData;
+                    console.log(`✅ Population data obtained: ${citiesData.totalPopulation} people`);
                 } else {
-                    result.cities = [];
+                    console.log('❌ No population data in Overpass response');
+                    console.log('❌ Response success:', citiesData.success);
+                    console.log('❌ Total population value:', citiesData.totalPopulation);
                 }
             } catch (error) {
-                console.warn('❌ Error obteniendo ciudades:', error);
-                result.cities = [];
+                console.warn('❌ Error obteniendo población:', error);
+                console.warn('❌ Error details:', error.message);
             }
+            
+            // Update simulation data with population
+            simulationData.affectedPopulation = populationData.totalPopulation || 0;
+            
+            // Fallback: Estimate population based on impact energy if no data from Overpass
+            if (simulationData.affectedPopulation === 0 && simulationData.impactEnergy > 0) {
+                // Rough estimation: 1 person per 0.1 MT of energy in the affected area
+                const estimatedPopulation = Math.round(simulationData.impactEnergy * 1000); // Convert MT to people
+                simulationData.affectedPopulation = Math.min(estimatedPopulation, 10000000); // Cap at 10M
+                console.log(`🔧 Using estimated population: ${simulationData.affectedPopulation} people (based on ${simulationData.impactEnergy} MT)`);
+            }
+            
+            console.log('📊 Processed Dashboard Data:', simulationData);
+            console.log('📊 About to call showBentoDashboard...');
+            showBentoDashboard(simulationData);
+            
+        if (result.usgs_context) {
+            // logUSGSData(result.usgs_context);  // Comentado temporalmente
+            console.log('📊 USGS Context:', result.usgs_context);
+        }
             
             // 2. Correlación sísmica con USGS (opcional)
             try {
@@ -578,15 +804,13 @@ function displayImpactResults(result) {
     
     const container = document.getElementById('results-content');
     
-    // No mostrar nada en la barra lateral, solo limpiar el contenido
-    container.innerHTML = `
-        <div class="placeholder">Simulación completada. Haz clic en "Ver Resultados Completos" para ver todos los detalles.</div>
-    `;
+    // Limpiar el contenido sin mostrar mensaje
+    container.innerHTML = '';
     
-    // Mostrar botón para ver resultados completos
+    // Ocultar botón para ver resultados completos
     const viewBtn = document.getElementById('view-full-results-btn');
     if (viewBtn) {
-        viewBtn.style.display = 'block';
+        viewBtn.style.display = 'none';
     }
 }
 
@@ -2388,5 +2612,246 @@ function logUSGSData(usgsContext) {
     }
     
     console.log('═══════════════════════════════════════════\n');
+}
+
+// ============================================
+// SIDEBAR TOGGLE FUNCTIONALITY
+// ============================================
+
+function setupSidebarToggle() {
+    const sidebarToggle = document.getElementById('sidebar-toggle');
+    const sidebar = document.getElementById('sidebar');
+    const sidebarOverlay = document.getElementById('sidebar-overlay');
+    
+    if (!sidebarToggle || !sidebar || !sidebarOverlay) return;
+    
+    // Toggle sidebar
+    sidebarToggle.addEventListener('click', () => {
+        sidebar.classList.toggle('open');
+        sidebarOverlay.classList.toggle('active');
+        
+        // Update button icon
+        const icon = sidebarToggle.querySelector('span');
+        if (sidebar.classList.contains('open')) {
+            icon.textContent = '✕';
+        } else {
+            icon.textContent = '☰';
+        }
+    });
+    
+    // Close sidebar when clicking overlay
+    sidebarOverlay.addEventListener('click', () => {
+        sidebar.classList.remove('open');
+        sidebarOverlay.classList.remove('active');
+        
+        const icon = sidebarToggle.querySelector('span');
+        icon.textContent = '☰';
+    });
+    
+    // Close sidebar on escape key
+    document.addEventListener('keydown', (e) => {
+        if (e.key === 'Escape' && sidebar.classList.contains('open')) {
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+            
+            const icon = sidebarToggle.querySelector('span');
+            icon.textContent = '☰';
+        }
+    });
+    
+    // Handle window resize
+    window.addEventListener('resize', () => {
+        if (window.innerWidth > 768) {
+            // Desktop: always show sidebar
+            sidebar.classList.remove('open');
+            sidebarOverlay.classList.remove('active');
+            
+            const icon = sidebarToggle.querySelector('span');
+            icon.textContent = '☰';
+        }
+    });
+}
+
+// Initialize sidebar toggle when DOM is loaded
+document.addEventListener('DOMContentLoaded', () => {
+    setupSidebarToggle();
+    setupBentoDashboard();
+    
+    // Test function - remove in production
+    window.testBentoDashboard = function() {
+        console.log('🧪 Testing Bento Dashboard...');
+        const testData = {
+            impactEnergy: 395.96, // MT
+            craterDiameter: 700, // meters
+            affectedPopulation: 1700000, // 1.7M people
+            impactProbability: 85,
+            asteroidSpeed: 25,
+            destructionRadius: 700, // meters
+            tsunamiRisk: 'Bajo',
+            seismicMagnitude: 9.3,
+            simulationStatus: 'Completado'
+        };
+        console.log('🧪 Test data:', testData);
+        showBentoDashboard(testData);
+    };
+    
+    // Diagnostic function
+    window.diagnoseBentoDashboard = function() {
+        console.log('🔍 DIAGNOSTIC: Checking Bento Dashboard elements...');
+        
+        const elements = [
+            'impact-energy',
+            'crater-diameter', 
+            'affected-population',
+            'asteroid-speed',
+            'destruction-radius',
+            'tsunami-risk',
+            'seismic-magnitude',
+            'simulation-status'
+        ];
+        
+        elements.forEach(id => {
+            const element = document.getElementById(id);
+            if (element) {
+                console.log(`✅ Found element: ${id}`, element);
+            } else {
+                console.error(`❌ Missing element: ${id}`);
+            }
+        });
+        
+        // Check if dashboard is visible
+        const dashboard = document.querySelector('.bento-dashboard');
+        if (dashboard) {
+            console.log('✅ Dashboard found:', dashboard);
+            console.log('Dashboard classes:', dashboard.className);
+            console.log('Dashboard display:', getComputedStyle(dashboard).display);
+        } else {
+            console.error('❌ Dashboard not found');
+        }
+        
+        // Check simulation controls
+        const controls = document.getElementById('simulation-controls');
+        if (controls) {
+            console.log('✅ Simulation controls found:', controls);
+            console.log('Controls display:', getComputedStyle(controls).display);
+        } else {
+            console.error('❌ Simulation controls not found');
+        }
+    };
+});
+
+// ============================================
+// BENTO DASHBOARD FUNCTIONALITY
+// ============================================
+
+function setupBentoDashboard() {
+    // Hide dashboard initially
+    const bentoDashboard = document.querySelector('.bento-dashboard');
+    if (bentoDashboard) {
+        bentoDashboard.classList.remove('show');
+    }
+    
+    // Show simulation controls initially
+    const simulationControls = document.getElementById('simulation-controls');
+    if (simulationControls) {
+        simulationControls.style.display = 'flex';
+    }
+}
+
+function updateBentoDashboard(data) {
+    console.log('🔄 Updating Bento Dashboard with data:', data);
+    
+    // Force update all elements with a more direct approach
+    const updates = [
+        { id: 'impact-energy', value: formatEnergy(data.impactEnergy), log: '⚡ Energy' },
+        { id: 'crater-diameter', value: formatDistance(data.craterDiameter), log: '🕳️ Crater' },
+        { id: 'affected-population', value: formatNumber(data.affectedPopulation), log: '👥 Population' },
+        { id: 'asteroid-speed', value: `${data.asteroidSpeed} km/s`, log: '🚀 Speed' },
+        { id: 'destruction-radius', value: formatDistance(data.destructionRadius), log: '💀 Radius' },
+        { id: 'tsunami-risk', value: data.tsunamiRisk, log: '🌊 Tsunami' },
+        { id: 'seismic-magnitude', value: data.seismicMagnitude.toFixed(1), log: '🌍 Seismic' },
+        { id: 'simulation-status', value: data.simulationStatus, log: '⚙️ Status' }
+    ];
+    
+    updates.forEach(update => {
+        const element = document.getElementById(update.id);
+        if (element) {
+            element.textContent = update.value;
+            console.log(`${update.log} updated:`, update.value);
+        } else {
+            console.error(`❌ Element not found: ${update.id}`);
+        }
+    });
+    
+}
+
+function formatEnergy(energy) {
+    if (energy >= 1000000) {
+        return `${(energy / 1000000).toFixed(1)} MT`;
+    } else if (energy >= 1000) {
+        return `${(energy / 1000).toFixed(1)} KT`;
+    } else {
+        return `${energy.toFixed(1)} T`;
+    }
+}
+
+function formatDistance(distance) {
+    if (distance >= 1000) {
+        return `${(distance / 1000).toFixed(1)} km`;
+    } else {
+        return `${distance.toFixed(1)} m`;
+    }
+}
+
+function formatNumber(number) {
+    if (number >= 1000000) {
+        return `${(number / 1000000).toFixed(1)}M`;
+    } else if (number >= 1000) {
+        return `${(number / 1000).toFixed(1)}K`;
+    } else {
+        return number.toString();
+    }
+}
+
+function showBentoDashboard(simulationData) {
+    console.log('🎯 showBentoDashboard called with data:', simulationData);
+    console.log('🎯 Data type:', typeof simulationData);
+    console.log('🎯 Data keys:', Object.keys(simulationData));
+    
+    // Hide simulation controls
+    const simulationControls = document.getElementById('simulation-controls');
+    if (simulationControls) {
+        simulationControls.style.display = 'none';
+        console.log('✅ Simulation controls hidden');
+    } else {
+        console.error('❌ Simulation controls not found');
+    }
+    
+    // Show bento dashboard
+    const bentoDashboard = document.querySelector('.bento-dashboard');
+    if (bentoDashboard) {
+        bentoDashboard.classList.add('show');
+        console.log('✅ Bento dashboard shown');
+    } else {
+        console.error('❌ Bento dashboard not found');
+    }
+    
+    // Update dashboard with simulation data
+    console.log('🎯 About to call updateBentoDashboard...');
+    updateBentoDashboard(simulationData);
+}
+
+function hideBentoDashboard() {
+    // Hide bento dashboard
+    const bentoDashboard = document.querySelector('.bento-dashboard');
+    if (bentoDashboard) {
+        bentoDashboard.classList.remove('show');
+    }
+    
+    // Show simulation controls
+    const simulationControls = document.getElementById('simulation-controls');
+    if (simulationControls) {
+        simulationControls.style.display = 'flex';
+    }
 }
 

@@ -22,11 +22,16 @@
         <div class="header-content">
             <div class="header-title-container">
                 <h1 id="header-title" class="logo">Asteroid Impact Simulator</h1>
-                <p class="subtitle">NASA Space Apps 2025</p>
             </div>
             <div class="theme-toggle">
-                <button class="mode-btn active" data-mode="simulation">Simulación de Impacto</button>
-                <button class="mode-btn" data-mode="mitigation">Estrategias de Mitigación</button>
+                <button class="mode-btn active" data-mode="simulation">
+                    <span class="btn-text-full">Simulación de Impacto</span>
+                    <span class="btn-text-short">Simulación</span>
+                </button>
+                <button class="mode-btn" data-mode="mitigation">
+                    <span class="btn-text-full">Estrategias de Mitigación</span>
+                    <span class="btn-text-short">Mitigación</span>
+                </button>
                 <button id="theme-toggle-btn" class="theme-toggle-btn" title="Cambiar tema">
                     <span class="theme-icon">◐</span>
                 </button>
@@ -36,18 +41,122 @@
 
     <!-- Main Content -->
     <div class="main-content">
+        <!-- Sidebar Toggle Button -->
+        <button class="sidebar-toggle" id="sidebar-toggle" title="Abrir/cerrar panel">
+            <span>☰</span>
+        </button>
+        
+        <!-- Sidebar Overlay -->
+        <div class="sidebar-overlay" id="sidebar-overlay"></div>
+        
         <!-- Sidebar -->
-        <aside class="sidebar">
-            <!-- <div class="sidebar-header">
-                <h1 class="logo">Asteroid Impact Simulator</h1>
-                <p class="subtitle">NASA Space Apps 2025</p>
-            </div> -->
+        <aside class="sidebar" id="sidebar">
+            <!-- Bento Dashboard -->
+            <div class="bento-dashboard">
+                <!-- Card 1: Impact Energy -->
+                <div class="bento-card energy-card">
+                    <div class="card-header">
+                        <h3>Energía de Impacto</h3>
+                        <span class="card-icon">💥</span>
+                    </div>
+                    <div class="card-metric" id="impact-energy">0 MT</div>
+                    <div class="card-trend" id="energy-trend">
+                        <span class="trend-icon">⚡</span>
+                        <span class="trend-text">Equivalente a bombas nucleares</span>
+                    </div>
+                </div>
 
-            <!-- Mode Selector -->
-            <!-- <div class="mode-selector">
-                <button class="mode-btn active" data-mode="simulation">Simulación de Impacto</button>
-                <button class="mode-btn" data-mode="mitigation">Estrategias de Mitigación</button>
-            </div> -->
+                <!-- Card 2: Crater Size -->
+                <div class="bento-card crater-card">
+                    <div class="card-header">
+                        <h3>Tamaño del Cráter</h3>
+                        <span class="card-icon">🕳️</span>
+                    </div>
+                    <div class="card-metric" id="crater-diameter">0 km</div>
+                    <div class="card-subtitle">Diámetro estimado</div>
+                </div>
+
+                <!-- Card 3: Affected Population -->
+                <div class="bento-card population-card">
+                    <div class="card-header">
+                        <h3>Población Afectada</h3>
+                        <span class="card-icon">👥</span>
+                    </div>
+                    <div class="card-metric" id="affected-population">0</div>
+                    <div class="card-trend" id="population-trend">
+                        <span class="trend-icon">📊</span>
+                        <span class="trend-text">Personas en zona de riesgo</span>
+                    </div>
+                </div>
+
+
+                <!-- Card 5: Asteroid Speed -->
+                <div class="bento-card speed-card">
+                    <div class="card-header">
+                        <h3>Velocidad del Asteroide</h3>
+                        <span class="card-icon">🚀</span>
+                    </div>
+                    <div class="card-metric" id="asteroid-speed">0 km/s</div>
+                    <div class="card-subtitle">Velocidad de entrada</div>
+                </div>
+
+                <!-- Card 6: Destruction Radius -->
+                <div class="bento-card radius-card">
+                    <div class="card-header">
+                        <h3>Radio de Destrucción</h3>
+                        <span class="card-icon">💀</span>
+                    </div>
+                    <div class="card-metric" id="destruction-radius">0 km</div>
+                    <div class="card-trend" id="radius-trend">
+                        <span class="trend-icon">🔥</span>
+                        <span class="trend-text">Zona de destrucción total</span>
+                    </div>
+                </div>
+
+                <!-- Card 7: Tsunami Risk -->
+                <div class="bento-card tsunami-card">
+                    <div class="card-header">
+                        <h3>Riesgo de Tsunami</h3>
+                        <span class="card-icon">🌊</span>
+                    </div>
+                    <div class="card-metric" id="tsunami-risk">Bajo</div>
+                    <div class="card-subtitle">Si impacta en océano</div>
+                </div>
+
+                <!-- Card 8: Seismic Activity -->
+                <div class="bento-card seismic-card">
+                    <div class="card-header">
+                        <h3>Actividad Sísmica</h3>
+                        <span class="card-icon">🌍</span>
+                    </div>
+                    <div class="card-metric" id="seismic-magnitude">0.0</div>
+                    <div class="card-subtitle">Magnitud Richter</div>
+                </div>
+
+                <!-- Card 9: Simulation Status -->
+                <div class="bento-card status-card">
+                    <div class="card-header">
+                        <h3>Estado de Simulación</h3>
+                        <span class="card-icon">⚙️</span>
+                    </div>
+                    <div class="card-metric" id="simulation-status">Listo</div>
+                    <div class="card-trend" id="status-trend">
+                        <span class="trend-icon">✅</span>
+                        <span class="trend-text">Configura parámetros</span>
+                    </div>
+                </div>
+                
+                <!-- New Simulation Button -->
+                <div class="bento-card new-simulation-card">
+                    <div class="card-header">
+                        <h3>Nueva Simulación</h3>
+                        <span class="card-icon">🔄</span>
+                    </div>
+                    <button class="btn-primary" onclick="hideBentoDashboard()" style="width: 100%; margin-top: 8px;">
+                        Configurar Nuevos Parámetros
+                    </button>
+                </div>
+            </div>
 
             <!-- Simulation Controls -->
             <div id="simulation-controls" class="controls-section active">
@@ -114,10 +223,6 @@
                     <div id="results-content" class="results-content">
                         <div class="placeholder">Ejecute una simulación para ver los resultados</div>
                     </div>
-                    <button id="view-full-results-btn" class="btn-view-results" onclick="openResultsModal()"
-                        style="display: none;">
-                        Ver Resultados Completos
-                    </button>
                 </div>
 
             </div>
