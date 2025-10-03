@@ -462,27 +462,27 @@ async function runImpactSimulation() {
             const maxRadius = Math.max(destructionRadius, damageRadius, airPressureRadius);
             
             try {
-           const citiesResponse = await fetch('/api/cities', {
-               method: 'POST',
-               headers: { 'Content-Type': 'application/json' },
-               body: JSON.stringify({
-                   latitude: params.latitude,
-                   longitude: params.longitude,
+                const citiesResponse = await fetch('/api/cities', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        latitude: params.latitude,
+                        longitude: params.longitude,
                         radius: maxRadius * 1000
-               })
-           });
-           
-           const citiesData = await citiesResponse.json();
-           if (citiesData.success) {
-               result.cities = citiesData.cities;
+                    })
+                });
+                
+                const citiesData = await citiesResponse.json();
+                if (citiesData.success) {
+                    result.cities = citiesData.cities;
                     console.log(`✅ ${citiesData.cities.length} ciudades encontradas`);
-           } else {
+                } else {
                     result.cities = [];
                 }
             } catch (error) {
                 console.warn('❌ Error obteniendo ciudades:', error);
-               result.cities = [];
-           }
+                result.cities = [];
+            }
             
             // 2. Correlación sísmica con USGS (opcional)
             try {
@@ -1733,6 +1733,11 @@ function generateFullResultsHTML(result) {
     
     // ... resto del código existente de población, parámetros, etc ...
     
+    // AGREGAR ANÁLISIS DE BIODIVERSIDAD
+    if (result.flora_fauna_analysis) {
+        html += generateFloraFaunaAnalysisHTML(result.flora_fauna_analysis);
+    }
+    
     // AGREGAR EFECTOS SECUNDARIOS ANTES DEL RETURN
     if (result.secondary_effects && result.secondary_effects.length > 0) {
         html += `
@@ -1783,6 +1788,303 @@ function generateFullResultsHTML(result) {
     }
     
     return html;  // ← ASEGÚRATE QUE ESTÁ AL FINAL
+}
+
+// ============================================
+// BIODIVERSITY ANALYSIS (GBIF)
+// ============================================
+
+function generateFloraFaunaAnalysisHTML(floraFaunaData) {
+    const analysis = floraFaunaData.impact_analysis;
+    const floraSpecies = floraFaunaData.flora_species || [];
+    const faunaSpecies = floraFaunaData.fauna_species || [];
+
+    if (!analysis) return '';
+
+    // Obtener colores según severidad - usando colores más neutros de la temática
+    const severityColors = {
+        'extinction_event': { bg: 'rgba(255, 68, 68, 0.15)', border: '#FF4444', text: '#FF4444' },
+        'catastrophic': { bg: 'rgba(255, 68, 68, 0.15)', border: '#FF4444', text: '#FF4444' },
+        'severe': { bg: 'rgba(255, 184, 77, 0.15)', border: '#FFB84D', text: '#FFB84D' },
+        'moderate': { bg: 'rgba(0, 168, 232, 0.15)', border: '#00A8E8', text: '#00A8E8' },
+        'minor': { bg: 'rgba(0, 230, 118, 0.15)', border: '#00E676', text: '#00E676' }
+    };
+
+    const severityColor = severityColors[analysis.impact_severity] || severityColors['moderate'];
+
+    return `
+<div style="background: rgba(0, 168, 232, 0.15); padding: 1.5rem; border-radius: 12px; border: 2px solid #00A8E8; margin: 1.5rem 0; box-shadow: 0 4px 12px rgba(0, 168, 232, 0.2);">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+        <strong style="font-size: 18px; color: #00A8E8; display: flex; align-items: center; gap: 0.5rem;">
+            IMPACTO EN BIODIVERSIDAD (GBIF)
+        </strong>
+        <div style="background: rgba(0, 168, 232, 0.2); padding: 0.3rem 0.8rem; border-radius: 20px; font-size: 12px; color: #00A8E8;">
+            Datos globales
+        </div>
+    </div>
+    <hr style="border: none; height: 2px; background: linear-gradient(90deg, #00A8E8, transparent); margin: 0 0 1.5rem 0;">
+    
+    <!-- Severidad del Impacto -->
+    <div style="background: ${severityColor.bg}; border-radius: 12px; padding: 1.2rem; border-left: 4px solid ${severityColor.border}; box-shadow: 0 2px 8px rgba(0,0,0,0.1); margin-bottom: 1.5rem;">
+        <div style="display: flex; align-items: center; gap: 0.8rem; margin-bottom: 0.8rem;">
+            <strong style="font-size: 16px; color: ${severityColor.text};">Severidad del Impacto Biológico</strong>
+        </div>
+        <div style="font-size: 20px; font-weight: 600; color: var(--text-light); margin-bottom: 0.5rem; text-transform: uppercase;">
+            ${analysis.severity_description}
+        </div>
+        <div style="font-size: 14px; color: var(--text-medium); background: rgba(0,0,0,0.1); padding: 0.5rem; border-radius: 6px;">
+            <strong>Especies encontradas:</strong> ${analysis.total_species_found} (${analysis.flora_species_count} flora, ${analysis.fauna_species_count} fauna)
+        </div>
+    </div>
+    
+    <!-- Zonas de Impacto -->
+    <div style="margin-bottom: 1.5rem;">
+        <h4 style="color: #00A8E8; margin-bottom: 1rem; font-size: 16px;">Zonas de Impacto de la Explosión</h4>
+        <div style="background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+            <div style="font-size: 14px; color: #B0B0B0; margin-bottom: 0.5rem;">
+                <strong>Parámetros de la Explosión:</strong>
+            </div>
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; font-size: 13px;">
+                <div>Radio Destrucción: <strong style="color: #FF4444;">${analysis.explosion_parameters?.destruction_radius_km?.toFixed(2) || 'N/A'} km</strong></div>
+                <div>Radio Daño: <strong style="color: #FFB84D;">${analysis.explosion_parameters?.damage_radius_km?.toFixed(2) || 'N/A'} km</strong></div>
+                <div>Energía: <strong style="color: #00A8E8;">${analysis.explosion_parameters?.energy_megatons?.toFixed(1) || 'N/A'} MT</strong></div>
+            </div>
+        </div>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem;">
+            ${Object.entries(analysis.impact_zones).map(([zoneKey, zone]) => {
+                const zoneColors = {
+                    'total_destruction': { bg: 'rgba(255,68,68,0.15)', border: '#FF4444', text: '#FF4444' },
+                    'severe_impact': { bg: 'rgba(255,184,77,0.15)', border: '#FFB84D', text: '#FFB84D' },
+                    'moderate_impact': { bg: 'rgba(0,168,232,0.15)', border: '#00A8E8', text: '#00A8E8' },
+                    'outer_effects': { bg: 'rgba(0,230,118,0.15)', border: '#00E676', text: '#00E676' }
+                };
+                const color = zoneColors[zoneKey] || zoneColors['moderate_impact'];
+                
+                return `
+                    <div style="background: ${color.bg}; border-radius: 8px; padding: 1rem; border-left: 4px solid ${color.border};">
+                        <div style="font-weight: 600; color: ${color.text}; margin-bottom: 0.5rem;">
+                            ${zone.description}
+                        </div>
+                        <div style="font-size: 18px; font-weight: bold; color: var(--text-light);">
+                            ${zone.mortality_percentage.toFixed(1)}% mortalidad
+                        </div>
+                        <div style="font-size: 14px; color: var(--text-medium);">
+                            Radio: ${zone.radius_km.toFixed(2)} km
+                        </div>
+                        <div style="font-size: 12px; color: var(--text-medium); margin-top: 0.3rem;">
+                            Área: ${zone.area_km2?.toFixed(1) || 'N/A'} km²
+                        </div>
+                        ${zone.organisms_affected ? `
+                        <div style="font-size: 12px; color: var(--text-medium);">
+                            Organismos: ${formatNumber(zone.organisms_affected)}
+                        </div>
+                        ` : ''}
+                    </div>
+                `;
+            }).join('')}
+        </div>
+    </div>
+    
+    <!-- Análisis de Flora -->
+    ${analysis.flora_impact ? `
+    <div style="margin-bottom: 1.5rem;">
+        <h4 style="color: #00A8E8; margin-bottom: 1rem; font-size: 16px;">Impacto en Flora</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 1rem;">
+            <div style="background: rgba(0, 168, 232, 0.15); border-radius: 8px; padding: 1rem; border-left: 4px solid #00A8E8;">
+                <div style="font-weight: 600; color: #00A8E8; margin-bottom: 0.5rem;">Mortalidad Estimada</div>
+                <div style="font-size: 24px; font-weight: bold; color: var(--text-light);">
+                    ${analysis.flora_impact.estimated_mortality_percentage.toFixed(1)}%
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">
+                    Tiempo de recuperación: ${analysis.flora_impact.recovery_time_years} años
+                </div>
+            </div>
+            <div style="background: rgba(255, 68, 68, 0.15); border-radius: 8px; padding: 1rem; border-left: 4px solid #FF4444;">
+                <div style="font-weight: 600; color: #FF4444; margin-bottom: 0.5rem;">Especies Vulnerables</div>
+                <div style="font-size: 18px; font-weight: bold; color: var(--text-light);">
+                    ${analysis.flora_impact.vulnerable_species_mortality.toFixed(1)}% mortalidad
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">
+                    Árboles grandes, plantas de crecimiento lento
+                </div>
+            </div>
+            <div style="background: rgba(0, 230, 118, 0.15); border-radius: 8px; padding: 1rem; border-left: 4px solid #00E676;">
+                <div style="font-weight: 600; color: #00E676; margin-bottom: 0.5rem;">Especies Resilientes</div>
+                <div style="font-size: 18px; font-weight: bold; color: var(--text-light);">
+                    ${analysis.flora_impact.resilient_species_mortality.toFixed(1)}% mortalidad
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">
+                    Hierbas, musgos, líquenes
+                </div>
+            </div>
+        </div>
+        
+        <!-- Factores de Impacto en Flora -->
+        <div style="margin-top: 1rem; padding: 1rem; background: rgba(0,0,0,0.1); border-radius: 8px;">
+            <div style="font-weight: 600; color: #00A8E8; margin-bottom: 0.5rem;">Factores de Impacto:</div>
+            <ul style="margin: 0; padding-left: 1.2rem; color: var(--text-medium);">
+                ${analysis.flora_impact.impact_factors.map(factor => `<li>${factor}</li>`).join('')}
+            </ul>
+        </div>
+    </div>
+    ` : ''}
+    
+    <!-- Análisis de Fauna -->
+    ${analysis.fauna_impact ? `
+    <div style="margin-bottom: 1.5rem;">
+        <h4 style="color: #00A8E8; margin-bottom: 1rem; font-size: 16px;">Impacto en Fauna</h4>
+        <div class="results-grid">
+            <div class="result-stat">
+                <strong>Mortalidad Estimada:</strong><br>
+                ${analysis.fauna_impact.estimated_mortality_percentage.toFixed(1)}%<br>
+                <span style="font-size: 0.9em; color: #A0A0A0;">Tiempo recuperación: ${analysis.fauna_impact.recovery_time_years} años</span>
+            </div>
+            <div class="result-stat">
+                <strong>Especies Vulnerables:</strong><br>
+                ${analysis.fauna_impact.vulnerable_species_mortality.toFixed(1)}% mortalidad<br>
+                <span style="font-size: 0.9em; color: #A0A0A0;">Anfibios, especies sésiles</span>
+            </div>
+            <div class="result-stat">
+                <strong>Especies Móviles:</strong><br>
+                ${analysis.fauna_impact.mobile_species_mortality.toFixed(1)}% mortalidad<br>
+                <span style="font-size: 0.9em; color: #A0A0A0;">Aves, mamíferos</span>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+    
+    <!-- Lista de Especies Encontradas -->
+    <div style="margin-bottom: 1.5rem;">
+        <h4 style="color: #00A8E8; margin-bottom: 1rem; font-size: 16px;">Especies Encontradas en el Área de Impacto</h4>
+        
+        <!-- Especies de Flora -->
+        ${floraSpecies.length > 0 ? `
+        <div style="margin-bottom: 1.5rem;">
+            <h5 style="color: #00A8E8; margin-bottom: 0.8rem; font-size: 14px; font-weight: 600;">Flora (${floraSpecies.length} especies)</h5>
+            <div style="background: rgba(0,0,0,0.1); border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.8rem;">
+                    ${floraSpecies.slice(0, 20).map(species => `
+                        <div style="background: rgba(0, 168, 232, 0.1); border-radius: 6px; padding: 0.8rem; border-left: 3px solid #00A8E8;">
+                            <div style="font-weight: 600; color: var(--text-light); margin-bottom: 0.3rem;">
+                                ${species.name || species.scientific_name || 'Especie sin nombre'}
+                            </div>
+                            ${species.scientific_name && species.scientific_name !== species.name ? `
+                                <div style="font-size: 12px; color: var(--text-medium); font-style: italic; margin-bottom: 0.3rem;">
+                                    ${species.scientific_name}
+                                </div>
+                            ` : ''}
+                            <div style="font-size: 11px; color: var(--text-dim);">
+                                ${species.family ? `Familia: ${species.family}` : ''}
+                                ${species.family && species.class ? ' • ' : ''}
+                                ${species.class ? `Clase: ${species.class}` : ''}
+                            </div>
+                            <div style="font-size: 11px; color: #00A8E8; margin-top: 0.3rem;">
+                                Registros: ${species.count}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${floraSpecies.length > 20 ? `
+                    <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; text-align: center;">
+                        <span style="font-size: 12px; color: var(--text-medium);">
+                            Mostrando 20 de ${floraSpecies.length} especies de flora encontradas
+                        </span>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+        ` : ''}
+        
+        <!-- Especies de Fauna -->
+        ${faunaSpecies.length > 0 ? `
+        <div style="margin-bottom: 1.5rem;">
+            <h5 style="color: #00A8E8; margin-bottom: 0.8rem; font-size: 14px; font-weight: 600;">Fauna (${faunaSpecies.length} especies)</h5>
+            <div style="background: rgba(0,0,0,0.1); border-radius: 8px; padding: 1rem; max-height: 300px; overflow-y: auto;">
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 0.8rem;">
+                    ${faunaSpecies.slice(0, 20).map(species => `
+                        <div style="background: rgba(255, 184, 77, 0.1); border-radius: 6px; padding: 0.8rem; border-left: 3px solid #FFB84D;">
+                            <div style="font-weight: 600; color: var(--text-light); margin-bottom: 0.3rem;">
+                                ${species.name || species.scientific_name || 'Especie sin nombre'}
+                            </div>
+                            ${species.scientific_name && species.scientific_name !== species.name ? `
+                                <div style="font-size: 12px; color: var(--text-medium); font-style: italic; margin-bottom: 0.3rem;">
+                                    ${species.scientific_name}
+                                </div>
+                            ` : ''}
+                            <div style="font-size: 11px; color: var(--text-dim);">
+                                ${species.family ? `Familia: ${species.family}` : ''}
+                                ${species.family && species.class ? ' • ' : ''}
+                                ${species.class ? `Clase: ${species.class}` : ''}
+                            </div>
+                            <div style="font-size: 11px; color: #FFB84D; margin-top: 0.3rem;">
+                                Registros: ${species.count}
+                            </div>
+                        </div>
+                    `).join('')}
+                </div>
+                ${faunaSpecies.length > 20 ? `
+                    <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; text-align: center;">
+                        <span style="font-size: 12px; color: var(--text-medium);">
+                            Mostrando 20 de ${faunaSpecies.length} especies de fauna encontradas
+                        </span>
+                    </div>
+                ` : ''}
+            </div>
+        </div>
+        ` : ''}
+        
+        <!-- Resumen de especies -->
+        <div style="background: rgba(0, 168, 232, 0.1); border-radius: 8px; padding: 1rem; text-align: center;">
+            <div style="font-size: 14px; color: #00A8E8; font-weight: 600;">
+                Total de especies identificadas: ${floraSpecies.length + faunaSpecies.length}
+            </div>
+            <div style="font-size: 12px; color: var(--text-medium); margin-top: 0.3rem;">
+                ${floraSpecies.length} especies de flora • ${faunaSpecies.length} especies de fauna
+            </div>
+        </div>
+    </div>
+    
+    <!-- Estadísticas de Organismos Afectados -->
+    ${analysis.estimated_casualties ? `
+    <div style="margin-bottom: 1.5rem;">
+        <h4 style="color: #00A8E8; margin-bottom: 1rem; font-size: 16px;">Organismos Afectados</h4>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+            <div style="background: rgba(0, 168, 232, 0.15); border-radius: 8px; padding: 1rem; text-align: center; border-left: 4px solid #00A8E8;">
+                <div style="font-size: 24px; font-weight: bold; color: var(--text-light);">
+                    ${formatNumber(analysis.estimated_casualties.total_organisms_affected.total_organisms)}
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">Total Organismos</div>
+            </div>
+            <div style="background: rgba(0, 168, 232, 0.15); border-radius: 8px; padding: 1rem; text-align: center; border-left: 4px solid #00A8E8;">
+                <div style="font-size: 20px; font-weight: bold; color: var(--text-light);">
+                    ${formatNumber(analysis.estimated_casualties.total_organisms_affected.estimated_flora_organisms)}
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">Plantas Afectadas</div>
+            </div>
+            <div style="background: rgba(255, 184, 77, 0.15); border-radius: 8px; padding: 1rem; text-align: center; border-left: 4px solid #FFB84D;">
+                <div style="font-size: 20px; font-weight: bold; color: var(--text-light);">
+                    ${formatNumber(analysis.estimated_casualties.total_organisms_affected.estimated_fauna_organisms)}
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">Animales Afectados</div>
+            </div>
+            <div style="background: rgba(0, 230, 118, 0.15); border-radius: 8px; padding: 1rem; text-align: center; border-left: 4px solid #00E676;">
+                <div style="font-size: 20px; font-weight: bold; color: var(--text-light);">
+                    ${analysis.estimated_casualties.total_organisms_affected.area_km2.toFixed(1)} km²
+                </div>
+                <div style="font-size: 12px; color: var(--text-medium);">Área Afectada</div>
+            </div>
+        </div>
+    </div>
+    ` : ''}
+    
+    <!-- Footer con fuente de datos -->
+    <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0, 168, 232, 0.1); border-radius: 8px; text-align: center;">
+        <span style="font-size: 12px; color: #00A8E8;">
+            <strong>Fuente:</strong> ${floraFaunaData.data_source}
+        </span>
+    </div>
+</div>
+`;
 }
 
 function getDataSourceLabel(key) {
