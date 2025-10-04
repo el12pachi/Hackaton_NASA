@@ -1311,6 +1311,119 @@ body {
     z-index: 700 !important;
 }
 
+.location-icon {
+    font-size: 1.1rem;
+}
+
+.location-text {
+    white-space: nowrap;
+}
+
+
+/* ========== MAP SEARCH CONTAINER ========== */
+.map-search-container {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    width: 400px;
+}
+
+.map-search-box {
+    display: flex;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+}
+
+.map-search-box input {
+    flex: 1;
+    background: transparent;
+    color: var(--text-light);
+    border: none;
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    outline: none;
+}
+
+.map-search-box input::placeholder {
+    color: var(--text-medium);
+}
+
+.map-search-btn {
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s ease;
+}
+
+.map-search-btn:hover {
+    background: var(--primary-blue-hover);
+}
+
+.my-location-btn-inline {
+    background: var(--primary-blue);
+    color: white;
+    border: none;
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    font-size: 0.9rem;
+    transition: background 0.3s ease;
+    white-space: nowrap;
+}
+
+.my-location-btn-inline:hover {
+    background: var(--primary-blue-hover);
+}
+
+.map-search-results {
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-top: none;
+    border-radius: 0 0 8px 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    display: none;
+    z-index: 1001;
+}
+
+.map-search-results .search-result-item {
+    padding: 0.75rem 1rem;
+    cursor: pointer;
+    border-bottom: 1px solid var(--sidebar-border);
+    transition: background 0.2s ease;
+}
+
+.map-search-results .search-result-item:hover {
+    background: var(--input-bg);
+}
+
+.map-search-results .search-result-item:last-child {
+    border-bottom: none;
+}
+
+.map-search-results .search-result-name {
+    font-weight: 500;
+    color: var(--text-light);
+    font-size: 0.9rem;
+}
+
+.map-search-results .search-result-details {
+    font-size: 0.8rem;
+    color: var(--text-medium);
+    margin-top: 0.25rem;
+}
+
+
 /* ========== MAP LEGEND ========== */
 .map-legend {
     position: absolute;

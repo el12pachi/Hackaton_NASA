@@ -183,26 +183,7 @@
 
                 <div class="control-panel">
                     <!-- Location Search -->
-                    <div class="control-group">
-                        <label for="location-search">Buscar Ubicación</label>
-                        <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <input 
-                                type="text" 
-                                id="location-search" 
-                                placeholder="Buscar ciudad, pueblo o lugar..."
-                                style="flex: 1; background: var(--input-bg); color: var(--text-light); border: 1px solid var(--input-border); padding: 0.625rem 0.75rem; border-radius: 6px; font-size: 0.875rem;"
-                                title="Busca cualquier ubicación en el mundo"
-                            />
-                            <button id="search-location-btn" class="btn-secondary" style="padding: 0.75rem 1rem; white-space: nowrap;" title="Buscar ubicación">
-                                Buscar
-                            </button>
-                        </div>
-                        <div id="location-search-results" style="display: none; margin-top: 0.5rem; max-height: 200px; overflow-y: auto; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 6px;"></div>
-                        <div id="current-location-display" style="margin-top: 0.5rem; font-size: 0.75rem; color: var(--text-medium); display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="color: var(--primary-color); font-weight: bold;">●</span>
-                            <span id="current-location-text">Cargando ubicación...</span>
-                        </div>
-                    </div>
+                   
                     
                     <!-- Asteroid Selection -->
                     <div class="control-group">
@@ -342,6 +323,25 @@
         <!-- Map Container -->
         <main class="map-main">
             <div id="map-container" class="map-container"></div>
+            
+            <!-- Búsqueda de Ubicación y Mi Ubicación en el Mapa -->
+            <div class="map-search-container">
+                <div class="map-search-box">
+                    <input 
+                        type="text" 
+                        id="map-location-search" 
+                        placeholder="Buscar ciudad, pueblo o lugar..."
+                        title="Busca cualquier ubicación en el mundo"
+                    />
+                    <button id="map-search-location-btn" class="map-search-btn" title="Buscar ubicación">
+                        Buscar
+                    </button>
+                    <button id="my-location-btn" class="my-location-btn-inline" onclick="centerMapOnUserLocation()" title="Centrar en mi ubicación actual">
+                        Mi Ubicación
+                    </button>
+                </div>
+                <div id="map-location-search-results" class="map-search-results"></div>
+            </div>
 
             <!-- Map Legend -->
             <div class="map-legend">

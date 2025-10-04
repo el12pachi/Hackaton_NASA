@@ -791,9 +791,9 @@ function openAsteroidsBrowser() {
                         "
                         onmouseover="this.style.transform='scale(1.05)'"
                         onmouseout="this.style.transform='scale(1)'"
-                        title="Usar en simulación"
+                        title="Selecionar"
                     >
-                        Usar en Simulación
+                        Selecionar
                     </button>
                     <button 
                         onclick="showAsteroidDetail(${index}); event.stopPropagation();"
@@ -811,7 +811,7 @@ function openAsteroidsBrowser() {
                         onmouseout="this.style.background='transparent'; this.style.color='var(--primary-color)';"
                         title="Ver información completa"
                     >
-                        Ver más
+                        Mas información
                     </button>
                 </div>
             </div>
@@ -1021,6 +1021,10 @@ function initializeApp() {
     
     // Setup location search
     setupLocationSearch();
+    
+    // Setup map location search
+    setupMapLocationSearch();
+    
 }
 
 // ============================================
@@ -1238,6 +1242,143 @@ function selectLocation(lat, lon, displayName, index) {
                 window.tempLocationMarker = null;
             }
         }, 3000);
+    }
+    
+    console.log(`Ubicación seleccionada: ${displayName} (${lat}, ${lon})`);
+}
+
+// ============================================
+// MAP LOCATION SEARCH (Control en el mapa)
+// ============================================
+
+function setupMapLocationSearch() {
+    const searchInput = document.getElementById('map-location-search');
+    const searchBtn = document.getElementById('map-search-location-btn');
+    const resultsDiv = document.getElementById('map-location-search-results');
+    
+    if (!searchInput || !searchBtn) return;
+    
+    // Buscar al hacer clic en el botón
+    searchBtn.addEventListener('click', () => {
+        const query = searchInput.value.trim();
+        if (query) {
+            searchMapLocation(query);
+        }
+    });
+    
+    // Buscar al presionar Enter
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) {
+                searchMapLocation(query);
+            }
+        }
+    });
+    
+    // Ocultar resultados al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        if (!e.target.closest('.map-search-container')) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+}
+
+async function searchMapLocation(query) {
+    const resultsDiv = document.getElementById('map-location-search-results');
+    const searchBtn = document.getElementById('map-search-location-btn');
+    
+    try {
+        // Cambiar botón a estado de carga
+        const originalText = searchBtn.textContent;
+        searchBtn.textContent = 'Buscando...';
+        searchBtn.disabled = true;
+        
+        console.log(`Buscando ubicación: ${query}`);
+        
+        // Usar Nominatim API para búsqueda de ubicaciones
+        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP: ${response.status}`);
+        }
+        
+        const results = await response.json();
+        
+        if (results.length === 0) {
+            resultsDiv.innerHTML = `
+                <div class="search-result-item" style="padding: 1rem; text-align: center; color: var(--text-secondary);">
+                    No se encontraron resultados para "${query}"
+                </div>
+            `;
+        } else {
+            displayMapSearchResults(results);
+        }
+        
+        resultsDiv.style.display = 'block';
+        
+    } catch (error) {
+        console.error('Error buscando ubicación:', error);
+        resultsDiv.innerHTML = `
+            <div class="search-result-item" style="padding: 1rem; text-align: center; color: var(--danger-color);">
+                Error al buscar. Intenta de nuevo.
+            </div>
+        `;
+        resultsDiv.style.display = 'block';
+    } finally {
+        // Restaurar botón
+        searchBtn.textContent = originalText;
+        searchBtn.disabled = false;
+    }
+}
+
+function displayMapSearchResults(results) {
+    const resultsDiv = document.getElementById('map-location-search-results');
+    
+    resultsDiv.innerHTML = results.map((result, index) => {
+        const displayName = result.display_name;
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+        
+        // Extraer información relevante
+        const city = result.address?.city || result.address?.town || result.address?.village || '';
+        const state = result.address?.state || result.address?.county || '';
+        const country = result.address?.country || '';
+        
+        let locationDetails = '';
+        if (city) locationDetails += city;
+        if (state && state !== city) locationDetails += (locationDetails ? ', ' : '') + state;
+        if (country && country !== state) locationDetails += (locationDetails ? ', ' : '') + country;
+        
+        return `
+            <div class="search-result-item" onclick="selectMapLocation(${lat}, ${lon}, '${displayName.replace(/'/g, "\\'")}', ${index})">
+                <div class="search-result-name">${displayName}</div>
+                <div class="search-result-details">${locationDetails}</div>
+            </div>
+        `;
+    }).join('');
+}
+
+function selectMapLocation(lat, lon, displayName, index) {
+    const resultsDiv = document.getElementById('map-location-search-results');
+    const searchInput = document.getElementById('map-location-search');
+    
+    // Ocultar resultados
+    resultsDiv.style.display = 'none';
+    
+    // Actualizar el input con el nombre seleccionado
+    searchInput.value = displayName;
+    
+    // Actualizar los campos de coordenadas
+    document.getElementById('latitude').value = lat.toFixed(4);
+    document.getElementById('longitude').value = lon.toFixed(4);
+    
+    // Animar el mapa hacia la ubicación
+    if (impactMap) {
+        impactMap.flyTo([lat, lon], 12, {
+            duration: 2,
+            easeLinearity: 0.25
+        });
     }
     
     console.log(`Ubicación seleccionada: ${displayName} (${lat}, ${lon})`);
@@ -1629,17 +1770,32 @@ async function runImpactSimulation() {
         };
         
         
+        // Actualizar progreso: Enviando datos al servidor
+        if (typeof updateProgressBar === 'function') {
+            updateProgressBar(10, 'Enviando datos al servidor...');
+        }
+        
         const response = await fetch('/api/simulate/impact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
         });
         
+        // Actualizar progreso: Procesando datos del servidor
+        if (typeof updateProgressBar === 'function') {
+            updateProgressBar(30, 'Procesando datos del servidor...');
+        }
+        
         const result = await response.json();
         
         if (result.success) {
             console.log('✅ Datos de API recibidos - PROCESANDO todos los datos...');
             console.log('🔄 Asteroide sigue orbitando mientras se procesan los datos...');
+            
+            // Actualizar progreso: Datos recibidos
+            if (typeof updateProgressBar === 'function') {
+                updateProgressBar(50, 'Datos recibidos - Preparando simulación...');
+            }
             
             // PRIMERO: Procesar TODOS los datos mientras el asteroide orbita
             await processAllSimulationData(result, params);
@@ -1731,35 +1887,6 @@ async function processAllSimulationData(result, params) {
             // Iniciar progreso - Paso 1: Cálculos básicos
             updateLoadingProgress(25, 'impact', 'Calculando impacto...');
             
-            console.log('📊 Procesando todos los datos de la simulación...');
-            console.log('Full Simulation Result:', result);
-            console.log(' Calculations Object:', result.calculations);
-            console.log(' Population Data:', result.population_affected);
-            console.log(' All result keys:', Object.keys(result));
-            console.log(' Calculations keys:', result.calculations ? Object.keys(result.calculations) : 'No calculations object');
-            console.log(' Direct result keys for energy:', {
-                impact_energy_mt: result.impact_energy_mt,
-                energy: result.energy,
-                impact_energy: result.impact_energy
-            });
-            console.log(' Severity object:', result.severity);
-            console.log(' Secondary effects:', result.secondary_effects);
-            console.log(' Secondary effects details:', result.secondary_effects.map(effect => ({
-                type: effect.type,
-                population_affected: effect.population_affected,
-                affected_population: effect.affected_population,
-                keys: Object.keys(effect)
-            })));
-            console.log(' Input object:', result.input);
-            console.log(' Input keys:', result.input ? Object.keys(result.input) : 'No input object');
-            if (result.input) {
-                console.log(' Input details:', JSON.stringify(result.input, null, 2));
-            }
-            console.log(' USGS Context:', result.usgs_context);
-            console.log(' USGS Context keys:', result.usgs_context ? Object.keys(result.usgs_context) : 'No USGS context');
-            if (result.usgs_context) {
-                console.log(' USGS Context details:', JSON.stringify(result.usgs_context, null, 2));
-            }
             
             // Extract data from the result object - more robust mapping
             const getValue = (paths, defaultValue = 0) => {
@@ -1954,6 +2081,9 @@ async function processAllSimulationData(result, params) {
             
             // Get population data BEFORE showing dashboard
             updateLoadingProgress(50, 'population', 'Analizando población...');
+            if (typeof updateProgressBar === 'function') {
+                updateProgressBar(60, 'Analizando población afectada...');
+            }
             
             const destructionRadius = result.calculations.destruction_radius_km;
             const damageRadius = result.calculations.damage_radius_km;
@@ -1962,11 +2092,6 @@ async function processAllSimulationData(result, params) {
             
             let populationData = { totalPopulation: 0 };
             try {
-                console.log(' Calling Overpass API with params:', {
-                    latitude: params.latitude,
-                    longitude: params.longitude,
-                    radius: maxRadius * 1000
-                });
                 
                 const citiesResponse = await fetch('/api/cities', {
                     method: 'POST',
@@ -1978,22 +2103,12 @@ async function processAllSimulationData(result, params) {
                     })
                 });
                 
-                console.log(' Overpass API Response status:', citiesResponse.status);
                 const citiesData = await citiesResponse.json();
-                console.log(' Overpass API Response:', citiesData);
-                console.log(' Cities found:', citiesData.cities ? citiesData.cities.length : 0);
-                console.log(' Total population:', citiesData.totalPopulation);
-                console.log(' Population in destruction zone:', citiesData.populationInDestructionZone);
-                console.log(' Population in damage zone:', citiesData.populationInDamageZone);
-                console.log(' Success status:', citiesData.success);
                 
                 if (citiesData.success && citiesData.totalPopulation) {
                     populationData = citiesData;
-                    console.log(` Population data obtained: ${citiesData.totalPopulation} people`);
                 } else {
-                    console.log('❌ No population data in Overpass response');
-                    console.log('❌ Response success:', citiesData.success);
-                    console.log('❌ Total population value:', citiesData.totalPopulation);
+                    console.error('❌ No population data in Overpass response');
                 }
             } catch (error) {
                 console.warn('❌ Error obteniendo población:', error);
@@ -2091,6 +2206,9 @@ async function processAllSimulationData(result, params) {
             // Completar población
             completeLoadingStep('population');
             updateLoadingProgress(75, 'flora-fauna', 'Identificando especies...');
+            if (typeof updateProgressBar === 'function') {
+                updateProgressBar(75, 'Identificando especies afectadas...');
+            }
             
         if (result.usgs_context) {
             // logUSGSData(result.usgs_context);  // Comentado temporalmente
@@ -2340,6 +2458,9 @@ async function processAllSimulationData(result, params) {
             // Completar todo
             completeLoadingStep('complete');
             updateLoadingProgress(100, 'complete', 'Listo');
+            if (typeof updateProgressBar === 'function') {
+                updateProgressBar(90, 'Datos procesados - Listo para simulación...');
+            }
             
             // Guardar todos los datos procesados para mostrarlos después del impacto
             processedSimulationData = {
@@ -2355,6 +2476,12 @@ async function displayProcessedResults() {
     if (!processedSimulationData) {
         console.error('❌ No hay datos procesados para mostrar');
         return;
+    }
+
+    // Asegurar que la leyenda del mapa esté visible cuando termine la simulación
+    const mapLegend = document.querySelector('.map-legend');
+    if (mapLegend) {
+        mapLegend.style.display = 'block';
     }
     
     const { result, params } = processedSimulationData;
@@ -2464,9 +2591,9 @@ async function getLocationInfo(lat, lon, destructionRadiusKm, damageRadiusKm) {
         
         console.log('Ubicación identificada:', displayName);
         
-        // 2. Obtener población REAL de la zona usando GeoNames API
-        console.log('Consultando APIs de población...');
-        const populationData = await getPopulationFromGeoNames(lat, lon, destructionRadiusKm, damageRadiusKm);
+        // 2. Obtener población REAL de la zona usando Overpass API
+        console.log('Consultando Overpass API para datos de población...');
+        const populationData = await getPopulationFromOverpass(lat, lon, destructionRadiusKm, damageRadiusKm, airPressureRadiusKm);
         
         console.log('Datos de población obtenidos:', populationData);
         
@@ -2489,118 +2616,187 @@ async function getLocationInfo(lat, lon, destructionRadiusKm, damageRadiusKm) {
     }
 }
 
-async function getPopulationFromGeoNames(lat, lon, destructionRadiusKm, damageRadiusKm) {
-    console.log(' Intentando GeoNames API como primera opción...');
+async function getPopulationFromOverpass(lat, lon, destructionRadiusKm, damageRadiusKm, airPressureRadiusKm) {
+    console.log('🔍 DEBUG getPopulationFromOverpass:');
+    console.log('Parámetros:', { lat, lon, destructionRadiusKm, damageRadiusKm, airPressureRadiusKm });
     
     try {
-        // Usar la API de GeoNames para buscar todos los asentamientos humanos
-        // Username gratuito de GeoNames (reemplazar con uno propio para producción)
-        const username = 'demo'; // Usar 'demo' para pruebas
+        // Convertir km a metros para Overpass API
+        const destructionRadiusM = Math.round(destructionRadiusKm * 1000);
+        const damageRadiusM = Math.round(damageRadiusKm * 1000);
+        const airPressureRadiusM = Math.round(airPressureRadiusKm * 1000);
         
-        // Buscar en un radio más amplio para asegurar detección
-        const maxRadius = Math.max(destructionRadiusKm, damageRadiusKm, 25); // Mínimo 25km para mejor cobertura
+        console.log('Radios en metros:', { destructionRadiusM, damageRadiusM, airPressureRadiusM });
         
-        console.log(`📡 Radio de búsqueda GeoNames: ${maxRadius}km`);
+        // Consulta Overpass para obtener ciudades, pueblos y aldeas
+        const query = `
+[out:json];
+(
+  node["place"~"city|town|village"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  way["place"~"city|town|village"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  relation["place"~"city|town|village"](around:${airPressureRadiusM}, ${lat}, ${lon});
+);
+out center;
+`;
         
-        // Hacer múltiples consultas para obtener todos los tipos de asentamientos
-        const queries = [
-            // Ciudades, pueblos y aldeas (featureClass=P)
-            `https://secure.geonames.org/findNearbyPlaceNameJSON?lat=${lat}&lng=${lon}&radius=${maxRadius}&maxRows=500&username=${username}&style=FULL&featureClass=P`,
-            // Divisiones administrativas con población (featureClass=A)
-            `https://secure.geonames.org/findNearbyPlaceNameJSON?lat=${lat}&lng=${lon}&radius=${maxRadius}&maxRows=200&username=${username}&style=FULL&featureClass=A`
-        ];
+        console.log('Query Overpass:', query);
         
-        const allPlaces = [];
+        const url = "http://overpass-api.de/api/interpreter";
+        const response = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: `data=${encodeURIComponent(query)}`
+        });
         
-        for (let i = 0; i < queries.length; i++) {
-            try {
-                console.log(` Consultando GeoNames query ${i + 1}/${queries.length}...`);
-                const response = await fetch(queries[i]);
-                if (response.ok) {
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
         const data = await response.json();
-                    if (data.geonames && data.geonames.length > 0) {
-                        console.log(` GeoNames query ${i + 1}: ${data.geonames.length} lugares encontrados`);
-                        allPlaces.push(...data.geonames);
-                    } else {
-                        console.log(`GeoNames query ${i + 1}: Sin lugares encontrados`);
-                    }
-                }
-                // Esperar un poco entre consultas para no saturar la API
-                await new Promise(resolve => setTimeout(resolve, 100));
-            } catch (error) {
-                console.warn(`❌ Error in GeoNames query ${i + 1}:`, error);
-            }
-        }
+        console.log('Respuesta Overpass:', data);
         
-        // Combinar y eliminar duplicados
-        const uniquePlaces = [];
-        const seenNames = new Set();
-        
-        for (const place of allPlaces) {
-            const key = `${place.name}-${place.lat}-${place.lng}`;
-            if (!seenNames.has(key) && place.population && parseInt(place.population) > 0) {
-                seenNames.add(key);
-                uniquePlaces.push(place);
-            }
-        }
-        
-        if (uniquePlaces.length === 0) {
+        if (!data.elements || data.elements.length === 0) {
+            console.log('❌ No se encontraron lugares en Overpass');
             return {
                 totalPopulation: 0,
-                nearestCity: null,
-                citiesInRange: [],
+                total_population: 0,
+                destruction_zone_population: 0,
+                damage_zone_population: 0,
+                air_pressure_zone_population: 0,
+                citiesInDestructionZone: [],
+                citiesInDamageZone: [],
+                citiesInAirPressureZone: [],
                 message: 'Área deshabitada o sin datos de población disponibles'
             };
         }
         
-        // Calcular población en cada zona
+        // Procesar resultados y calcular población estimada
+        const places = [];
+        
+        data.elements.forEach(element => {
+            const tags = element.tags || {};
+            const name = tags.name;
+            const placeType = tags.place;
+            
+            if (name && placeType) {
+                // Obtener coordenadas
+                let placeLat, placeLon;
+                if (element.type === 'node') {
+                    placeLat = element.lat;
+                    placeLon = element.lon;
+                } else if (element.center) {
+                    placeLat = element.center.lat;
+                    placeLon = element.center.lon;
+                } else {
+                    return; // Skip si no hay coordenadas
+                }
+                
+                // Calcular distancia desde el punto de impacto
+                const distance = calculateDistance(lat, lon, placeLat, placeLon);
+                
+                // Estimar población basada en el tipo de lugar
+                let estimatedPopulation = 0;
+                switch (placeType) {
+                    case 'city':
+                        estimatedPopulation = Math.floor(Math.random() * 500000) + 100000; // 100k-600k
+                        break;
+                    case 'town':
+                        estimatedPopulation = Math.floor(Math.random() * 50000) + 5000; // 5k-55k
+                        break;
+                    case 'village':
+                        estimatedPopulation = Math.floor(Math.random() * 2000) + 100; // 100-2.1k
+                        break;
+                    default:
+                        estimatedPopulation = Math.floor(Math.random() * 1000) + 50; // 50-1k
+                }
+                
+                places.push({
+                    name: name,
+                    type: placeType,
+                    population: estimatedPopulation,
+                    distance: distance,
+                    lat: placeLat,
+                    lon: placeLon
+                });
+            }
+        });
+        
+        console.log('Lugares encontrados:', places);
+        
+        // Clasificar por zonas
         const citiesInDestructionZone = [];
         const citiesInDamageZone = [];
+        const citiesInAirPressureZone = [];
+        
         let totalPopInDestruction = 0;
         let totalPopInDamage = 0;
+        let totalPopInAirPressure = 0;
         
-        uniquePlaces.forEach(place => {
-            // Calcular distancia desde el punto de impacto
-            const placeLat = parseFloat(place.lat);
-            const placeLng = parseFloat(place.lng);
-            const distance = calculateDistance(lat, lon, placeLat, placeLng);
-            const population = parseInt(place.population) || 0;
-            
-            if (population > 0) {
-            const cityInfo = {
-                name: place.name,
-                population: population,
-                distance: distance,
-                    countryName: place.countryName || place.adminName1,
-                    featureCode: place.fcode || 'unknown'
-            };
+        places.forEach(place => {
+            const { name, type, population, distance } = place;
             
             if (distance <= destructionRadiusKm) {
-                citiesInDestructionZone.push(cityInfo);
+                citiesInDestructionZone.push({
+                    name: name,
+                    population: population,
+                    distance: distance,
+                    type: type,
+                    mortalityRate: 0.95 // 95% mortalidad en zona de destrucción total
+                });
                 totalPopInDestruction += population;
             } else if (distance <= damageRadiusKm) {
-                citiesInDamageZone.push(cityInfo);
+                citiesInDamageZone.push({
+                    name: name,
+                    population: population,
+                    distance: distance,
+                    type: type,
+                    mortalityRate: 0.15 // 15% mortalidad en zona de daño severo
+                });
                 totalPopInDamage += population;
-                }
+            } else if (distance <= airPressureRadiusKm) {
+                citiesInAirPressureZone.push({
+                    name: name,
+                    population: population,
+                    distance: distance,
+                    type: type,
+                    mortalityRate: 0.05 // 5% mortalidad en zona de presión de aire
+                });
+                totalPopInAirPressure += population;
             }
         });
         
         // Ordenar por población (mayor a menor)
         citiesInDestructionZone.sort((a, b) => b.population - a.population);
         citiesInDamageZone.sort((a, b) => b.population - a.population);
+        citiesInAirPressureZone.sort((a, b) => b.population - a.population);
         
-        return {
-            totalPopulation: totalPopInDestruction + totalPopInDamage,
-            populationInDestructionZone: totalPopInDestruction,
-            populationInDamageZone: totalPopInDamage,
-            nearestCity: uniquePlaces[0] || null,
+        const totalPopulation = totalPopInDestruction + totalPopInDamage + totalPopInAirPressure;
+        
+        const result = {
+            totalPopulation: totalPopulation,
+            total_population: totalPopulation,
+            destruction_zone_population: totalPopInDestruction,
+            damage_zone_population: totalPopInDamage,
+            air_pressure_zone_population: totalPopInAirPressure,
             citiesInDestructionZone: citiesInDestructionZone,
             citiesInDamageZone: citiesInDamageZone,
+            citiesInAirPressureZone: citiesInAirPressureZone,
             message: null
         };
         
+        console.log('✅ Overpass: Datos de población encontrados:');
+        console.log('Total población:', result.totalPopulation);
+        console.log('Ciudades en zona destrucción:', citiesInDestructionZone.length);
+        console.log('Ciudades en zona daño:', citiesInDamageZone.length);
+        console.log('Ciudades en zona presión aire:', citiesInAirPressureZone.length);
+        console.log('Resultado completo:', result);
+        
+        return result;
+        
     } catch (error) {
-        console.error('Error fetching population from GeoNames:', error);
+        console.error('Error fetching population from Overpass:', error);
         return await getPopulationAlternative(lat, lon, destructionRadiusKm, damageRadiusKm);
     }
 }
@@ -2974,6 +3170,48 @@ function getCountryPopulation(countryName) {
 // MAP FUNCTIONALITY
 // ============================================
 
+// Variable global para almacenar la ubicación del usuario
+let userLocationData = null;
+
+// Función para centrar el mapa en la ubicación del usuario
+function centerMapOnUserLocation() {
+    if (!userLocationData) {
+        // Si no tenemos ubicación guardada, intentar obtenerla
+        getUserLocation().then(userLocation => {
+            userLocationData = userLocation;
+            centerMapOnUserLocation();
+        }).catch(error => {
+            console.log('No se pudo obtener la ubicación del usuario');
+            alert('No se pudo obtener tu ubicación. Asegúrate de permitir el acceso a la ubicación.');
+        });
+        return;
+    }
+    
+    if (impactMap) {
+        // Determinar el nivel de zoom según el método de detección
+        let zoomLevel;
+        if (userLocationData.method === 'ip') {
+            zoomLevel = 10;
+        } else if (userLocationData.method === 'gps') {
+            zoomLevel = 12;
+        } else {
+            zoomLevel = 8;
+        }
+        
+        // Hacer zoom animado a la ubicación del usuario
+        impactMap.flyTo([userLocationData.lat, userLocationData.lon], zoomLevel, {
+            duration: 2,
+            easeLinearity: 0.25
+        });
+        
+        // Actualizar los campos de entrada
+        document.getElementById('latitude').value = userLocationData.lat.toFixed(4);
+        document.getElementById('longitude').value = userLocationData.lon.toFixed(4);
+        
+        console.log('Mapa centrado en tu ubicación actual');
+    }
+}
+
 // Obtener ubicación aproximada del usuario usando su IP (sin permisos)
 async function getUserLocationByIP() {
     try {
@@ -3191,7 +3429,7 @@ function initializeImpactMap() {
         
         // Agregar control de capas al mapa
         const layerControl = L.control.layers(baseMaps, null, {
-            position: 'topright',
+            position: 'bottomleft',
             collapsed: false
         }).addTo(impactMap);
         
@@ -3305,28 +3543,12 @@ function initializeImpactMap() {
                     console.log(`Idioma detectado: ${detectedLang.toUpperCase()} para país: ${userLocation.country}`);
                 }
                 
-                // Determinar el nivel de zoom según el método de detección
-                let zoomLevel;
-                if (userLocation.method === 'ip') {
-                    // IP: menos preciso, zoom a nivel ciudad/región
-                    zoomLevel = 10;
-                    console.log(`Ubicación detectada por IP: ${userLocation.city || 'desconocida'}, ${userLocation.country || 'desconocido'}`);
-                } else if (userLocation.method === 'gps') {
-                    // GPS: más preciso, zoom a nivel barrio
-                    zoomLevel = 12;
-                    console.log('Ubicación GPS precisa detectada');
-                } else {
-                    // Fallback
-                    zoomLevel = 8;
-                }
+                // NO hacer zoom automático - solo guardar la ubicación para uso posterior
+                console.log(`Ubicación detectada: ${userLocation.city || 'desconocida'}, ${userLocation.country || 'desconocido'}`);
+                console.log('Ubicación guardada para uso manual - usa el botón "Mi Ubicación" para centrar');
                 
-                // Hacer zoom animado a la ubicación del usuario
-                if (impactMap) {
-                    impactMap.flyTo([userLocation.lat, userLocation.lon], zoomLevel, {
-                        duration: 2,
-                        easeLinearity: 0.25
-                    });
-                }
+                // Guardar la ubicación del usuario para uso posterior
+                userLocationData = userLocation;
                 
                 // Actualizar los campos de entrada con la ubicación del usuario
                 document.getElementById('latitude').value = userLocation.lat.toFixed(4);
@@ -3663,30 +3885,29 @@ function displayDeflectionResults(data) {
     
     let html = `
         <!-- Resultado principal -->
-        <div class="severity-badge" style="background: ${rec.color}20; border: 2px solid ${rec.color}; margin-bottom: 1.5rem;">
-            <div style="font-size: 18px; font-weight: bold;">${rec.verdict}</div>
-            <div style="font-size: 14px; margin-top: 0.5rem;">${rec.message}</div>
+        <div style="background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <div style="font-size: 18px; font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">${rec.verdict}</div>
+            <div style="font-size: 14px; color: var(--text-medium);">${rec.message}</div>
         </div>
         
         <!-- Estrategia probada -->
-        <div style="background: rgba(0,168,232,0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <strong style="font-size: 16px; color: #00A8E8;">📊 RESULTADO DE LA SIMULACIÓN</strong>
-            <hr style="border-color: #3A3A3A; margin: 12px 0;">
+        <div style="background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">RESULTADO DE LA SIMULACIÓN</div>
             
-            <div class="result-stat" style="background: rgba(0,168,232,0.1); margin-bottom: 0.5rem;">
-                <strong>Estrategia Probada:</strong><br>
-                ${result.strategy === 'kinetic_impactor' ? '🚀 Impactador Cinético' : '🛰️ Tractor de Gravedad'}
+            <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Estrategia Probada:</div>
+                <div style="color: var(--text-medium);">${result.strategy === 'kinetic_impactor' ? 'Impactador Cinético' : 'Tractor de Gravedad'}</div>
             </div>
             
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;">
-                <div class="result-stat">
-                    <strong>Cambio de Velocidad (Δv):</strong><br>
-                    ${result.delta_v.toFixed(6)} m/s
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
+                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px;">
+                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Cambio de Velocidad (Δv):</div>
+                    <div style="color: var(--text-medium);">${result.delta_v.toFixed(6)} m/s</div>
                 </div>
                 
-                <div class="result-stat">
-                    <strong>Distancia Deflectada:</strong><br>
-                    ${result.deflection_km.toLocaleString()} km
+                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px;">
+                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Distancia Deflectada:</div>
+                    <div style="color: var(--text-medium);">${result.deflection_km.toLocaleString()} km</div>
                 </div>
             </div>
         </div>
@@ -3695,76 +3916,92 @@ function displayDeflectionResults(data) {
     // Análisis del asteroide
     if (asteroidAnalysis) {
         html += `
-            <div style="background: rgba(255,193,7,0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                <strong style="color: #FFC107; font-size: 16px;">🎯 ANÁLISIS DEL ASTEROIDE</strong>
-                <hr style="border-color: #3A3A3A; margin: 12px 0;">
+            <div style="background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">ANÁLISIS DEL ASTEROIDE</div>
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 13px;">
-                    <div><strong>Masa:</strong> ${formatNumber(asteroidAnalysis.mass_kg)} kg</div>
-                    <div><strong>Energía:</strong> ${asteroidAnalysis.energy_mt.toFixed(2)} MT TNT</div>
-                    <div><strong>Composición:</strong> ${asteroidAnalysis.composition}</div>
-                    <div><strong>Riesgo Fragmentación:</strong> ${(asteroidAnalysis.fragmentation_risk * 100).toFixed(0)}%</div>
+                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
+                        <div style="font-weight: bold; color: var(--text-light);">Masa:</div>
+                        <div style="color: var(--text-medium);">${formatNumber(asteroidAnalysis.mass_kg)} kg</div>
+                    </div>
+                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
+                        <div style="font-weight: bold; color: var(--text-light);">Energía:</div>
+                        <div style="color: var(--text-medium);">${asteroidAnalysis.energy_mt.toFixed(2)} MT TNT</div>
+                    </div>
+                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
+                        <div style="font-weight: bold; color: var(--text-light);">Composición:</div>
+                        <div style="color: var(--text-medium);">${asteroidAnalysis.composition}</div>
+                    </div>
+                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
+                        <div style="font-weight: bold; color: var(--text-light);">Riesgo Fragmentación:</div>
+                        <div style="color: var(--text-medium);">${(asteroidAnalysis.fragmentation_risk * 100).toFixed(0)}%</div>
+                    </div>
                 </div>
             </div>
         `;
     }
     
-    // TABLA COMPARATIVA en lugar de 3D
+    // TABLA COMPARATIVA
     if (allStrategies.length > 0) {
         html += `
             <div style="margin-top: 1.5rem;">
-                <strong style="font-size: 16px; color: #00A8E8;">📊 COMPARACIÓN DE TODAS LAS ESTRATEGIAS (${allStrategies.length})</strong>
-                <hr style="border-color: #3A3A3A; margin: 12px 0;">
+                <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">COMPARACIÓN DE ESTRATEGIAS (${allStrategies.length})</div>
                 
-                <!-- Gráficos de barras horizontales -->
                 ${allStrategies.map((strat, index) => `
-                    <div style="margin: 1.5rem 0; padding: 1rem; background: ${index === 0 ? 'rgba(0,230,118,0.1)' : 'rgba(0,168,232,0.05)'}; border-radius: 8px; border-left: 4px solid ${index === 0 ? '#00E676' : '#00A8E8'};">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                    <div style="margin: 1.5rem 0; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 1.5rem;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <span style="font-size: 24px;">${strat.icon}</span>
-                                <strong style="font-size: 15px;">${strat.name}</strong>
-                                ${index === 0 ? '<span style="background: #00E676; color: black; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 10px; margin-left: 0.5rem;">RECOMENDADO</span>' : ''}
+                                <div style="font-size: 15px; font-weight: bold; color: var(--text-light);">${strat.name}</div>
+                                ${index === 0 ? '<div style="background: var(--primary-blue); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 10px; margin-left: 0.5rem;">RECOMENDADO</div>' : ''}
                             </div>
-                            <span style="font-size: 18px; color: ${getEffectivenessColor(strat.effectiveness)}; font-weight: bold;">${strat.effectiveness}%</span>
+                            <div style="font-size: 18px; color: var(--text-light); font-weight: bold;">${strat.effectiveness}%</div>
                         </div>
                         
                         <!-- Barra de efectividad -->
-                        <div style="background: var(--input-border); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 0.8rem;">
-                            <div style="
-                                width: ${strat.effectiveness}%; 
-                                height: 100%; 
-                                background: linear-gradient(90deg, #00A8E8, #00E676);
-                                transition: width 0.5s ease;
-                            "></div>
+                        <div style="background: var(--sidebar-bg); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 1rem;">
+                            <div style="width: ${strat.effectiveness}%; height: 100%; background: var(--primary-blue); transition: width 0.5s ease;"></div>
                         </div>
                         
-                        <div style="font-size: 11px; color: var(--text-medium); margin-bottom: 0.8rem;">
-                            ${strat.reference_mission ? `📡 ${strat.reference_mission} | ` : ''}
+                        <div style="font-size: 11px; color: var(--text-medium); margin-bottom: 1rem;">
+                            ${strat.reference_mission ? `${strat.reference_mission} | ` : ''}
                             ${strat.technology_readiness}
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 11px; margin-bottom: 0.8rem;">
-                            <div><strong>💰 Costo:</strong> $${strat.cost_billions}B</div>
-                            <div><strong>⏱️ Tiempo:</strong> ${strat.time_required_years} años</div>
-                            <div><strong>✅ Éxito:</strong> ${strat.success_rate}%</div>
-                            <div><strong>🚀 Δv:</strong> ${strat.delta_v_m_s} m/s</div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 12px; margin-bottom: 1rem;">
+                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
+                                <div style="font-weight: bold; color: var(--text-light);">Costo:</div>
+                                <div style="color: var(--text-medium);">$${strat.cost_billions}B</div>
+                            </div>
+                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
+                                <div style="font-weight: bold; color: var(--text-light);">Tiempo:</div>
+                                <div style="color: var(--text-medium);">${strat.time_required_years} años</div>
+                            </div>
+                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
+                                <div style="font-weight: bold; color: var(--text-light);">Éxito:</div>
+                                <div style="color: var(--text-medium);">${strat.success_rate}%</div>
+                            </div>
+                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
+                                <div style="font-weight: bold; color: var(--text-light);">Δv:</div>
+                                <div style="color: var(--text-medium);">${strat.delta_v_m_s} m/s</div>
+                            </div>
                         </div>
                         
-                        <div style="font-size: 11px; margin-bottom: 0.5rem;">
-                            <strong style="color: #00E676;">✓ Ventajas:</strong>
-                            <ul style="margin: 0.2rem 0 0 1.2rem; padding: 0;">
-                                ${strat.pros.map(p => `<li>${p}</li>`).join('')}
+                        <div style="font-size: 12px; margin-bottom: 1rem;">
+                            <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Ventajas:</div>
+                            <ul style="margin: 0; padding-left: 1.2rem; color: var(--text-medium);">
+                                ${strat.pros.map(p => `<li style="margin-bottom: 0.25rem;">${p}</li>`).join('')}
                             </ul>
                         </div>
                         
-                        <div style="font-size: 11px;">
-                            <strong style="color: #FF4444;">✗ Desventajas:</strong>
-                            <ul style="margin: 0.2rem 0 0 1.2rem; padding: 0;">
-                                ${strat.cons.map(c => `<li>${c}</li>`).join('')}
+                        <div style="font-size: 12px; margin-bottom: 1rem;">
+                            <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Desventajas:</div>
+                            <ul style="margin: 0; padding-left: 1.2rem; color: var(--text-medium);">
+                                ${strat.cons.map(c => `<li style="margin-bottom: 0.25rem;">${c}</li>`).join('')}
                             </ul>
                         </div>
                         
-                        <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 10px;">
-                            <strong>🎯 Mejor para:</strong> ${strat.best_for}
+                        <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px; font-size: 11px;">
+                            <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.25rem;">Mejor para:</div>
+                            <div style="color: var(--text-medium);">${strat.best_for}</div>
                         </div>
                     </div>
                 `).join('')}
@@ -3775,27 +4012,32 @@ function displayDeflectionResults(data) {
     // Requisitos técnicos
     if (techReq) {
         html += `
-            <div style="margin-top: 1.5rem; background: rgba(156,39,176,0.1); padding: 1.5rem; border-radius: 8px;">
-                <strong style="color: #9C27B0; font-size: 16px;">🛠️ REQUISITOS TÉCNICOS DE LA MISIÓN</strong>
-                <hr style="border-color: #3A3A3A; margin: 12px 0;">
+            <div style="margin-top: 1.5rem; background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px;">
+                <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">REQUISITOS TÉCNICOS DE LA MISIÓN</div>
                 
-                <div style="font-size: 12px; margin-bottom: 1rem;">
-                    <strong>Vehículo de Lanzamiento:</strong><br>
-                    ${techReq.launch_vehicle.required} | 
-                    ${techReq.launch_vehicle.launches_needed} lanzamiento(s) | 
-                    $${techReq.launch_vehicle.cost_per_launch_millions}M c/u
+                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Vehículo de Lanzamiento:</div>
+                    <div style="color: var(--text-medium); font-size: 12px;">
+                        ${techReq.launch_vehicle.required} | 
+                        ${techReq.launch_vehicle.launches_needed} lanzamiento(s) | 
+                        $${techReq.launch_vehicle.cost_per_launch_millions}M c/u
+                    </div>
                 </div>
                 
-                <div style="font-size: 12px; margin-bottom: 1rem;">
-                    <strong>Nave Espacial:</strong><br>
-                    Masa: ${techReq.spacecraft.total_mass_kg.toLocaleString()} kg | 
-                    Potencia: ${techReq.spacecraft.power_requirement_kw} kW
+                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
+                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Nave Espacial:</div>
+                    <div style="color: var(--text-medium); font-size: 12px;">
+                        Masa: ${techReq.spacecraft.total_mass_kg.toLocaleString()} kg | 
+                        Potencia: ${techReq.spacecraft.power_requirement_kw} kW
+                    </div>
                 </div>
                 
-                <div style="font-size: 12px;">
-                    <strong>Duración de la Misión:</strong><br>
-                    Crucero: ${techReq.mission_duration.cruise_phase_years} años | 
-                    Observación: ${techReq.mission_duration.post_impact_observation_months} meses
+                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px;">
+                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Duración de la Misión:</div>
+                    <div style="color: var(--text-medium); font-size: 12px;">
+                        Crucero: ${techReq.mission_duration.cruise_phase_years} años | 
+                        Observación: ${techReq.mission_duration.post_impact_observation_months} meses
+                    </div>
                 </div>
             </div>
         `;
@@ -3855,17 +4097,31 @@ function getDeflectionRecommendations(result) {
 
 function showLoading(show, asteroidData = null) {
     if (show) {
-        // Mostrar con animación 3D
-        if (typeof show3DLoading === 'function') {
-            show3DLoading(asteroidData);
+        // Ocultar la leyenda del mapa cuando inicie la simulación 3D
+        const mapLegend = document.querySelector('.map-legend');
+        if (mapLegend) {
+            mapLegend.style.display = 'none';
+        }
+        
+        // Mostrar con animación 3D en el mapa
+        if (typeof show3DInMap === 'function') {
+            show3DInMap(asteroidData);
         } else {
             // Fallback si la animación 3D no está cargada
             const overlay = document.getElementById('loading-overlay');
             overlay.style.display = 'flex';
         }
     } else {
+        // Mostrar la leyenda del mapa cuando termine la simulación 3D
+        const mapLegend = document.querySelector('.map-legend');
+        if (mapLegend) {
+            mapLegend.style.display = 'block';
+        }
+        
         // Ocultar
-        if (typeof hide3DLoading === 'function') {
+        if (typeof hide3DInMap === 'function') {
+            hide3DInMap();
+        } else if (typeof hide3DLoading === 'function') {
             hide3DLoading();
         } else {
             const overlay = document.getElementById('loading-overlay');
@@ -4857,6 +5113,162 @@ function hideBentoDashboard() {
 }
 
 // ============================================
+// MITIGATION STRATEGIES CALCULATION
+// ============================================
+
+function calculateMitigationStrategies(simulationData) {
+    const result = simulationData;
+    const calc = result.calculations;
+    const input = result.input;
+    
+    // Extraer parámetros del asteroide
+    const diameter = input.asteroid_diameter || 100;
+    const velocity = input.asteroid_velocity || 20000;
+    const energy = calc.energy_megatons_tnt || 1;
+    const destructionRadius = calc.destruction_radius_km || 5;
+    const damageRadius = calc.damage_radius_km || 15;
+    const composition = input.composition || 'rocky';
+    
+    // Calcular masa del asteroide
+    const density = composition === 'iron' ? 8000 : composition === 'stony' ? 3500 : 2500;
+    const mass = (4/3) * Math.PI * Math.pow(diameter/2, 3) * density * 1000; // kg
+    
+    // Determinar estrategia principal basada en el tamaño y tiempo disponible
+    let mainStrategy, alternatives, timeCritical, evacuation;
+    
+    if (energy < 0.1) {
+        // Impacto menor - enfoque en evacuación
+        mainStrategy = `IMPACTO MENOR (${energy.toFixed(3)} MT): Evacuación preventiva de población en radio de ${destructionRadius.toFixed(1)} km. El impacto será localizado con daños principalmente estructurales.`;
+        
+        alternatives = [
+            {
+                name: "Monitoreo Continuo",
+                description: "Establecer red de sensores sísmicos para detectar aproximación y activar alertas tempranas."
+            },
+            {
+                name: "Refugios de Emergencia",
+                description: "Preparar refugios subterráneos para población más vulnerable en caso de evacuación tardía."
+            }
+        ];
+        
+        timeCritical = "TIEMPO ÓPTIMO: 24-48 horas antes del impacto. Evacuación preventiva recomendada.";
+        
+        evacuation = [
+            `Evacuación inmediata en radio de ${destructionRadius.toFixed(1)} km (${(Math.PI * destructionRadius * destructionRadius).toFixed(0)} km²)`,
+            "Población de alto riesgo: niños, ancianos y personas con movilidad reducida",
+            "Rutas de evacuación hacia el norte y sur del punto de impacto",
+            "Puntos de reunión cada 20 km de distancia"
+        ];
+        
+    } else if (energy < 1) {
+        // Impacto moderado - deflexión + evacuación
+        mainStrategy = `IMPACTO MODERADO (${energy.toFixed(2)} MT): Combinación de deflexión con impacto cinético y evacuación de emergencia en radio de ${damageRadius.toFixed(1)} km.`;
+        
+        alternatives = [
+            {
+                name: "Impactador Cinético",
+                description: `Envío de nave de ${Math.round(mass * 0.01)} kg a velocidad de 11 km/s para desviar órbita del asteroide. Efectividad: 70-80%.`
+            },
+            {
+                name: "Tractor Gravitacional",
+                description: "Colocación de nave masiva cerca del asteroide para desviación gradual. Requiere 2-5 años de anticipación."
+            },
+            {
+                name: "Explosión Nuclear",
+                description: `Detonación nuclear de ${(energy * 0.5).toFixed(2)} MT en superficie para fragmentación. Último recurso.`
+            }
+        ];
+        
+        timeCritical = "TIEMPO CRÍTICO: 6-12 meses antes del impacto. Deflexión requiere tiempo de desarrollo y viaje.";
+        
+        evacuation = [
+            `Evacuación total en radio de ${damageRadius.toFixed(1)} km (${(Math.PI * damageRadius * damageRadius).toFixed(0)} km²)`,
+            "Evacuación de emergencia en radio de 50 km como zona de seguridad ampliada",
+            "Hospitales y servicios críticos deben ser reubicados fuera del área de riesgo",
+            "Sistemas de alerta temprana con sirenas cada 5 km"
+        ];
+        
+    } else if (energy < 10) {
+        // Impacto severo - múltiples estrategias
+        mainStrategy = `IMPACTO SEVERO (${energy.toFixed(1)} MT): Estrategia múltiple con deflexión nuclear, evacuación masiva y preparación para efectos secundarios en radio de ${(damageRadius * 2).toFixed(1)} km.`;
+        
+        alternatives = [
+            {
+                name: "Deflexión Nuclear",
+                description: `Múltiples detonaciones nucleares de ${(energy * 0.3).toFixed(1)} MT cada una para fragmentación y deflexión. Máxima efectividad.`
+            },
+            {
+                name: "Impactadores Múltiples",
+                description: "Envío de 3-5 naves impactadoras en secuencia para desviación acumulativa del asteroide."
+            },
+            {
+                name: "Laser Ablation",
+                description: "Sistema de láseres espaciales para vaporización de material superficial y propulsión por retroceso."
+            }
+        ];
+        
+        timeCritical = "TIEMPO CRÍTICO: 2-3 años antes del impacto. Desarrollo de tecnología nuclear espacial requerido.";
+        
+        evacuation = [
+            `Evacuación masiva en radio de ${(damageRadius * 2).toFixed(1)} km (${(Math.PI * damageRadius * damageRadius * 4).toFixed(0)} km²)`,
+            "Evacuación de emergencia en radio de 100 km para efectos secundarios",
+            "Relocalización de infraestructura crítica (hospitales, centrales eléctricas, aeropuertos)",
+            "Preparación para invierno nuclear: refugios con suministros para 6 meses"
+        ];
+        
+    } else {
+        // Impacto catastrófico - estrategias extremas
+        mainStrategy = `IMPACTO CATASTRÓFICO (${energy.toFixed(0)} MT): Deflexión nuclear masiva como única opción viable. Evacuación continental requerida. Efectos globales esperados.`;
+        
+        alternatives = [
+            {
+                name: "Deflexión Nuclear Masiva",
+                description: `Múltiples detonaciones nucleares de ${(energy * 0.2).toFixed(0)} MT cada una. Requiere arsenal nuclear completo y coordinación internacional.`
+            },
+            {
+                name: "Fragmentación Completa",
+                description: "Destrucción total del asteroide en fragmentos menores que se quemen en la atmósfera. Riesgo de múltiples impactos."
+            },
+            {
+                name: "Tractor Gravitacional Masivo",
+                description: "Colocación de múltiples naves masivas para desviación orbital completa. Requiere 5-10 años de anticipación."
+            }
+        ];
+        
+        timeCritical = "TIEMPO CRÍTICO: 5-10 años antes del impacto. Cooperación internacional y desarrollo tecnológico masivo requerido.";
+        
+        evacuation = [
+            "Evacuación continental: reubicación de población en hemisferio opuesto",
+            "Evacuación de emergencia en radio de 500 km del punto de impacto",
+            "Relocalización de capitales y centros de gobierno",
+            "Preparación para invierno nuclear global: refugios con suministros para 2 años"
+        ];
+    }
+    
+    // Ajustar estrategias basadas en composición
+    if (composition === 'iron') {
+        mainStrategy += " ASTEROIDE METÁLICO: Mayor resistencia a deflexión. Se requieren estrategias más agresivas.";
+        alternatives.push({
+            name: "Penetradores Nucleares",
+            description: "Penetradores con cabezas nucleares para detonación interna en asteroide metálico."
+        });
+    } else if (composition === 'cometary') {
+        mainStrategy += " ASTEROIDE COMETARIO: Mayor volatilidad. Riesgo de fragmentación incontrolada.";
+        alternatives.push({
+            name: "Calentamiento Gradual",
+            description: "Calentamiento controlado para sublimación de hielos y desviación por retroceso."
+        });
+    }
+    
+    return {
+        mainStrategy,
+        alternatives,
+        timeCritical,
+        evacuation
+    };
+}
+
+// ============================================
 // PDF GENERATION FUNCTIONALITY
 // ============================================
 
@@ -4893,6 +5305,15 @@ function downloadSimulationPDF() {
         const floraFaunaAnalysis = currentFullResults.flora_fauna_analysis || {};
         const tsunamiAnalysis = currentFullResults.tsunami_analysis || {};
         const secondaryEffects = currentFullResults.secondary_effects || [];
+        
+        // DEBUG: Imprimir datos de población
+        console.log('🔍 DEBUG PDF - Datos de población:');
+        console.log('currentFullResults:', currentFullResults);
+        console.log('locationInfo:', locationInfo);
+        console.log('popData:', popData);
+        console.log('popData.total_population:', popData.total_population);
+        console.log('popData.citiesInDestructionZone:', popData.citiesInDestructionZone);
+        console.log('popData.citiesInDamageZone:', popData.citiesInDamageZone);
         
         // ==========================================
         // PÁGINA 1: PORTADA CIENTÍFICA
@@ -5135,32 +5556,73 @@ function downloadSimulationPDF() {
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
         
-        // Fauna afectada
+        // Análisis detallado de fauna
         doc.setFont('helvetica', 'bold');
-        doc.text('Fauna Más Afectada:', margin + 5, yPos);
-        doc.setFont('helvetica', 'normal');
-        const fauna = document.getElementById('most-affected-fauna')?.textContent || 'N/A';
-        doc.text(fauna, margin + 60, yPos);
+        doc.text('FAUNA AFECTADA:', margin + 5, yPos);
         yPos += 7;
         
-        // Flora afectada
-        doc.setFont('helvetica', 'bold');
-        doc.text('Flora Más Afectada:', margin + 5, yPos);
-        doc.setFont('helvetica', 'normal');
-        const flora = document.getElementById('most-affected-flora')?.textContent || 'N/A';
-        doc.text(flora, margin + 60, yPos);
-        yPos += 7;
-        
-        // Biodiversidad detallada (GBIF API)
-        if (floraFaunaAnalysis && floraFaunaAnalysis.affected_species) {
-            yPos += 5;
-            doc.setFont('helvetica', 'bold');
-            doc.text('Especies en Peligro (GBIF):', margin + 5, yPos);
-            yPos += 7;
+        if (floraFaunaAnalysis && floraFaunaAnalysis.fauna_species && floraFaunaAnalysis.fauna_species.length > 0) {
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
-            const speciesText = `${floraFaunaAnalysis.affected_species.length} especies identificadas en zona de riesgo`;
-            doc.text(speciesText, margin + 10, yPos);
+            doc.text(`Total de especies de fauna identificadas: ${floraFaunaAnalysis.fauna_species.length}`, margin + 10, yPos);
+            yPos += 5;
+            
+            // Mostrar las 5 especies más relevantes
+            const topFauna = floraFaunaAnalysis.fauna_species.slice(0, 5);
+            topFauna.forEach((species, index) => {
+                if (yPos > pageHeight - 40) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                doc.text(`• ${species.scientific_name || species.name || 'Especie no identificada'}`, margin + 15, yPos);
+                if (species.common_name) {
+                    doc.text(`  (${species.common_name})`, margin + 20, yPos + 4);
+                    yPos += 4;
+                }
+                yPos += 6;
+            });
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...textSecondary);
+            doc.text('No se encontraron datos específicos de fauna en la zona', margin + 10, yPos);
+            yPos += 5;
+        }
+        
+        yPos += 5;
+        
+        // Análisis detallado de flora
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.text('FLORA AFECTADA:', margin + 5, yPos);
+        yPos += 7;
+        
+        if (floraFaunaAnalysis && floraFaunaAnalysis.flora_species && floraFaunaAnalysis.flora_species.length > 0) {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.text(`Total de especies de flora identificadas: ${floraFaunaAnalysis.flora_species.length}`, margin + 10, yPos);
+            yPos += 5;
+            
+            // Mostrar las 5 especies más relevantes
+            const topFlora = floraFaunaAnalysis.flora_species.slice(0, 5);
+            topFlora.forEach((species, index) => {
+                if (yPos > pageHeight - 40) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                doc.text(`• ${species.scientific_name || species.name || 'Especie no identificada'}`, margin + 15, yPos);
+                if (species.common_name) {
+                    doc.text(`  (${species.common_name})`, margin + 20, yPos + 4);
+                    yPos += 4;
+                }
+                yPos += 6;
+            });
+        } else {
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...textSecondary);
+            doc.text('No se encontraron datos específicos de flora en la zona', margin + 10, yPos);
             yPos += 5;
         }
         
@@ -5176,7 +5638,7 @@ function downloadSimulationPDF() {
         doc.setFontSize(16);
         doc.setTextColor(...dangerColor);
         doc.setFont('helvetica', 'bold');
-        doc.text('5. POBLACIÓN AFECTADA (GeoNames API)', margin, yPos);
+        doc.text('5. POBLACIÓN AFECTADA', margin, yPos);
         
         yPos += 10;
         doc.setFontSize(10);
@@ -5184,6 +5646,9 @@ function downloadSimulationPDF() {
         doc.setFont('helvetica', 'normal');
         
         if (popData && popData.total_population > 0) {
+            console.log('✅ PDF: Hay datos de población, mostrando información detallada');
+            console.log('Población total:', popData.total_population);
+            
             // Población total
             doc.setFont('helvetica', 'bold');
             doc.text('Población Total en Zona de Riesgo:', margin + 5, yPos);
@@ -5192,48 +5657,240 @@ function downloadSimulationPDF() {
             doc.text(popData.total_population.toLocaleString() + ' personas', margin + 80, yPos);
             yPos += 10;
             
-            // Desglose por zonas
+            // Resumen por zonas con tasas de mortalidad
             doc.setFontSize(10);
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
-            doc.text('Desglose por Zonas:', margin + 5, yPos);
+            doc.text('RESUMEN POR ZONAS DE IMPACTO:', margin + 5, yPos);
             yPos += 7;
             
-            doc.setFont('helvetica', 'normal');
+            // Zona de destrucción total (95% mortalidad)
+            if (popData.destruction_zone_population > 0) {
+                const victims = Math.round(popData.destruction_zone_population * 0.95);
+                doc.setTextColor(...dangerColor);
+                doc.setFont('helvetica', 'bold');
+                doc.text('ZONA DE DESTRUCCIÓN TOTAL (95% mortalidad):', margin + 10, yPos);
+                doc.text(`${popData.destruction_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
+                yPos += 6;
+            }
+            
+            // Zona de daño severo (15% mortalidad)
+            if (popData.damage_zone_population > 0) {
+                const victims = Math.round(popData.damage_zone_population * 0.15);
+                doc.setTextColor(255, 140, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.text('ZONA DE DAÑO SEVERO (15% mortalidad):', margin + 10, yPos);
+                doc.text(`${popData.damage_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
+                yPos += 6;
+            }
+            
+            // Zona de presión de aire (5% mortalidad)
+            if (popData.air_pressure_zone_population > 0) {
+                const victims = Math.round(popData.air_pressure_zone_population * 0.05);
+                doc.setTextColor(255, 193, 7);
+                doc.setFont('helvetica', 'bold');
+                doc.text('ZONA DE PRESIÓN DE AIRE (5% mortalidad):', margin + 10, yPos);
+                doc.text(`${popData.air_pressure_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
+                yPos += 6;
+            }
+            
+            // Total de víctimas estimadas
+            const totalVictims = Math.round(
+                (popData.destruction_zone_population || 0) * 0.95 + 
+                (popData.damage_zone_population || 0) * 0.15 + 
+                (popData.air_pressure_zone_population || 0) * 0.05
+            );
+            
+            yPos += 5;
+            doc.setFontSize(12);
+            doc.setTextColor(...dangerColor);
+            doc.setFont('helvetica', 'bold');
+            doc.text('TOTAL DE VÍCTIMAS ESTIMADAS:', margin + 5, yPos);
+            doc.setFontSize(14);
+            doc.text(`${totalVictims.toLocaleString()} personas`, margin + 80, yPos);
+            yPos += 10;
+            
+            // Desglose por zonas con ciudades específicas
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Poblaciones Afectadas por Zona:', margin + 5, yPos);
+            yPos += 7;
             
             // Zona de destrucción total
-            if (popData.destruction_zone_population) {
+            if (popData.destruction_zone_population && popData.citiesInDestructionZone) {
                 doc.setTextColor(...dangerColor);
-                doc.text('• Zona de Destrucción Total:', margin + 10, yPos);
+                doc.text('ZONA DE DESTRUCCIÓN TOTAL:', margin + 10, yPos);
                 doc.text(popData.destruction_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
                 yPos += 6;
+                
+                // Mostrar ciudades específicas en zona de destrucción
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                const topDestructionCities = popData.citiesInDestructionZone.slice(0, 5);
+                topDestructionCities.forEach((city, index) => {
+                    if (yPos > pageHeight - 40) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    const victims = Math.round(city.population * 0.95); // 95% mortalidad en zona de destrucción
+                    doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`, margin + 15, yPos);
+                    yPos += 5;
+                });
+                yPos += 3;
             }
             
             // Zona de daño severo
-            if (popData.damage_zone_population) {
+            if (popData.damage_zone_population && popData.citiesInDamageZone) {
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'bold');
                 doc.setTextColor(255, 140, 0);
-                doc.text('• Zona de Daño Severo:', margin + 10, yPos);
+                doc.text('ZONA DE DAÑO SEVERO:', margin + 10, yPos);
                 doc.text(popData.damage_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
                 yPos += 6;
+                
+                // Mostrar ciudades específicas en zona de daño
+                doc.setFontSize(9);
+                doc.setFont('helvetica', 'normal');
+                const topDamageCities = popData.citiesInDamageZone.slice(0, 5);
+                topDamageCities.forEach((city, index) => {
+                    if (yPos > pageHeight - 40) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    const victims = Math.round(city.population * 0.15); // 15% mortalidad en zona de daño
+                    doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`, margin + 15, yPos);
+                    yPos += 5;
+                });
+                yPos += 3;
             }
             
-            // Ciudades principales afectadas
-            if (popData.major_cities && popData.major_cities.length > 0) {
+            // Todas las ciudades en zona de destrucción (si hay más de 5)
+            if (popData.citiesInDestructionZone && popData.citiesInDestructionZone.length > 5) {
                 yPos += 5;
-                doc.setTextColor(0, 0, 0);
+                if (yPos > pageHeight - 60) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
                 doc.setFont('helvetica', 'bold');
-                doc.text('Ciudades Principales Afectadas:', margin + 5, yPos);
+                doc.setFontSize(10);
+                doc.setTextColor(...dangerColor);
+                doc.text(`TODAS LAS CIUDADES EN ZONA DE DESTRUCCIÓN (${popData.citiesInDestructionZone.length} ciudades):`, margin + 5, yPos);
                 yPos += 7;
                 
                 doc.setFont('helvetica', 'normal');
-                popData.major_cities.slice(0, 5).forEach(city => {
-                    const cityText = `• ${city.name}: ${city.population.toLocaleString()} hab. (${city.distance_km.toFixed(1)} km del impacto)`;
+                doc.setFontSize(8);
+                doc.setTextColor(0, 0, 0);
+                
+                popData.citiesInDestructionZone.forEach((city, index) => {
+                    if (yPos > pageHeight - 40) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    const victims = Math.round(city.population * 0.95);
+                    const cityText = `${index + 1}. ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`;
                     const splitText = doc.splitTextToSize(cityText, contentWidth - 15);
                     doc.text(splitText, margin + 10, yPos);
-                    yPos += splitText.length * 5;
+                    yPos += splitText.length * 3 + 2;
                 });
             }
+            
+            // Todas las ciudades en zona de daño (si hay más de 5)
+            if (popData.citiesInDamageZone && popData.citiesInDamageZone.length > 5) {
+                yPos += 5;
+                if (yPos > pageHeight - 60) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(255, 140, 0);
+                doc.text(`TODAS LAS CIUDADES EN ZONA DE DAÑO SEVERO (${popData.citiesInDamageZone.length} ciudades):`, margin + 5, yPos);
+                yPos += 7;
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(8);
+                doc.setTextColor(0, 0, 0);
+                
+                popData.citiesInDamageZone.forEach((city, index) => {
+                    if (yPos > pageHeight - 40) {
+                        doc.addPage();
+                        yPos = 20;
+                    }
+                    
+                    const victims = Math.round(city.population * 0.15);
+                    const cityText = `${index + 1}. ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`;
+                    const splitText = doc.splitTextToSize(cityText, contentWidth - 15);
+                    doc.text(splitText, margin + 10, yPos);
+                    yPos += splitText.length * 3 + 2;
+                });
+            }
+            
+            // Ciudad más cercana al impacto
+            if (popData.nearestCity) {
+                yPos += 5;
+                if (yPos > pageHeight - 40) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                
+                doc.setFont('helvetica', 'bold');
+                doc.setFontSize(10);
+                doc.setTextColor(...primaryColor);
+                doc.text('CIUDAD MÁS CERCANA AL IMPACTO:', margin + 5, yPos);
+                yPos += 7;
+                
+                doc.setFont('helvetica', 'normal');
+                doc.setFontSize(9);
+                doc.setTextColor(0, 0, 0);
+                const nearestText = `• ${popData.nearestCity.name}: ${popData.nearestCity.population.toLocaleString()} habitantes - Distancia: ${popData.nearestCity.distance.toFixed(1)} km`;
+                const splitNearest = doc.splitTextToSize(nearestText, contentWidth - 10);
+                doc.text(splitNearest, margin + 10, yPos);
+                yPos += splitNearest.length * 4 + 3;
+            }
+            
+            // Resumen estadístico
+            yPos += 5;
+            if (yPos > pageHeight - 60) {
+                doc.addPage();
+                yPos = 20;
+            }
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(...textPrimary);
+            doc.text('RESUMEN ESTADÍSTICO:', margin + 5, yPos);
+            yPos += 7;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...textSecondary);
+            
+            const stats = [
+                `Total de ciudades afectadas: ${(popData.citiesInDestructionZone?.length || 0) + (popData.citiesInDamageZone?.length || 0)}`,
+                `Ciudades en zona de destrucción: ${popData.citiesInDestructionZone?.length || 0}`,
+                `Ciudades en zona de daño: ${popData.citiesInDamageZone?.length || 0}`,
+                `Población total afectada: ${popData.total_population.toLocaleString()} personas`,
+                `Víctimas estimadas totales: ${Math.round((popData.destruction_zone_population || 0) * 0.95 + (popData.damage_zone_population || 0) * 0.15).toLocaleString()} personas`
+            ];
+            
+            stats.forEach(stat => {
+                if (yPos > pageHeight - 40) {
+                    doc.addPage();
+                    yPos = 20;
+                }
+                doc.text(`• ${stat}`, margin + 10, yPos);
+                yPos += 5;
+            });
         } else {
+            console.log('❌ PDF: No hay datos de población significativa');
+            console.log('popData existe:', !!popData);
+            console.log('popData.total_population:', popData?.total_population);
+            console.log('popData es:', popData);
+            
             doc.setFont('helvetica', 'italic');
             doc.setTextColor(100, 100, 100);
             doc.text('No hay población significativa en la zona de impacto', margin + 5, yPos);
@@ -5495,20 +6152,89 @@ function downloadSimulationPDF() {
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
         
-        const recommendations = [
-            'Evacuación inmediata de la población en un radio de ' + destructionRadius,
-            'Establecer un perímetro de seguridad ampliado',
-            'Alertar a servicios de emergencia y hospitales cercanos',
-            'Preparar refugios para la población desplazada',
-            'Monitorear actividad sísmica posterior al impacto',
-            'Coordinar con autoridades locales y nacionales'
-        ];
+        // Calcular estrategias de mitigación específicas
+        const mitigationStrategies = calculateMitigationStrategies(currentFullResults);
         
-        recommendations.forEach((rec, index) => {
+        // Título de subsección
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(12);
+        doc.setTextColor(...primaryColor);
+        doc.text('ESTRATEGIAS DE MITIGACIÓN RECOMENDADAS:', margin + 5, yPos);
+        yPos += 8;
+        
+        // Estrategia principal
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...successColor);
+        doc.text('ESTRATEGIA PRINCIPAL:', margin + 5, yPos);
+        yPos += 6;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        const mainStrategy = doc.splitTextToSize(mitigationStrategies.mainStrategy, contentWidth - 10);
+        doc.text(mainStrategy, margin + 10, yPos);
+        yPos += mainStrategy.length * 5 + 5;
+        
+        // Estrategias alternativas
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...warningColor);
+        doc.text('ESTRATEGIAS ALTERNATIVAS:', margin + 5, yPos);
+        yPos += 6;
+        
+        mitigationStrategies.alternatives.forEach((strategy, index) => {
+            if (yPos > pageHeight - 60) {
+                doc.addPage();
+                yPos = 20;
+            }
+            
+            doc.setFont('helvetica', 'bold');
+            doc.setFontSize(10);
+            doc.setTextColor(...textPrimary);
+            doc.text(`${index + 1}. ${strategy.name}:`, margin + 10, yPos);
+            yPos += 5;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            doc.setTextColor(...textSecondary);
+            const strategyText = doc.splitTextToSize(strategy.description, contentWidth - 15);
+            doc.text(strategyText, margin + 15, yPos);
+            yPos += strategyText.length * 4 + 3;
+        });
+        
+        // Tiempo de respuesta requerido
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...dangerColor);
+        doc.text('TIEMPO DE RESPUESTA CRÍTICO:', margin + 5, yPos);
+        yPos += 6;
+        
+        doc.setFont('helvetica', 'normal');
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        const timeText = doc.splitTextToSize(mitigationStrategies.timeCritical, contentWidth - 10);
+        doc.text(timeText, margin + 10, yPos);
+        yPos += timeText.length * 5 + 5;
+        
+        // Recomendaciones de evacuación específicas
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.setTextColor(...dangerColor);
+        doc.text('PLAN DE EVACUACIÓN:', margin + 5, yPos);
+        yPos += 6;
+        
+        mitigationStrategies.evacuation.forEach((rec, index) => {
+            if (yPos > pageHeight - 40) {
+                doc.addPage();
+                yPos = 20;
+            }
+            
             const text = `${index + 1}. ${rec}`;
             const splitRec = doc.splitTextToSize(text, contentWidth - 10);
-            doc.text(splitRec, margin + 5, yPos);
-            yPos += splitRec.length * 5 + 5;
+            doc.text(splitRec, margin + 10, yPos);
+            yPos += splitRec.length * 4 + 3;
         });
         
         // ==========================================
@@ -5576,5 +6302,92 @@ document.addEventListener('keydown', (e) => {
         closeDeflectionModal();
     }
 });
+
+// ============================================
+// FUNCIÓN DE AUTO-ZOOM A ZONA DE IMPACTO
+// ============================================
+function zoomToImpactZone() {
+    // Verificar que tenemos datos procesados
+    if (!processedSimulationData) {
+        console.error('❌ No hay datos de simulación procesados para hacer zoom');
+        return;
+    }
+    
+    const { result } = processedSimulationData;
+    
+    if (!result || !result.input || !result.input.impact_location) {
+        console.error('❌ No hay ubicación de impacto en los datos procesados');
+        return;
+    }
+    
+    const lat = result.input.impact_location.lat;
+    const lon = result.input.impact_location.lon;
+    
+    if (!lat || !lon) {
+        console.error('❌ Coordenadas de impacto inválidas');
+        return;
+    }
+    
+    // Verificar que el mapa esté inicializado con un retry
+    let retryCount = 0;
+    const maxRetries = 10;
+    
+    const attemptZoom = () => {
+        if (!impactMap) {
+            retryCount++;
+            if (retryCount < maxRetries) {
+                setTimeout(attemptZoom, 500);
+                return;
+            } else {
+                console.error('❌ El mapa no se inicializó después de múltiples intentos');
+                return;
+            }
+        }
+        
+        // Calcular el zoom apropiado basado en el radio de destrucción
+        let zoomLevel = 10; // Zoom por defecto
+        
+        if (result.calculations && result.calculations.destruction_radius_km) {
+            const destructionRadius = result.calculations.destruction_radius_km;
+            
+            // Ajustar zoom basado en el radio de destrucción
+            if (destructionRadius < 5) {
+                zoomLevel = 12; // Zoom más cercano para impactos pequeños
+            } else if (destructionRadius < 20) {
+                zoomLevel = 11;
+            } else if (destructionRadius < 50) {
+                zoomLevel = 10;
+            } else {
+                zoomLevel = 9; // Zoom más lejano para impactos grandes
+            }
+        }
+        
+        // Hacer zoom suave a la ubicación de impacto
+        try {
+            // Asegurar que las coordenadas sean números válidos
+            const impactLat = parseFloat(lat);
+            const impactLon = parseFloat(lon);
+            
+            if (isNaN(impactLat) || isNaN(impactLon)) {
+                console.error('❌ Coordenadas no son números válidos:', lat, lon);
+                return;
+            }
+            
+            impactMap.flyTo([impactLat, impactLon], zoomLevel, {
+                duration: 2.5, // Duración de 2.5 segundos
+                easeLinearity: 0.25,
+                animate: true
+            });
+            
+        } catch (error) {
+            console.error('❌ Error al hacer zoom:', error);
+        }
+    };
+    
+    attemptZoom();
+}
+
+// Exponer la función globalmente
+window.zoomToImpactZone = zoomToImpactZone;
 
 
