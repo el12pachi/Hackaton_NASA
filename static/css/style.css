@@ -1055,7 +1055,8 @@ body {
 }
 
 .control-group select,
-.control-group input[type="number"] {
+.control-group input[type="number"],
+.control-group input[type="text"] {
     width: 100%;
     padding: 0.625rem 0.75rem;
     border: 1px solid var(--input-border);
@@ -1067,10 +1068,21 @@ body {
 }
 
 .control-group select:focus,
-.control-group input[type="number"]:focus {
+.control-group input[type="number"]:focus,
+.control-group input[type="text"]:focus {
     outline: none;
     border-color: var(--input-focus);
     box-shadow: 0 0 0 3px rgba(0, 168, 232, 0.2);
+}
+
+/* Estilo para el campo de asteroide seleccionado (readonly pero clickeable) */
+.control-group input[type="text"][readonly] {
+    cursor: pointer;
+}
+
+.control-group input[type="text"][readonly]:hover {
+    border-color: var(--primary-blue);
+    background: rgba(0, 168, 232, 0.05);
 }
 
 .control-group input[type="range"] {

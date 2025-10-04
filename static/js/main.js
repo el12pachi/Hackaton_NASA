@@ -144,53 +144,7 @@ function setupRewardsEventListeners() {
         });
     }
     
-    // Select de asteroides - manejar opciones especiales
-    const asteroidSelect = document.getElementById('asteroid-select');
-    if (asteroidSelect) {
-        asteroidSelect.addEventListener('change', (e) => {
-            const value = e.target.value;
-            
-            switch(value) {
-                case 'rewards':
-                    openModal('rewards-modal');
-                    asteroidSelect.value = 'custom'; // Reset select
-                    break;
-                case 'apocalypse':
-                    activateSpecialMode('apocalypse');
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'defender':
-                    activateSpecialMode('defender');
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'scientist':
-                    activateSpecialMode('scientist');
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'challenge':
-                    activateChallengeMode();
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'asteroid-info':
-                    openModal('asteroid-info-modal');
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'tutorial':
-                    openModal('tutorial-modal');
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'settings':
-                    openModal('settings-modal');
-                    asteroidSelect.value = 'custom';
-                    break;
-                case 'stats':
-                    openModal('stats-modal');
-                    updateStatsModal();
-                    asteroidSelect.value = 'custom';
-                    break;
-            }
-        });
-    }
+    // Event listener del select de asteroides eliminado - ya no se usa el selector
     
     // Browse asteroids button
     const browseBtn = document.getElementById('browse-asteroids-btn');
@@ -756,11 +710,7 @@ function showAsteroidDetails(asteroid) {
     `;
 }
 
-function useAsteroidInSimulation(asteroidId) {
-    // This would load the asteroid data into the simulation controls
-    showNotification('Asteroide cargado en la simulación', 'success');
-    closeModal('asteroid-info-modal');
-}
+// Función obsoleta eliminada - se usa useAsteroidFromList o la versión sin parámetros
 
 // ============================================
 // ASTEROIDS BROWSER FUNCTIONALITY
@@ -878,7 +828,9 @@ function openAsteroidsBrowser() {
 
 function closeAsteroidsBrowser() {
     const modal = document.getElementById('asteroids-browser-modal');
-    modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
     document.body.style.overflow = 'auto';
 }
 
@@ -891,11 +843,44 @@ function useAsteroidFromList(index) {
     document.getElementById('velocity').value = asteroid.velocity_km_s;
     document.getElementById('angle').value = 45; // Ángulo por defecto
     
-    // Actualizar displays
-    updateSliderDisplays();
+    // Actualizar el campo de texto con el nombre del asteroide
+    const asteroidNameInput = document.getElementById('asteroid-name');
+    const asteroidIdInput = document.getElementById('selected-asteroid-id');
+    if (asteroidNameInput) {
+        asteroidNameInput.value = `${asteroid.name} (${Math.round(avgDiameter)}m, ${asteroid.velocity_km_s} km/s)`;
+        
+        // Agregar efecto visual de selección
+        asteroidNameInput.style.transition = 'all 0.3s ease';
+        asteroidNameInput.style.borderColor = 'var(--success)';
+        asteroidNameInput.style.boxShadow = '0 0 0 3px rgba(0, 230, 118, 0.2)';
+        
+        setTimeout(() => {
+            asteroidNameInput.style.borderColor = '';
+            asteroidNameInput.style.boxShadow = '';
+        }, 1500);
+    }
+    if (asteroidIdInput) {
+        asteroidIdInput.value = asteroid.id;
+    }
     
-    // Cerrar modal
+    // Actualizar displays de los sliders
+    const diameterDisplay = document.getElementById('diameter-value');
+    const velocityDisplay = document.getElementById('velocity-value');
+    const angleDisplay = document.getElementById('angle-value');
+    
+    if (diameterDisplay) {
+        diameterDisplay.textContent = Math.round(avgDiameter) + ' m';
+    }
+    if (velocityDisplay) {
+        velocityDisplay.textContent = asteroid.velocity_km_s + ' km/s';
+    }
+    if (angleDisplay) {
+        angleDisplay.textContent = '45°';
+    }
+    
+    // Cerrar todos los modales de asteroides que puedan estar abiertos
     closeAsteroidsBrowser();
+    closeAsteroidDetail();
     
     // Mostrar notificación
     showNotification(`Asteroide "${asteroid.name}" cargado en la simulación`, 'success');
@@ -963,14 +948,16 @@ function showAsteroidDetail(index) {
 
 function closeAsteroidDetail() {
     const modal = document.getElementById('asteroid-detail-modal');
-    modal.style.display = 'none';
+    if (modal) {
+        modal.style.display = 'none';
+    }
     document.body.style.overflow = 'auto';
 }
 
 function useAsteroidInSimulation() {
     if (window.selectedAsteroidIndex !== undefined) {
         useAsteroidFromList(window.selectedAsteroidIndex);
-        closeAsteroidDetail();
+        // No es necesario cerrar aquí, useAsteroidFromList ya cierra todos los modales
     }
 }
 
@@ -1112,10 +1099,13 @@ function setupSimulationMode() {
     setupRangeInput('velocity', 'velocity-value', ' km/s');
     setupRangeInput('angle', 'angle-value', '°');
     
-    // Asteroid selection
-    const asteroidSelect = document.getElementById('asteroid-select');
-    if (asteroidSelect) {
-        asteroidSelect.addEventListener('change', handleAsteroidSelection);
+    // Asteroid name field - make it open the browser when clicked
+    const asteroidNameInput = document.getElementById('asteroid-name');
+    const browseBtn = document.getElementById('browse-asteroids-btn');
+    if (asteroidNameInput && browseBtn) {
+        asteroidNameInput.addEventListener('click', () => {
+            browseBtn.click();
+        });
     }
     
     // Simulate button
@@ -1141,28 +1131,7 @@ function setupRangeInput(id, displayId, suffix = '') {
     }
 }
 
-function handleAsteroidSelection(e) {
-    const asteroidId = e.target.value;
-    
-    if (asteroidId === 'custom') {
-        return;
-    }
-    
-    // Find asteroid in loaded data
-    if (currentAsteroidData && currentAsteroidData.asteroids) {
-        const asteroid = currentAsteroidData.asteroids.find(a => a.id === asteroidId);
-        if (asteroid) {
-            // Auto-fill parameters
-            const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
-            document.getElementById('diameter').value = Math.round(avgDiameter);
-            document.getElementById('diameter-value').textContent = Math.round(avgDiameter) + ' m';
-            
-            const velocity = asteroid.velocity_km_s;
-            document.getElementById('velocity').value = Math.round(velocity);
-            document.getElementById('velocity-value').textContent = Math.round(velocity) + ' km/s';
-        }
-    }
-}
+// Función handleAsteroidSelection eliminada - ahora se usa el explorador de asteroides para seleccionar
 
 // Función eliminada - interfaz simplificada
 
@@ -1345,8 +1314,6 @@ function applyNasaDataToSimulation(asteroidId, diameter, velocity) {
 }
 
 async function loadNEOData() {
-    const asteroidSelect = document.getElementById('asteroid-select');
-    
     try {
         console.log('Cargando datos de asteroides de la NASA...');
         
@@ -1355,57 +1322,17 @@ async function loadNEOData() {
         
         if (data.success && data.asteroids && data.asteroids.length > 0) {
             currentAsteroidData = data;
-            populateAsteroidSelector(data.asteroids);
-            console.log(`Cargados ${data.count} asteroides de la NASA`);
+            console.log(`Cargados ${data.count} asteroides de la NASA (disponibles en el explorador)`);
         } else {
             throw new Error(data.message || 'No se pudieron obtener datos de asteroides');
         }
     } catch (error) {
-        console.error('❌ Error cargando datos de la NASA:', error);
-        
-        // Limpiar selector y mostrar error
-        while (asteroidSelect.children.length > 1) {
-            asteroidSelect.removeChild(asteroidSelect.lastChild);
-        }
-        
-        // Agregar opción de error
-        const errorOption = document.createElement('option');
-        errorOption.value = 'error';
-        errorOption.textContent = '❌ Error cargando datos de la NASA';
-        errorOption.disabled = true;
-        asteroidSelect.appendChild(errorOption);
+        console.error('Error cargando datos de la NASA:', error);
+        // Los datos se cargarán dinámicamente al abrir el explorador si no están disponibles
     }
 }
 
-function populateAsteroidSelector(asteroids) {
-    const select = document.getElementById('asteroid-select');
-    
-    // Limpiar opciones anteriores (mantener solo "Personalizado")
-    while (select.children.length > 1) {
-        select.removeChild(select.lastChild);
-    }
-    
-    // Agregar asteroides reales de la NASA
-    asteroids.forEach(asteroid => {
-        const option = document.createElement('option');
-        option.value = asteroid.id;
-        
-        // Crear texto descriptivo
-        let displayText = asteroid.name;
-        if (asteroid.is_hazardous) {
-            displayText += ' [PELIGROSO]';
-        }
-        
-        // Agregar información adicional
-        const diameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
-        displayText += ` (${Math.round(diameter)}m, ${asteroid.velocity_km_s.toFixed(1)} km/s)`;
-        
-        option.textContent = displayText;
-        select.appendChild(option);
-    });
-    
-    console.log(`${asteroids.length} asteroides agregados al selector`);
-}
+// Función populateAsteroidSelector eliminada - ya no se usa el selector, se usa el explorador de asteroides
 
 async function runImpactSimulation() {
     showLoading(true);
@@ -2391,7 +2318,7 @@ function getCountryPopulation(countryName) {
 // Obtener ubicación aproximada del usuario usando su IP (sin permisos)
 async function getUserLocationByIP() {
     try {
-        console.log('🌐 Obteniendo ubicación por IP...');
+        console.log('Obteniendo ubicación por IP...');
         
         // Usar múltiples servicios como fallback
         const services = [
@@ -2432,7 +2359,7 @@ async function getUserLocationByIP() {
                         countryCode = countryCode.toUpperCase();
                     }
                     
-                    console.log(`📍 Ubicación detectada por IP: ${city}, ${country} (${countryCode}) (${lat}, ${lon})`);
+                    console.log(`Ubicación detectada por IP: ${city}, ${country} (${countryCode}) (${lat}, ${lon})`);
                     return {
                         lat: lat,
                         lon: lon,
@@ -2443,7 +2370,7 @@ async function getUserLocationByIP() {
                     };
                 }
             } catch (err) {
-                console.log(`⚠️ Servicio ${service} falló, intentando siguiente...`);
+                console.log(`Servicio ${service} falló, intentando siguiente...`);
                 continue;
             }
         }
@@ -2451,7 +2378,7 @@ async function getUserLocationByIP() {
         throw new Error('Todos los servicios de geolocalización fallaron');
         
     } catch (error) {
-        console.error('❌ Error obteniendo ubicación por IP:', error);
+        console.error('Error obteniendo ubicación por IP:', error);
         throw error;
     }
 }
@@ -2465,7 +2392,7 @@ function getUserLocation() {
             resolve(ipLocation);
             return;
         } catch (ipError) {
-            console.log('⚠️ Geolocalización por IP falló, intentando GPS...');
+            console.log('Geolocalización por IP falló, intentando GPS...');
         }
         
         // Si IP falla, intentar con GPS (requiere permiso)
@@ -2610,12 +2537,12 @@ function initializeImpactMap() {
         // Intentar obtener la ubicación del usuario después de que el mapa esté cargado
         setTimeout(() => {
             getUserLocation().then(userLocation => {
-                console.log('📍 Ubicación del usuario detectada:', userLocation);
+                console.log('Ubicación del usuario detectada:', userLocation);
                 
                 // Detectar y cambiar idioma automáticamente según el país
                 if (userLocation.countryCode && window.i18n) {
                     const detectedLang = window.i18n.autoDetectLanguage(userLocation.countryCode);
-                    console.log(`🌐 Idioma detectado: ${detectedLang.toUpperCase()} para país: ${userLocation.country}`);
+                    console.log(`Idioma detectado: ${detectedLang.toUpperCase()} para país: ${userLocation.country}`);
                 }
                 
                 // Determinar el nivel de zoom según el método de detección
@@ -2623,11 +2550,11 @@ function initializeImpactMap() {
                 if (userLocation.method === 'ip') {
                     // IP: menos preciso, zoom a nivel ciudad/región
                     zoomLevel = 10;
-                    console.log(`🌐 Ubicación detectada por IP: ${userLocation.city || 'desconocida'}, ${userLocation.country || 'desconocido'}`);
+                    console.log(`Ubicación detectada por IP: ${userLocation.city || 'desconocida'}, ${userLocation.country || 'desconocido'}`);
                 } else if (userLocation.method === 'gps') {
                     // GPS: más preciso, zoom a nivel barrio
                     zoomLevel = 12;
-                    console.log('🛰️ Ubicación GPS precisa detectada');
+                    console.log('Ubicación GPS precisa detectada');
                 } else {
                     // Fallback
                     zoomLevel = 8;
@@ -2646,7 +2573,7 @@ function initializeImpactMap() {
                 document.getElementById('longitude').value = userLocation.lon.toFixed(4);
                 
             }).catch(error => {
-                console.log('⚠️ Usando ubicación predeterminada - No se pudo obtener geolocalización');
+                console.log('Usando ubicación predeterminada - No se pudo obtener geolocalización');
                 // Si falla, mantener el centro predeterminado
             });
         }, 1200);

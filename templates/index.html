@@ -170,27 +170,17 @@
                 <div class="control-panel">
                     <!-- Asteroid Selection -->
                     <div class="control-group">
-                        <label for="asteroid-select">Asteroide</label>
+                        <label for="asteroid-name">Asteroide Seleccionado</label>
                         <div style="display: flex; gap: 0.5rem; align-items: center;">
-                            <select id="asteroid-select" style="flex: 1;">
-                                <option value="custom">Personalizado</option>
-                                <option value="loading" disabled>Cargando asteroides de la NASA...</option>
-                                <optgroup label="Modos Especiales">
-                                    <option value="apocalypse">Modo Apocalipsis</option>
-                                    <option value="defender">Modo Defensor</option>
-                                    <option value="scientist">Modo Científico</option>
-                                    <option value="challenge">Modo Desafío</option>
-                                </optgroup>
-                                <optgroup label="Información">
-                                    <option value="asteroid-info">Información de Asteroides</option>
-                                    <option value="tutorial">Tutorial</option>
-                                    <option value="settings">Configuración</option>
-                                    <option value="stats">Estadísticas</option>
-                                </optgroup>
-                                <optgroup label="Recompensas">
-                                    <option value="rewards">Ver Recompensas</option>
-                                </optgroup>
-                            </select>
+                            <input 
+                                type="text" 
+                                id="asteroid-name" 
+                                readonly 
+                                placeholder="Personalizado - Usa el explorador para seleccionar"
+                                style="flex: 1; cursor: pointer; background: var(--input-bg); color: var(--text-light); border: 1px solid var(--input-border); padding: 0.625rem 0.75rem; border-radius: 6px; font-size: 0.875rem;"
+                                title="Haz clic en 'Explorar' para seleccionar un asteroide"
+                            />
+                            <input type="hidden" id="selected-asteroid-id" value="">
                             <button id="browse-asteroids-btn" class="btn-secondary" style="padding: 0.75rem 1rem; white-space: nowrap;" title="Ver todos los asteroides">
                                 Explorar
                             </button>
