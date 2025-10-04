@@ -292,6 +292,18 @@
                         </select>
                     </div>
 
+                    <!-- Asteroid Parameters -->
+                    <div class="control-group">
+                        <label for="mit-diameter">Diámetro (m)</label>
+                        <input type="range" id="mit-diameter" min="50" max="500" value="150" step="10">
+                        <span id="mit-diameter-value" class="value-display">150 m</span>
+                    </div>
+
+                    <div class="control-group">
+                        <label for="mit-velocity">Velocidad (km/s)</label>
+                        <input type="range" id="mit-velocity" min="10" max="40" value="25" step="1">
+                        <span id="mit-velocity-value" class="value-display">25 km/s</span>
+                    </div>
 
                     <!-- Mission Parameters -->
                     <div class="control-group">
@@ -398,6 +410,22 @@
             </div>
             <div class="modal-footer">
                 <button class="btn-secondary" onclick="closeResultsModal()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Deflection Results Modal -->
+    <div id="deflection-modal" class="results-modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2>🚀 Análisis Completo de Estrategias de Mitigación</h2>
+                <button class="modal-close" onclick="closeDeflectionModal()">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div id="modal-deflection-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeDeflectionModal()">Cerrar</button>
             </div>
         </div>
     </div>

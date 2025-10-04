@@ -3579,6 +3579,8 @@ async function updateImpactMap(result) {
 
 function setupMitigationMode() {
     // Range inputs
+    setupRangeInput('mit-diameter', 'mit-diameter-value', ' m');
+    setupRangeInput('mit-velocity', 'mit-velocity-value', ' km/s');
     setupRangeInput('time-before-impact', 'time-before-impact-value', ' días');
     setupRangeInput('impactor-mass', 'impactor-mass-value', ' kg');
     setupRangeInput('impactor-velocity', 'impactor-velocity-value', ' km/s');
@@ -3610,20 +3612,21 @@ function handleStrategyChange(e) {
 }
 
 async function runDeflectionSimulation() {
-    // Obtener datos del asteroide seleccionado
-    let asteroidData = window.selectedAsteroidData || null;
-    
-    showLoading(true, asteroidData);
+    // Mostrar loading simple sin animación 3D
+    const overlay = document.getElementById('loading-overlay');
+    overlay.style.display = 'flex';
     
     try {
-        // Use parameters from the previous simulation
+        // Use mitigation-specific parameters
         const params = {
-            asteroid_diameter: parseFloat(document.getElementById('diameter').value),
-            asteroid_velocity: parseFloat(document.getElementById('velocity').value) * 1000,
+            asteroid_diameter: parseFloat(document.getElementById('mit-diameter').value),
+            asteroid_velocity: parseFloat(document.getElementById('mit-velocity').value) * 1000,
             strategy: document.getElementById('strategy-select').value,
             time_before_impact: parseFloat(document.getElementById('time-before-impact').value),
             impactor_mass: parseFloat(document.getElementById('impactor-mass').value),
-            impactor_velocity: parseFloat(document.getElementById('impactor-velocity').value) * 1000
+            impactor_velocity: parseFloat(document.getElementById('impactor-velocity').value) * 1000,
+            composition: 'rocky',
+            asteroid_id: 'custom'
         };
         
         const response = await fetch('/api/simulate/deflection', {
@@ -3636,105 +3639,195 @@ async function runDeflectionSimulation() {
         
         if (data.success) {
             console.log('✅ Datos de deflexión recibidos - procesando...');
-            console.log('🔄 Asteroide sigue orbitando mientras se procesan los datos...');
             
-            // Guardar datos procesados
-            processedSimulationData = { deflectionData: data };
-            
-            console.log('✅ Datos de deflexión procesados - activando secuencia de impacto...');
-            
-            // Activar secuencia de impacto
-            if (typeof triggerImpact3D === 'function') {
-                // Configurar callback para mostrar resultados después del impacto
-                window.onImpactComplete3D = function() {
-                    console.log('💥 Impacto completado - mostrando resultados de deflexión...');
-                    if (processedSimulationData && processedSimulationData.deflectionData) {
-                        displayDeflectionResults(processedSimulationData.deflectionData);
-                        processedSimulationData = null;
-                    }
-                    window.onImpactComplete3D = null;
-                };
-                
-                triggerImpact3D();
-            } else {
-                // Si no hay animación 3D, mostrar resultados inmediatamente
-                displayDeflectionResults(data);
-            }
+            // Ocultar loading y mostrar modal directamente
+            overlay.style.display = 'none';
+            openDeflectionModal(data);
         } else {
+            overlay.style.display = 'none';
             alert('Error: ' + data.error);
-            showLoading(false);
         }
     } catch (error) {
         console.error('Deflection simulation error:', error);
+        overlay.style.display = 'none';
         alert('Error al ejecutar la simulación de deflexión');
-        showLoading(false);
     }
 }
 
 function displayDeflectionResults(data) {
-    const container = document.getElementById('deflection-results');
     const result = data.result;
     const rec = data.recommendation;
-    const strategies = data.advanced_strategies || [];
+    const allStrategies = data.all_strategies || [];
+    const techReq = data.tech_requirements || null;
+    const asteroidAnalysis = data.asteroid_analysis || null;
     
     let html = `
-        <div class="severity-badge" style="background: ${rec.color}20; border: 2px solid ${rec.color};">
-            ${rec.verdict}
+        <!-- Resultado principal -->
+        <div class="severity-badge" style="background: ${rec.color}20; border: 2px solid ${rec.color}; margin-bottom: 1.5rem;">
+            <div style="font-size: 18px; font-weight: bold;">${rec.verdict}</div>
+            <div style="font-size: 14px; margin-top: 0.5rem;">${rec.message}</div>
         </div>
         
-        <div class="result-stat">
-            <strong>Estrategia Probada:</strong> ${result.strategy === 'kinetic_impactor' ? 'Impactador Cinético' : 'Tractor de Gravedad'}
-        </div>
-        
-        <div class="result-stat">
-            <strong>Cambio de Velocidad (Δv):</strong> ${result.delta_v.toFixed(6)} m/s
-        </div>
-        
-        <div class="result-stat">
-            <strong>Distancia Deflectada:</strong> ${result.deflection_km.toLocaleString()} km
-        </div>
-        
-        <div style="margin-top: 1rem; padding: 1rem; background: ${rec.color}20; border-radius: 8px; border: 1px solid ${rec.color};">
-            <strong>📋 Veredicto:</strong><br>
-            ${rec.message}
+        <!-- Estrategia probada -->
+        <div style="background: rgba(0,168,232,0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <strong style="font-size: 16px; color: #00A8E8;">📊 RESULTADO DE LA SIMULACIÓN</strong>
+            <hr style="border-color: #3A3A3A; margin: 12px 0;">
+            
+            <div class="result-stat" style="background: rgba(0,168,232,0.1); margin-bottom: 0.5rem;">
+                <strong>Estrategia Probada:</strong><br>
+                ${result.strategy === 'kinetic_impactor' ? '🚀 Impactador Cinético' : '🛰️ Tractor de Gravedad'}
+            </div>
+            
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;">
+                <div class="result-stat">
+                    <strong>Cambio de Velocidad (Δv):</strong><br>
+                    ${result.delta_v.toFixed(6)} m/s
+                </div>
+                
+                <div class="result-stat">
+                    <strong>Distancia Deflectada:</strong><br>
+                    ${result.deflection_km.toLocaleString()} km
+                </div>
+            </div>
         </div>
     `;
     
-    // Mostrar estrategias recomendadas
-    if (strategies.length > 0) {
+    // Análisis del asteroide
+    if (asteroidAnalysis) {
         html += `
-            <div style="margin-top: 1.5rem;">
-                <strong style="font-size: 16px; color: #00A8E8;">💡 ESTRATEGIAS RECOMENDADAS</strong>
-                <hr style="border-color: #3A3A3A; margin: 8px 0;">
-        `;
-        
-        strategies.forEach(strat => {
-            html += `
-                <div style="margin-top: 1rem; padding: 1rem; background: ${strat.color}20; border-radius: 8px; border-left: 4px solid ${strat.color};">
-                    <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                        <span style="font-size: 24px;">${strat.icon}</span>
-                        <strong style="font-size: 15px;">${strat.method}</strong>
-                    </div>
-                    
-                    <div style="font-size: 13px; margin-bottom: 0.5rem;">
-                        <strong style="color: ${strat.color};">Viabilidad: ${strat.viability}</strong>
-                    </div>
-                    
-                    <div style="font-size: 12px; color: var(--text-medium);">
-                        ${strat.reason}
-                    </div>
-                    
-                    ${strat.estimated_cost ? `<div style="margin-top: 0.5rem; font-size: 11px;">💰 Costo estimado: ${strat.estimated_cost}</div>` : ''}
-                    ${strat.success_rate ? `<div style="font-size: 11px;"> Tasa éxito: ${strat.success_rate}</div>` : ''}
-                    ${strat.warning ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255,68,68,0.2); border-radius: 4px; font-size: 11px;"> ${strat.warning}</div>` : ''}
+            <div style="background: rgba(255,193,7,0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <strong style="color: #FFC107; font-size: 16px;">🎯 ANÁLISIS DEL ASTEROIDE</strong>
+                <hr style="border-color: #3A3A3A; margin: 12px 0;">
+                <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 13px;">
+                    <div><strong>Masa:</strong> ${formatNumber(asteroidAnalysis.mass_kg)} kg</div>
+                    <div><strong>Energía:</strong> ${asteroidAnalysis.energy_mt.toFixed(2)} MT TNT</div>
+                    <div><strong>Composición:</strong> ${asteroidAnalysis.composition}</div>
+                    <div><strong>Riesgo Fragmentación:</strong> ${(asteroidAnalysis.fragmentation_risk * 100).toFixed(0)}%</div>
                 </div>
-            `;
-        });
-        
-        html += `</div>`;
+            </div>
+        `;
     }
     
-    container.innerHTML = html;
+    // TABLA COMPARATIVA en lugar de 3D
+    if (allStrategies.length > 0) {
+        html += `
+            <div style="margin-top: 1.5rem;">
+                <strong style="font-size: 16px; color: #00A8E8;">📊 COMPARACIÓN DE TODAS LAS ESTRATEGIAS (${allStrategies.length})</strong>
+                <hr style="border-color: #3A3A3A; margin: 12px 0;">
+                
+                <!-- Gráficos de barras horizontales -->
+                ${allStrategies.map((strat, index) => `
+                    <div style="margin: 1.5rem 0; padding: 1rem; background: ${index === 0 ? 'rgba(0,230,118,0.1)' : 'rgba(0,168,232,0.05)'}; border-radius: 8px; border-left: 4px solid ${index === 0 ? '#00E676' : '#00A8E8'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                                <span style="font-size: 24px;">${strat.icon}</span>
+                                <strong style="font-size: 15px;">${strat.name}</strong>
+                                ${index === 0 ? '<span style="background: #00E676; color: black; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 10px; margin-left: 0.5rem;">RECOMENDADO</span>' : ''}
+                            </div>
+                            <span style="font-size: 18px; color: ${getEffectivenessColor(strat.effectiveness)}; font-weight: bold;">${strat.effectiveness}%</span>
+                        </div>
+                        
+                        <!-- Barra de efectividad -->
+                        <div style="background: var(--input-border); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 0.8rem;">
+                            <div style="
+                                width: ${strat.effectiveness}%; 
+                                height: 100%; 
+                                background: linear-gradient(90deg, #00A8E8, #00E676);
+                                transition: width 0.5s ease;
+                            "></div>
+                        </div>
+                        
+                        <div style="font-size: 11px; color: var(--text-medium); margin-bottom: 0.8rem;">
+                            ${strat.reference_mission ? `📡 ${strat.reference_mission} | ` : ''}
+                            ${strat.technology_readiness}
+                        </div>
+                        
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 11px; margin-bottom: 0.8rem;">
+                            <div><strong>💰 Costo:</strong> $${strat.cost_billions}B</div>
+                            <div><strong>⏱️ Tiempo:</strong> ${strat.time_required_years} años</div>
+                            <div><strong>✅ Éxito:</strong> ${strat.success_rate}%</div>
+                            <div><strong>🚀 Δv:</strong> ${strat.delta_v_m_s} m/s</div>
+                        </div>
+                        
+                        <div style="font-size: 11px; margin-bottom: 0.5rem;">
+                            <strong style="color: #00E676;">✓ Ventajas:</strong>
+                            <ul style="margin: 0.2rem 0 0 1.2rem; padding: 0;">
+                                ${strat.pros.map(p => `<li>${p}</li>`).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div style="font-size: 11px;">
+                            <strong style="color: #FF4444;">✗ Desventajas:</strong>
+                            <ul style="margin: 0.2rem 0 0 1.2rem; padding: 0;">
+                                ${strat.cons.map(c => `<li>${c}</li>`).join('')}
+                            </ul>
+                        </div>
+                        
+                        <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 10px;">
+                            <strong>🎯 Mejor para:</strong> ${strat.best_for}
+                        </div>
+                    </div>
+                `).join('')}
+            </div>
+        `;
+    }
+    
+    // Requisitos técnicos
+    if (techReq) {
+        html += `
+            <div style="margin-top: 1.5rem; background: rgba(156,39,176,0.1); padding: 1.5rem; border-radius: 8px;">
+                <strong style="color: #9C27B0; font-size: 16px;">🛠️ REQUISITOS TÉCNICOS DE LA MISIÓN</strong>
+                <hr style="border-color: #3A3A3A; margin: 12px 0;">
+                
+                <div style="font-size: 12px; margin-bottom: 1rem;">
+                    <strong>Vehículo de Lanzamiento:</strong><br>
+                    ${techReq.launch_vehicle.required} | 
+                    ${techReq.launch_vehicle.launches_needed} lanzamiento(s) | 
+                    $${techReq.launch_vehicle.cost_per_launch_millions}M c/u
+                </div>
+                
+                <div style="font-size: 12px; margin-bottom: 1rem;">
+                    <strong>Nave Espacial:</strong><br>
+                    Masa: ${techReq.spacecraft.total_mass_kg.toLocaleString()} kg | 
+                    Potencia: ${techReq.spacecraft.power_requirement_kw} kW
+                </div>
+                
+                <div style="font-size: 12px;">
+                    <strong>Duración de la Misión:</strong><br>
+                    Crucero: ${techReq.mission_duration.cruise_phase_years} años | 
+                    Observación: ${techReq.mission_duration.post_impact_observation_months} meses
+                </div>
+            </div>
+        `;
+    }
+    
+    return html;
+}
+
+// Función helper para colorear efectividad
+function getEffectivenessColor(effectiveness) {
+    if (effectiveness >= 80) return '#00E676';
+    if (effectiveness >= 60) return '#00A8E8';
+    if (effectiveness >= 40) return '#FFB84D';
+    return '#FF4444';
+}
+
+function openDeflectionModal(data) {
+    const modal = document.getElementById('deflection-modal');
+    const modalContent = document.getElementById('modal-deflection-content');
+    
+    // Generar contenido SIN inicializar 3D
+    modalContent.innerHTML = displayDeflectionResults(data);
+    
+    // Mostrar modal
+    modal.style.display = 'flex';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeDeflectionModal() {
+    const modal = document.getElementById('deflection-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = '';
 }
 
 function getDeflectionRecommendations(result) {
@@ -5476,5 +5569,12 @@ function downloadSimulationPDF() {
         showNotification('Error al generar el PDF: ' + error.message, 'error');
     }
 }
+
+// Cerrar modal de deflexión con ESC
+document.addEventListener('keydown', (e) => {
+    if (e.key === 'Escape') {
+        closeDeflectionModal();
+    }
+});
 
 
