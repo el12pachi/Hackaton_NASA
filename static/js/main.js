@@ -3153,7 +3153,8 @@ function initializeImpactMap() {
             attribution: '© Esri © DigitalGlobe © GeoEye',
             maxZoom: 19,
             minZoom: 2,
-            noWrap: true
+            noWrap: true,
+            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'  // Imagen transparente 1x1
         });
         
         const satelliteHybridLayer = L.layerGroup([
@@ -3161,12 +3162,14 @@ function initializeImpactMap() {
                 attribution: '© Esri © DigitalGlobe © GeoEye',
                 maxZoom: 19,
                 minZoom: 2,
-                noWrap: true
+                noWrap: true,
+                errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'  // Imagen transparente 1x1
             }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 19,
                 minZoom: 2,
-                noWrap: true
+                noWrap: true,
+                errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'  // Imagen transparente 1x1
             })
         ]);
         
