@@ -986,6 +986,16 @@ def get_cities():
         places = []
         total_population = 0
         
+        # Definir radios de impacto (en km)
+        destruction_radius_km = 5.0   # Zona de destrucción total
+        damage_radius_km = 10.0       # Zona de daños severos
+        affected_radius_km = 20.0     # Zona afectada
+        
+        # Contadores por zona
+        destruction_zone = []
+        damage_zone = []
+        affected_zone = []
+        
         for element in ovrpress_data.get("elements", []):
             name = element.get("tags", {}).get("name")
             place_type = element.get("tags", {}).get("place")
@@ -1022,26 +1032,103 @@ def get_cities():
                     lat, lon
                 )
                 
-                places.append({
+                # Determinar zona de impacto
+                if distance_km <= destruction_radius_km:
+                    impact_zone = "destruction"
+                    zone_name = "Destrucción Total"
+                    victims_percentage = 0.95
+                elif distance_km <= damage_radius_km:
+                    impact_zone = "damage"
+                    zone_name = "Daño Severo"
+                    victims_percentage = 0.15
+                else:
+                    impact_zone = "affected"
+                    zone_name = "Área Afectada"
+                    victims_percentage = 0.05
+                
+                # Calcular víctimas estimadas
+                estimated_victims = int(population * victims_percentage)
+                
+                place_data = {
                     "nombre": name, 
                     "tipo": place_type,
                     "poblacion": population,
+                    "victimas_estimadas": estimated_victims,
                     "lat": city_lat,
                     "lon": city_lon,
-                    "distancia_km": round(distance_km, 2)
-                })
+                    "distancia_km": round(distance_km, 2),
+                    "impact_zone": impact_zone,
+                    "zone_name": zone_name,
+                    "victims_percentage": victims_percentage
+                }
+                
+                places.append(place_data)
+                
+                # Clasificar por zona
+                if impact_zone == "destruction":
+                    destruction_zone.append(place_data)
+                elif impact_zone == "damage":
+                    damage_zone.append(place_data)
+                else:
+                    affected_zone.append(place_data)
                 
                 # Sumar población total
                 total_population += population
         
+        # Calcular totales por zona
+        destruction_population = sum(place['poblacion'] for place in destruction_zone)
+        destruction_victims = sum(place['victimas_estimadas'] for place in destruction_zone)
+        
+        damage_population = sum(place['poblacion'] for place in damage_zone)
+        damage_victims = sum(place['victimas_estimadas'] for place in damage_zone)
+        
+        affected_population = sum(place['poblacion'] for place in affected_zone)
+        affected_victims = sum(place['victimas_estimadas'] for place in affected_zone)
+        
+        total_victims = destruction_victims + damage_victims + affected_victims
+        
         print(f"🔍 API /api/cities: Encontradas {len(places)} lugares")
         print(f"👥 Población total calculada: {total_population:,} personas")
+        print(f"💀 Víctimas totales estimadas: {total_victims:,}")
+        print(f"🔥 Zona Destrucción: {len(destruction_zone)} lugares, {destruction_victims:,} víctimas")
+        print(f"⚠️ Zona Daño: {len(damage_zone)} lugares, {damage_victims:,} víctimas")
+        print(f"🌪️ Zona Afectada: {len(affected_zone)} lugares, {affected_victims:,} víctimas")
         
         return jsonify({
             'success': True,
             'cities': places,
             'total_found': len(places),
-            'totalPopulation': total_population
+            'totalPopulation': total_population,
+            'totalVictims': total_victims,
+            'zones': {
+                'destruction': {
+                    'name': 'Destrucción Total',
+                    'radius_km': destruction_radius_km,
+                    'places': destruction_zone,
+                    'places_count': len(destruction_zone),
+                    'total_population': destruction_population,
+                    'total_victims': destruction_victims,
+                    'victims_percentage': 0.95
+                },
+                'damage': {
+                    'name': 'Daño Severo',
+                    'radius_km': damage_radius_km,
+                    'places': damage_zone,
+                    'places_count': len(damage_zone),
+                    'total_population': damage_population,
+                    'total_victims': damage_victims,
+                    'victims_percentage': 0.15
+                },
+                'affected': {
+                    'name': 'Área Afectada',
+                    'radius_km': affected_radius_km,
+                    'places': affected_zone,
+                    'places_count': len(affected_zone),
+                    'total_population': affected_population,
+                    'total_victims': affected_victims,
+                    'victims_percentage': 0.05
+                }
+            }
         })
         
     except Exception as e:
@@ -1051,6 +1138,12 @@ def get_cities():
             'cities': [],
             'total_found': 0,
             'totalPopulation': 0,
+            'totalVictims': 0,
+            'zones': {
+                'destruction': {'places_count': 0, 'total_population': 0, 'total_victims': 0},
+                'damage': {'places_count': 0, 'total_population': 0, 'total_victims': 0},
+                'affected': {'places_count': 0, 'total_population': 0, 'total_victims': 0}
+            },
             'error': str(e)
         })
 
