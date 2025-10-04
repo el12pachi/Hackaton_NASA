@@ -418,6 +418,558 @@ body {
     text-align: left;
 }
 
+/* Animaciones para el sistema de recompensas */
+@keyframes achievementPop {
+    0% {
+        transform: translate(-50%, -50%) scale(0.5);
+        opacity: 0;
+    }
+    50% {
+        transform: translate(-50%, -50%) scale(1.1);
+        opacity: 1;
+    }
+    100% {
+        transform: translate(-50%, -50%) scale(1);
+        opacity: 0;
+    }
+}
+
+@keyframes slideInRight {
+    0% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    100% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+@keyframes slideOutRight {
+    0% {
+        transform: translateX(0);
+        opacity: 1;
+    }
+    100% {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+}
+
+/* ========== REWARDS MODAL ========== */
+.results-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0, 0, 0, 0.8);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    backdrop-filter: blur(5px);
+}
+
+.rewards-modal-content {
+    max-width: 900px;
+    width: 90%;
+    max-height: 85vh;
+    overflow-y: auto;
+    background: var(--bg-primary);
+    border-radius: 20px;
+    box-shadow: 0 25px 50px rgba(0, 0, 0, 0.4);
+    position: relative;
+    margin: 2rem;
+    border: 1px solid var(--input-border);
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    0% {
+        transform: scale(0.9) translateY(-20px);
+        opacity: 0;
+    }
+    100% {
+        transform: scale(1) translateY(0);
+        opacity: 1;
+    }
+}
+
+.rewards-stats {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.stat-card {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+}
+
+.stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 25px rgba(0, 0, 0, 0.15);
+}
+
+.stat-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.stat-value {
+    font-size: 2rem;
+    font-weight: 700;
+    color: var(--primary-blue);
+    margin-bottom: 0.25rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: var(--text-medium);
+    font-weight: 500;
+}
+
+.achievements-section,
+.challenges-section,
+.special-modes-section {
+    margin-bottom: 2rem;
+}
+
+.achievements-section h3,
+.challenges-section h3,
+.special-modes-section h3 {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    font-size: 1.125rem;
+    font-weight: 600;
+}
+
+.modal-header {
+    background: linear-gradient(135deg, var(--primary-blue) 0%, var(--primary-green) 100%);
+    color: white;
+    padding: 1.5rem 2rem;
+    border-radius: 20px 20px 0 0;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h2 {
+    margin: 0;
+    font-size: 1.5rem;
+    font-weight: 700;
+}
+
+.modal-close {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    color: white;
+    font-size: 1.5rem;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s ease;
+}
+
+.modal-close:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: scale(1.1);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.modal-footer {
+    padding: 1.5rem 2rem;
+    border-top: 1px solid var(--input-border);
+    display: flex;
+    justify-content: flex-end;
+    background: var(--bg-secondary);
+    border-radius: 0 0 20px 20px;
+}
+
+.achievements-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+.achievement-card {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.achievement-card.unlocked {
+    border-color: var(--primary-blue);
+    background: linear-gradient(135deg, var(--input-bg) 0%, rgba(0, 168, 232, 0.1) 100%);
+}
+
+.achievement-card.locked {
+    opacity: 0.5;
+    filter: grayscale(100%);
+}
+
+.achievement-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.achievement-title {
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+}
+
+.achievement-desc {
+    font-size: 0.75rem;
+    color: var(--text-medium);
+    margin-bottom: 0.5rem;
+}
+
+.achievement-points {
+    font-size: 0.875rem;
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+.challenges-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.challenge-item {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+}
+
+.challenge-icon {
+    font-size: 1.5rem;
+    flex-shrink: 0;
+}
+
+.challenge-content {
+    flex: 1;
+}
+
+.challenge-title {
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.25rem;
+}
+
+.challenge-desc {
+    font-size: 0.875rem;
+    color: var(--text-medium);
+    margin-bottom: 0.5rem;
+}
+
+.challenge-progress {
+    width: 100%;
+    height: 6px;
+    background: var(--input-border);
+    border-radius: 3px;
+    overflow: hidden;
+}
+
+.challenge-progress-bar {
+    height: 100%;
+    background: linear-gradient(90deg, var(--primary-blue), var(--primary-green));
+    transition: width 0.3s ease;
+}
+
+.modes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 1rem;
+}
+
+.mode-card {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.mode-card:hover {
+    transform: translateY(-2px);
+    border-color: var(--primary-blue);
+    box-shadow: 0 8px 25px rgba(0, 168, 232, 0.2);
+}
+
+.mode-icon {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.mode-title {
+    font-weight: 600;
+    color: var(--text-light);
+    font-size: 0.875rem;
+}
+
+.mode-desc {
+    font-size: 0.75rem;
+    color: var(--text-medium);
+}
+
+/* ========== ADDITIONAL MODALS STYLES ========== */
+
+/* Asteroid Info Modal */
+.asteroid-search {
+    margin-bottom: 2rem;
+}
+
+.asteroid-list {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 1rem;
+    margin-bottom: 2rem;
+}
+
+.asteroid-item {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1rem;
+    cursor: pointer;
+    transition: all 0.3s ease;
+}
+
+.asteroid-item:hover {
+    border-color: var(--primary-blue);
+    transform: translateY(-2px);
+}
+
+.asteroid-name {
+    font-weight: 600;
+    color: var(--text-light);
+    margin-bottom: 0.5rem;
+}
+
+.asteroid-details {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-top: 1rem;
+}
+
+/* Tutorial Modal */
+.tutorial-steps {
+    margin-bottom: 2rem;
+}
+
+.tutorial-step {
+    display: none;
+    text-align: center;
+    padding: 2rem;
+    background: var(--input-bg);
+    border-radius: 12px;
+    margin-bottom: 1rem;
+}
+
+.tutorial-step.active {
+    display: block;
+}
+
+.tutorial-step h3 {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+.tutorial-step p {
+    color: var(--text-medium);
+    line-height: 1.6;
+    margin-bottom: 1rem;
+}
+
+.tutorial-image {
+    font-size: 4rem;
+    margin: 1rem 0;
+}
+
+.tutorial-navigation {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+}
+
+/* Settings Modal */
+.settings-section {
+    margin-bottom: 2rem;
+    padding: 1.5rem;
+    background: var(--input-bg);
+    border-radius: 12px;
+    border: 1px solid var(--input-border);
+}
+
+.settings-section h3 {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    font-size: 1.125rem;
+}
+
+.setting-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+    padding: 0.75rem 0;
+    border-bottom: 1px solid var(--input-border);
+}
+
+.setting-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.setting-item label {
+    color: var(--text-light);
+    font-weight: 500;
+}
+
+.setting-item select,
+.setting-item input[type="text"],
+.setting-item input[type="password"] {
+    background: var(--bg-primary);
+    border: 1px solid var(--input-border);
+    border-radius: 6px;
+    padding: 0.5rem;
+    color: var(--text-light);
+    min-width: 150px;
+}
+
+.setting-item input[type="checkbox"] {
+    transform: scale(1.2);
+}
+
+/* Stats Modal */
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 2rem;
+}
+
+.stat-section {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.stat-section h3 {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+    font-size: 1.125rem;
+}
+
+.stat-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--input-border);
+}
+
+.stat-item:last-child {
+    border-bottom: none;
+    margin-bottom: 0;
+}
+
+.stat-label {
+    color: var(--text-medium);
+    font-weight: 500;
+}
+
+.stat-value {
+    color: var(--primary-blue);
+    font-weight: 600;
+}
+
+.stats-chart {
+    background: var(--input-bg);
+    border: 1px solid var(--input-border);
+    border-radius: 12px;
+    padding: 1.5rem;
+}
+
+.stats-chart h3 {
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+/* Responsive adjustments */
+@media (max-width: 768px) {
+    .rewards-modal-content {
+        width: 95%;
+        margin: 1rem;
+        max-height: 90vh;
+    }
+    
+    .modal-header {
+        padding: 1rem 1.5rem;
+    }
+    
+    .modal-header h2 {
+        font-size: 1.25rem;
+    }
+    
+    .modal-body {
+        padding: 1.5rem;
+    }
+    
+    .modal-footer {
+        padding: 1rem 1.5rem;
+    }
+    
+    .rewards-stats {
+        grid-template-columns: 1fr;
+    }
+    
+    .achievements-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .modes-grid {
+        grid-template-columns: 1fr;
+    }
+}
+
 /* ========== MODE SELECTOR ========== */
 .mode-selector {
     padding: var(--spacing-md);

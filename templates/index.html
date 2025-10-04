@@ -22,6 +22,7 @@
         <div class="header-content">
             <div class="header-title-container">
                 <h1 id="header-title" class="logo">Asteroid Impact Simulator</h1>
+                <p class="subtitle">NASA Space Apps 2025</p>
             </div>
             <div class="theme-toggle">
                 <button class="mode-btn active" data-mode="simulation">
@@ -32,6 +33,7 @@
                     <span class="btn-text-full">Estrategias de Mitigación</span>
                     <span class="btn-text-short">Mitigación</span>
                 </button>
+                <button class="mode-btn" data-mode="rewards">🎮 Recompensas</button>
                 <button id="theme-toggle-btn" class="theme-toggle-btn" title="Cambiar tema">
                     <span class="theme-icon">◐</span>
                 </button>
@@ -169,10 +171,30 @@
                     <!-- Asteroid Selection -->
                     <div class="control-group">
                         <label for="asteroid-select">Asteroide</label>
-            <select id="asteroid-select">
-                <option value="custom">Personalizado</option>
-                <option value="loading" disabled>🔄 Cargando asteroides de la NASA...</option>
-            </select>
+                        <div style="display: flex; gap: 0.5rem; align-items: center;">
+                            <select id="asteroid-select" style="flex: 1;">
+                                <option value="custom">Personalizado</option>
+                                <option value="loading" disabled>🔄 Cargando asteroides de la NASA...</option>
+                                <optgroup label="🚀 Modos Especiales">
+                                    <option value="apocalypse">💀 Modo Apocalipsis</option>
+                                    <option value="defender">🛡️ Modo Defensor</option>
+                                    <option value="scientist">🔬 Modo Científico</option>
+                                    <option value="challenge">🎯 Modo Desafío</option>
+                                </optgroup>
+                                <optgroup label="📚 Información">
+                                    <option value="asteroid-info">🪨 Información de Asteroides</option>
+                                    <option value="tutorial">📖 Tutorial</option>
+                                    <option value="settings">⚙️ Configuración</option>
+                                    <option value="stats">📊 Estadísticas</option>
+                                </optgroup>
+                                <optgroup label="🎮 Recompensas">
+                                    <option value="rewards">⭐ Ver Recompensas</option>
+                                </optgroup>
+                            </select>
+                            <button id="browse-asteroids-btn" class="btn-secondary" style="padding: 0.75rem 1rem; white-space: nowrap;" title="Ver todos los asteroides">
+                                🔍 Explorar
+                            </button>
+                        </div>
                     </div>
 
                     <!-- Diameter -->
@@ -323,8 +345,323 @@
         </div>
     </div>
 
+    <!-- Rewards Modal -->
+    <div id="rewards-modal" class="results-modal" style="display: none;">
+        <div class="modal-content rewards-modal-content">
+            <div class="modal-header">
+                <h2>🎮 Centro de Recompensas</h2>
+                <button class="modal-close" onclick="closeModal('rewards-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <!-- Stats Overview -->
+                <div class="rewards-stats">
+                    <div class="stat-card">
+                        <div class="stat-icon">⭐</div>
+                        <div class="stat-value" id="total-points">0</div>
+                        <div class="stat-label">Puntos Totales</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🏆</div>
+                        <div class="stat-value" id="achievements-count">0</div>
+                        <div class="stat-label">Logros</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-icon">🎯</div>
+                        <div class="stat-value" id="simulations-count">0</div>
+                        <div class="stat-label">Simulaciones</div>
+                    </div>
+                </div>
+
+                <!-- Achievements Section -->
+                <div class="achievements-section">
+                    <h3>🏆 Logros Desbloqueados</h3>
+                    <div class="achievements-grid" id="achievements-grid">
+                        <!-- Achievements will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Challenges Section -->
+                <div class="challenges-section">
+                    <h3>🎯 Desafíos Activos</h3>
+                    <div class="challenges-list" id="challenges-list">
+                        <!-- Challenges will be populated here -->
+                    </div>
+                </div>
+
+                <!-- Special Modes -->
+                <div class="special-modes-section">
+                    <h3>🚀 Modos Especiales</h3>
+                    <div class="modes-grid">
+                        <button class="mode-card" onclick="activateSpecialMode('apocalypse')">
+                            <div class="mode-icon">💀</div>
+                            <div class="mode-title">Modo Apocalipsis</div>
+                            <div class="mode-desc">Asteroides masivos</div>
+                        </button>
+                        <button class="mode-card" onclick="activateSpecialMode('defender')">
+                            <div class="mode-icon">🛡️</div>
+                            <div class="mode-title">Modo Defensor</div>
+                            <div class="mode-desc">Salva la Tierra</div>
+                        </button>
+                        <button class="mode-card" onclick="activateSpecialMode('scientist')">
+                            <div class="mode-icon">🔬</div>
+                            <div class="mode-title">Modo Científico</div>
+                            <div class="mode-desc">Datos precisos</div>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('rewards-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asteroid Info Modal -->
+    <div id="asteroid-info-modal" class="results-modal" style="display: none;">
+        <div class="modal-content rewards-modal-content">
+            <div class="modal-header">
+                <h2>🪨 Base de Datos de Asteroides NASA</h2>
+                <button class="modal-close" onclick="closeModal('asteroid-info-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="asteroid-search">
+                    <input type="text" id="asteroid-search-input" placeholder="Buscar asteroide por nombre o ID..." style="width: 100%; padding: 1rem; margin-bottom: 1rem; border-radius: 8px; border: 1px solid var(--input-border); background: var(--input-bg); color: var(--text-light);">
+                    <button onclick="searchAsteroid()" class="btn-primary" style="width: 100%; margin-bottom: 2rem;">🔍 Buscar Asteroide</button>
+                </div>
+                
+                <div class="asteroid-list" id="asteroid-list">
+                    <!-- Lista de asteroides será poblada aquí -->
+                </div>
+                
+                <div class="asteroid-details" id="asteroid-details" style="display: none;">
+                    <!-- Detalles del asteroide seleccionado -->
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('asteroid-info-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tutorial Modal -->
+    <div id="tutorial-modal" class="results-modal" style="display: none;">
+        <div class="modal-content rewards-modal-content">
+            <div class="modal-header">
+                <h2>📖 Tutorial del Simulador</h2>
+                <button class="modal-close" onclick="closeModal('tutorial-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="tutorial-steps">
+                    <div class="tutorial-step active" data-step="1">
+                        <h3>🎯 Paso 1: Configurar Parámetros</h3>
+                        <p>Ajusta el diámetro, velocidad y ángulo de entrada del asteroide. Usa los controles deslizantes para experimentar con diferentes valores.</p>
+                        <div class="tutorial-image">📏</div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="2">
+                        <h3>🌍 Paso 2: Seleccionar Ubicación</h3>
+                        <p>Haz clic en el mapa para elegir el punto de impacto. El simulador calculará automáticamente los efectos en esa ubicación.</p>
+                        <div class="tutorial-image">🗺️</div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="3">
+                        <h3>🚀 Paso 3: Ejecutar Simulación</h3>
+                        <p>Presiona "Simular Impacto" para ver los resultados. El sistema calculará energía, daños y efectos secundarios.</p>
+                        <div class="tutorial-image">💥</div>
+                    </div>
+                    
+                    <div class="tutorial-step" data-step="4">
+                        <h3>🛡️ Paso 4: Estrategias de Mitigación</h3>
+                        <p>Cambia al modo mitigación para explorar cómo desviar asteroides usando diferentes técnicas científicas.</p>
+                        <div class="tutorial-image">🛡️</div>
+                    </div>
+                </div>
+                
+                <div class="tutorial-navigation">
+                    <button class="btn-secondary" onclick="previousTutorialStep()">← Anterior</button>
+                    <span id="tutorial-progress">1 de 4</span>
+                    <button class="btn-primary" onclick="nextTutorialStep()">Siguiente →</button>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeModal('tutorial-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Settings Modal -->
+    <div id="settings-modal" class="results-modal" style="display: none;">
+        <div class="modal-content rewards-modal-content">
+            <div class="modal-header">
+                <h2>⚙️ Configuración Avanzada</h2>
+                <button class="modal-close" onclick="closeModal('settings-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="settings-section">
+                    <h3>🎨 Apariencia</h3>
+                    <div class="setting-item">
+                        <label>Tema:</label>
+                        <select id="theme-select">
+                            <option value="dark">🌙 Oscuro</option>
+                            <option value="light">☀️ Claro</option>
+                            <option value="auto">🔄 Automático</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Idioma:</label>
+                        <select id="language-select">
+                            <option value="es">🇪🇸 Español</option>
+                            <option value="en">🇺🇸 English</option>
+                            <option value="fr">🇫🇷 Français</option>
+                            <option value="de">🇩🇪 Deutsch</option>
+                        </select>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>🔬 Simulación</h3>
+                    <div class="setting-item">
+                        <label>Precisión de cálculos:</label>
+                        <select id="precision-select">
+                            <option value="low">Baja (Rápido)</option>
+                            <option value="medium" selected>Media (Balanceado)</option>
+                            <option value="high">Alta (Preciso)</option>
+                        </select>
+                    </div>
+                    <div class="setting-item">
+                        <label>Mostrar datos técnicos:</label>
+                        <input type="checkbox" id="technical-data" checked>
+                    </div>
+                </div>
+                
+                <div class="settings-section">
+                    <h3>🌐 APIs</h3>
+                    <div class="setting-item">
+                        <label>NASA API Key:</label>
+                        <input type="password" id="nasa-api-key" placeholder="Tu API key de NASA">
+                    </div>
+                    <div class="setting-item">
+                        <label>Cache de datos:</label>
+                        <input type="checkbox" id="data-cache" checked>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="resetSettings()">Restablecer</button>
+                <button class="btn-primary" onclick="saveSettings()">Guardar</button>
+                <button class="btn-secondary" onclick="closeModal('settings-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Stats Modal -->
+    <div id="stats-modal" class="results-modal" style="display: none;">
+        <div class="modal-content rewards-modal-content">
+            <div class="modal-header">
+                <h2>📊 Estadísticas Detalladas</h2>
+                <button class="modal-close" onclick="closeModal('stats-modal')">&times;</button>
+            </div>
+            <div class="modal-body">
+                <div class="stats-grid">
+                    <div class="stat-section">
+                        <h3>🎯 Simulaciones</h3>
+                        <div class="stat-item">
+                            <span class="stat-label">Total:</span>
+                            <span class="stat-value" id="total-simulations">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Esta sesión:</span>
+                            <span class="stat-value" id="session-simulations">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Mayor energía:</span>
+                            <span class="stat-value" id="max-energy">0 MT</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-section">
+                        <h3>🌍 Ubicaciones</h3>
+                        <div class="stat-item">
+                            <span class="stat-label">Continentes explorados:</span>
+                            <span class="stat-value" id="continents-explored">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Ciudades impactadas:</span>
+                            <span class="stat-value" id="cities-impacted">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Océanos:</span>
+                            <span class="stat-value" id="oceans-impacted">0</span>
+                        </div>
+                    </div>
+                    
+                    <div class="stat-section">
+                        <h3>🌊 Efectos</h3>
+                        <div class="stat-item">
+                            <span class="stat-label">Tsunamis simulados:</span>
+                            <span class="stat-value" id="tsunamis-simulated">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Terremotos:</span>
+                            <span class="stat-value" id="earthquakes-simulated">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Efectos climáticos:</span>
+                            <span class="stat-value" id="climate-effects">0</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="stats-chart">
+                    <h3>📈 Gráfico de Actividad</h3>
+                    <div id="activity-chart" style="height: 200px; background: var(--input-bg); border-radius: 8px; display: flex; align-items: center; justify-content: center; color: var(--text-medium);">
+                        📊 Gráfico de actividad por día
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="exportStats()">📤 Exportar</button>
+                <button class="btn-secondary" onclick="closeModal('stats-modal')">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asteroids Browser Modal -->
+    <div id="asteroids-browser-modal" class="results-modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>🌌 Explorador de Asteroides NASA</h2>
+                <button class="modal-close" onclick="closeAsteroidsBrowser()">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="asteroids-list-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeAsteroidsBrowser()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Asteroid Detail Modal -->
+    <div id="asteroid-detail-modal" class="results-modal" style="display: none; z-index: 200000 !important;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 id="asteroid-detail-title">Detalles del Asteroide</h2>
+                <button class="modal-close" onclick="closeAsteroidDetail()">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="asteroid-detail-content"></div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-primary" onclick="useAsteroidInSimulation()">Usar en Simulación</button>
+                <button class="btn-secondary" onclick="closeAsteroidDetail()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 

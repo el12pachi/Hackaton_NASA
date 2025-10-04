@@ -4,6 +4,977 @@
  */
 
 // ============================================
+// REWARDS SYSTEM
+// ============================================
+
+// Sistema de recompensas y logros
+let rewardsSystem = {
+    points: 0,
+    achievements: [],
+    simulations: 0,
+    challenges: [],
+    specialModes: {
+        apocalypse: false,
+        defender: false,
+        scientist: false
+    }
+};
+
+// Definir logros disponibles
+const availableAchievements = [
+    {
+        id: 'first_simulation',
+        title: 'Primera Simulación',
+        description: 'Completa tu primera simulación',
+        icon: '🎯',
+        points: 10,
+        condition: (data) => data.simulations >= 1
+    },
+    {
+        id: 'big_impact',
+        title: 'Impacto Masivo',
+        description: 'Simula un impacto de más de 1000 MT',
+        icon: '💥',
+        points: 25,
+        condition: (data) => data.maxEnergy >= 1000
+    },
+    {
+        id: 'city_destroyer',
+        title: 'Destructor de Ciudades',
+        description: 'Simula impacto en una ciudad',
+        icon: '🏙️',
+        points: 30,
+        condition: (data) => data.cityImpacts >= 1
+    },
+    {
+        id: 'tsunami_master',
+        title: 'Maestro del Tsunami',
+        description: 'Simula un tsunami masivo',
+        icon: '🌊',
+        points: 20,
+        condition: (data) => data.tsunamiSimulations >= 1
+    },
+    {
+        id: 'defender_earth',
+        title: 'Defensor de la Tierra',
+        description: 'Usa estrategias de mitigación',
+        icon: '🛡️',
+        points: 40,
+        condition: (data) => data.mitigationAttempts >= 1
+    },
+    {
+        id: 'scientist_mode',
+        title: 'Modo Científico',
+        description: 'Activa el modo científico',
+        icon: '🔬',
+        points: 50,
+        condition: (data) => data.specialModes.scientist
+    },
+    {
+        id: 'apocalypse_survivor',
+        title: 'Superviviente del Apocalipsis',
+        description: 'Activa el modo apocalipsis',
+        icon: '💀',
+        points: 75,
+        condition: (data) => data.specialModes.apocalypse
+    },
+    {
+        id: 'simulation_master',
+        title: 'Maestro de Simulaciones',
+        description: 'Completa 10 simulaciones',
+        icon: '🏆',
+        points: 100,
+        condition: (data) => data.simulations >= 10
+    }
+];
+
+// Definir desafíos activos
+const activeChallenges = [
+    {
+        id: 'daily_simulator',
+        title: 'Simulador Diario',
+        description: 'Completa 3 simulaciones hoy',
+        icon: '📅',
+        progress: 0,
+        target: 3,
+        reward: 50
+    },
+    {
+        id: 'energy_explorer',
+        title: 'Explorador de Energía',
+        description: 'Simula impactos de diferentes energías',
+        icon: '⚡',
+        progress: 0,
+        target: 5,
+        reward: 75
+    },
+    {
+        id: 'location_master',
+        title: 'Maestro de Ubicaciones',
+        description: 'Simula impactos en 5 continentes diferentes',
+        icon: '🌍',
+        progress: 0,
+        target: 5,
+        reward: 100
+    }
+];
+
+// Inicializar sistema de recompensas
+function initializeRewardsSystem() {
+    // Cargar datos guardados
+    const savedData = localStorage.getItem('rewardsSystem');
+    if (savedData) {
+        rewardsSystem = { ...rewardsSystem, ...JSON.parse(savedData) };
+    }
+    
+    // Actualizar UI
+    updateRewardsUI();
+    
+    // Configurar event listeners
+    setupRewardsEventListeners();
+}
+
+// Configurar event listeners para el sistema de recompensas
+function setupRewardsEventListeners() {
+    // Botón de recompensas en el header
+    const rewardsBtn = document.querySelector('[data-mode="rewards"]');
+    if (rewardsBtn) {
+        rewardsBtn.addEventListener('click', () => {
+            openModal('rewards-modal');
+        });
+    }
+    
+    // Select de asteroides - manejar opciones especiales
+    const asteroidSelect = document.getElementById('asteroid-select');
+    if (asteroidSelect) {
+        asteroidSelect.addEventListener('change', (e) => {
+            const value = e.target.value;
+            
+            switch(value) {
+                case 'rewards':
+                    openModal('rewards-modal');
+                    asteroidSelect.value = 'custom'; // Reset select
+                    break;
+                case 'apocalypse':
+                    activateSpecialMode('apocalypse');
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'defender':
+                    activateSpecialMode('defender');
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'scientist':
+                    activateSpecialMode('scientist');
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'challenge':
+                    activateChallengeMode();
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'asteroid-info':
+                    openModal('asteroid-info-modal');
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'tutorial':
+                    openModal('tutorial-modal');
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'settings':
+                    openModal('settings-modal');
+                    asteroidSelect.value = 'custom';
+                    break;
+                case 'stats':
+                    openModal('stats-modal');
+                    updateStatsModal();
+                    asteroidSelect.value = 'custom';
+                    break;
+            }
+        });
+    }
+    
+    // Browse asteroids button
+    const browseBtn = document.getElementById('browse-asteroids-btn');
+    if (browseBtn) {
+        browseBtn.addEventListener('click', openAsteroidsBrowser);
+    }
+}
+
+// Abrir modal genérico
+function openModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'block';
+        document.body.style.overflow = 'hidden';
+        
+        // Actualizar datos si es el modal de recompensas
+        if (modalId === 'rewards-modal') {
+            updateRewardsUI();
+        }
+    }
+}
+
+// Cerrar modal genérico
+function closeModal(modalId) {
+    const modal = document.getElementById(modalId);
+    if (modal) {
+        modal.style.display = 'none';
+        document.body.style.overflow = 'auto';
+    }
+}
+
+// Actualizar UI de recompensas
+function updateRewardsUI() {
+    // Actualizar estadísticas
+    document.getElementById('total-points').textContent = rewardsSystem.points;
+    document.getElementById('achievements-count').textContent = rewardsSystem.achievements.length;
+    document.getElementById('simulations-count').textContent = rewardsSystem.simulations;
+    
+    // Actualizar logros
+    updateAchievementsGrid();
+    
+    // Actualizar desafíos
+    updateChallengesList();
+    
+    // Guardar datos
+    saveRewardsData();
+}
+
+// Actualizar grid de logros
+function updateAchievementsGrid() {
+    const grid = document.getElementById('achievements-grid');
+    if (!grid) return;
+    
+    grid.innerHTML = '';
+    
+    availableAchievements.forEach(achievement => {
+        const isUnlocked = rewardsSystem.achievements.includes(achievement.id);
+        const card = document.createElement('div');
+        card.className = `achievement-card ${isUnlocked ? 'unlocked' : 'locked'}`;
+        
+        card.innerHTML = `
+            <div class="achievement-icon">${achievement.icon}</div>
+            <div class="achievement-title">${achievement.title}</div>
+            <div class="achievement-desc">${achievement.description}</div>
+            <div class="achievement-points">${achievement.points} pts</div>
+        `;
+        
+        grid.appendChild(card);
+    });
+}
+
+// Actualizar lista de desafíos
+function updateChallengesList() {
+    const list = document.getElementById('challenges-list');
+    if (!list) return;
+    
+    list.innerHTML = '';
+    
+    activeChallenges.forEach(challenge => {
+        const progressPercent = (challenge.progress / challenge.target) * 100;
+        
+        const item = document.createElement('div');
+        item.className = 'challenge-item';
+        
+        item.innerHTML = `
+            <div class="challenge-icon">${challenge.icon}</div>
+            <div class="challenge-content">
+                <div class="challenge-title">${challenge.title}</div>
+                <div class="challenge-desc">${challenge.description}</div>
+                <div class="challenge-progress">
+                    <div class="challenge-progress-bar" style="width: ${progressPercent}%"></div>
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.25rem;">
+                    ${challenge.progress}/${challenge.target} - Recompensa: ${challenge.reward} pts
+                </div>
+            </div>
+        `;
+        
+        list.appendChild(item);
+    });
+}
+
+// Activar modo especial
+function activateSpecialMode(mode) {
+    rewardsSystem.specialModes[mode] = true;
+    
+    // Aplicar efectos del modo
+    switch(mode) {
+        case 'apocalypse':
+            showNotification('💀 Modo Apocalipsis activado! Asteroides masivos disponibles.', 'warning');
+            // Ajustar rangos para asteroides masivos
+            document.getElementById('diameter').max = 5000;
+            document.getElementById('velocity').max = 100;
+            break;
+        case 'defender':
+            showNotification('🛡️ Modo Defensor activado! Enfoque en mitigación.', 'info');
+            // Cambiar a modo mitigación
+            switchToMode('mitigation');
+            break;
+        case 'scientist':
+            showNotification('🔬 Modo Científico activado! Datos precisos habilitados.', 'success');
+            // Mostrar datos adicionales
+            break;
+    }
+    
+    // Verificar logros
+    checkAchievements();
+    updateRewardsUI();
+}
+
+// Activar modo desafío
+function activateChallengeMode() {
+    showNotification('🎯 Modo Desafío activado! Completa objetivos para ganar puntos.', 'info');
+    // Implementar lógica de desafíos específicos
+}
+
+// Verificar y desbloquear logros
+function checkAchievements() {
+    const currentData = {
+        simulations: rewardsSystem.simulations,
+        maxEnergy: rewardsSystem.maxEnergy || 0,
+        cityImpacts: rewardsSystem.cityImpacts || 0,
+        tsunamiSimulations: rewardsSystem.tsunamiSimulations || 0,
+        mitigationAttempts: rewardsSystem.mitigationAttempts || 0,
+        specialModes: rewardsSystem.specialModes
+    };
+    
+    availableAchievements.forEach(achievement => {
+        if (!rewardsSystem.achievements.includes(achievement.id) && achievement.condition(currentData)) {
+            unlockAchievement(achievement);
+        }
+    });
+}
+
+// Desbloquear logro
+function unlockAchievement(achievement) {
+    rewardsSystem.achievements.push(achievement.id);
+    rewardsSystem.points += achievement.points;
+    
+    showNotification(`🏆 Logro desbloqueado: ${achievement.title}! +${achievement.points} puntos`, 'success');
+    
+    // Efecto visual
+    createAchievementEffect(achievement);
+}
+
+// Crear efecto visual para logro
+function createAchievementEffect(achievement) {
+    const effect = document.createElement('div');
+    effect.style.cssText = `
+        position: fixed;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        padding: 2rem;
+        border-radius: 20px;
+        text-align: center;
+        z-index: 10000;
+        font-size: 1.5rem;
+        font-weight: bold;
+        box-shadow: 0 20px 40px rgba(0,0,0,0.3);
+        animation: achievementPop 2s ease-out forwards;
+    `;
+    
+    effect.innerHTML = `
+        <div style="font-size: 3rem; margin-bottom: 1rem;">${achievement.icon}</div>
+        <div>${achievement.title}</div>
+        <div style="font-size: 1rem; margin-top: 0.5rem; opacity: 0.9;">+${achievement.points} puntos</div>
+    `;
+    
+    document.body.appendChild(effect);
+    
+    setTimeout(() => {
+        document.body.removeChild(effect);
+    }, 2000);
+}
+
+// Mostrar notificación
+function showNotification(message, type = 'info') {
+    const notification = document.createElement('div');
+    notification.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: ${type === 'success' ? '#4CAF50' : type === 'warning' ? '#FF9800' : '#2196F3'};
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 8px;
+        z-index: 1000;
+        font-weight: 500;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        animation: slideInRight 0.3s ease-out;
+    `;
+    
+    notification.textContent = message;
+    document.body.appendChild(notification);
+    
+    setTimeout(() => {
+        notification.style.animation = 'slideOutRight 0.3s ease-in forwards';
+        setTimeout(() => {
+            document.body.removeChild(notification);
+        }, 300);
+    }, 3000);
+}
+
+// Guardar datos de recompensas
+function saveRewardsData() {
+    localStorage.setItem('rewardsSystem', JSON.stringify(rewardsSystem));
+}
+
+// Registrar simulación
+function recordSimulation(energy, location, hasTsunami, hasMitigation) {
+    rewardsSystem.simulations++;
+    rewardsSystem.sessionSimulations = (rewardsSystem.sessionSimulations || 0) + 1;
+    
+    if (energy > (rewardsSystem.maxEnergy || 0)) {
+        rewardsSystem.maxEnergy = energy;
+    }
+    
+    if (location && location.city) {
+        rewardsSystem.cityImpacts = (rewardsSystem.cityImpacts || 0) + 1;
+    }
+    
+    if (location && location.ocean) {
+        rewardsSystem.oceansImpacted = (rewardsSystem.oceansImpacted || 0) + 1;
+    }
+    
+    if (hasTsunami) {
+        rewardsSystem.tsunamiSimulations = (rewardsSystem.tsunamiSimulations || 0) + 1;
+    }
+    
+    if (energy > 100) { // Simulaciones de alta energía pueden causar terremotos
+        rewardsSystem.earthquakeSimulations = (rewardsSystem.earthquakeSimulations || 0) + 1;
+    }
+    
+    if (energy > 1000) { // Simulaciones masivas pueden causar efectos climáticos
+        rewardsSystem.climateEffects = (rewardsSystem.climateEffects || 0) + 1;
+    }
+    
+    // Detectar continentes (simplificado)
+    if (location && location.country) {
+        const continent = getContinentFromCountry(location.country);
+        if (continent && !rewardsSystem.exploredContinents) {
+            rewardsSystem.exploredContinents = [];
+        }
+        if (continent && !rewardsSystem.exploredContinents.includes(continent)) {
+            rewardsSystem.exploredContinents.push(continent);
+            rewardsSystem.continentsExplored = rewardsSystem.exploredContinents.length;
+        }
+    }
+    
+    if (hasMitigation) {
+        rewardsSystem.mitigationAttempts = (rewardsSystem.mitigationAttempts || 0) + 1;
+    }
+    
+    // Actualizar progreso de desafíos
+    updateChallengeProgress();
+    
+    // Verificar logros
+    checkAchievements();
+    updateRewardsUI();
+    
+    // Guardar datos
+    saveRewardsData();
+}
+
+// Función auxiliar para determinar continente (simplificada)
+function getContinentFromCountry(country) {
+    const continentMap = {
+        'United States': 'North America',
+        'Canada': 'North America',
+        'Mexico': 'North America',
+        'Brazil': 'South America',
+        'Argentina': 'South America',
+        'Chile': 'South America',
+        'Spain': 'Europe',
+        'France': 'Europe',
+        'Germany': 'Europe',
+        'China': 'Asia',
+        'Japan': 'Asia',
+        'India': 'Asia',
+        'Australia': 'Oceania',
+        'New Zealand': 'Oceania',
+        'South Africa': 'Africa',
+        'Egypt': 'Africa',
+        'Nigeria': 'Africa'
+    };
+    
+    return continentMap[country] || 'Unknown';
+}
+
+// Actualizar progreso de desafíos
+function updateChallengeProgress() {
+    // Desafío diario
+    const today = new Date().toDateString();
+    if (rewardsSystem.lastSimulationDate !== today) {
+        rewardsSystem.lastSimulationDate = today;
+        rewardsSystem.dailySimulations = 0;
+    }
+    rewardsSystem.dailySimulations = (rewardsSystem.dailySimulations || 0) + 1;
+    
+    // Actualizar desafíos
+    activeChallenges.forEach(challenge => {
+        switch(challenge.id) {
+            case 'daily_simulator':
+                challenge.progress = rewardsSystem.dailySimulations || 0;
+                break;
+            case 'energy_explorer':
+                challenge.progress = Math.min(challenge.progress + 1, challenge.target);
+                break;
+            case 'location_master':
+                // Lógica para diferentes continentes
+                break;
+        }
+    });
+}
+
+// ============================================
+// ADDITIONAL MODALS FUNCTIONALITY
+// ============================================
+
+// Tutorial functionality
+let currentTutorialStep = 1;
+const totalTutorialSteps = 4;
+
+function nextTutorialStep() {
+    if (currentTutorialStep < totalTutorialSteps) {
+        document.querySelector(`[data-step="${currentTutorialStep}"]`).classList.remove('active');
+        currentTutorialStep++;
+        document.querySelector(`[data-step="${currentTutorialStep}"]`).classList.add('active');
+        document.getElementById('tutorial-progress').textContent = `${currentTutorialStep} de ${totalTutorialSteps}`;
+    }
+}
+
+function previousTutorialStep() {
+    if (currentTutorialStep > 1) {
+        document.querySelector(`[data-step="${currentTutorialStep}"]`).classList.remove('active');
+        currentTutorialStep--;
+        document.querySelector(`[data-step="${currentTutorialStep}"]`).classList.add('active');
+        document.getElementById('tutorial-progress').textContent = `${currentTutorialStep} de ${totalTutorialSteps}`;
+    }
+}
+
+// Settings functionality
+function saveSettings() {
+    const settings = {
+        theme: document.getElementById('theme-select').value,
+        language: document.getElementById('language-select').value,
+        precision: document.getElementById('precision-select').value,
+        technicalData: document.getElementById('technical-data').checked,
+        nasaApiKey: document.getElementById('nasa-api-key').value,
+        dataCache: document.getElementById('data-cache').checked
+    };
+    
+    localStorage.setItem('appSettings', JSON.stringify(settings));
+    showNotification('⚙️ Configuración guardada exitosamente', 'success');
+    
+    // Apply settings
+    applySettings(settings);
+}
+
+function resetSettings() {
+    const defaultSettings = {
+        theme: 'dark',
+        language: 'es',
+        precision: 'medium',
+        technicalData: true,
+        nasaApiKey: '',
+        dataCache: true
+    };
+    
+    document.getElementById('theme-select').value = defaultSettings.theme;
+    document.getElementById('language-select').value = defaultSettings.language;
+    document.getElementById('precision-select').value = defaultSettings.precision;
+    document.getElementById('technical-data').checked = defaultSettings.technicalData;
+    document.getElementById('nasa-api-key').value = defaultSettings.nasaApiKey;
+    document.getElementById('data-cache').checked = defaultSettings.dataCache;
+    
+    showNotification('🔄 Configuración restablecida', 'info');
+}
+
+function applySettings(settings) {
+    // Apply theme
+    if (settings.theme !== 'auto') {
+        document.documentElement.setAttribute('data-theme', settings.theme);
+        localStorage.setItem('theme', settings.theme);
+    }
+    
+    // Apply language
+    if (window.i18n && settings.language) {
+        window.i18n.setLanguage(settings.language);
+    }
+}
+
+// Stats functionality
+function updateStatsModal() {
+    const stats = {
+        totalSimulations: rewardsSystem.simulations || 0,
+        sessionSimulations: rewardsSystem.sessionSimulations || 0,
+        maxEnergy: rewardsSystem.maxEnergy || 0,
+        continentsExplored: rewardsSystem.continentsExplored || 0,
+        citiesImpacted: rewardsSystem.cityImpacts || 0,
+        oceansImpacted: rewardsSystem.oceansImpacted || 0,
+        tsunamisSimulated: rewardsSystem.tsunamiSimulations || 0,
+        earthquakesSimulated: rewardsSystem.earthquakeSimulations || 0,
+        climateEffects: rewardsSystem.climateEffects || 0
+    };
+    
+    document.getElementById('total-simulations').textContent = stats.totalSimulations;
+    document.getElementById('session-simulations').textContent = stats.sessionSimulations;
+    document.getElementById('max-energy').textContent = `${stats.maxEnergy} MT`;
+    document.getElementById('continents-explored').textContent = stats.continentsExplored;
+    document.getElementById('cities-impacted').textContent = stats.citiesImpacted;
+    document.getElementById('oceans-impacted').textContent = stats.oceansImpacted;
+    document.getElementById('tsunamis-simulated').textContent = stats.tsunamisSimulated;
+    document.getElementById('earthquakes-simulated').textContent = stats.earthquakesSimulated;
+    document.getElementById('climate-effects').textContent = stats.climateEffects;
+}
+
+function exportStats() {
+    const stats = {
+        totalSimulations: rewardsSystem.simulations || 0,
+        maxEnergy: rewardsSystem.maxEnergy || 0,
+        achievements: rewardsSystem.achievements.length,
+        points: rewardsSystem.points,
+        exportDate: new Date().toISOString()
+    };
+    
+    const dataStr = JSON.stringify(stats, null, 2);
+    const dataBlob = new Blob([dataStr], {type: 'application/json'});
+    const url = URL.createObjectURL(dataBlob);
+    
+    const link = document.createElement('a');
+    link.href = url;
+    link.download = `asteroid-simulator-stats-${new Date().toISOString().split('T')[0]}.json`;
+    link.click();
+    
+    URL.revokeObjectURL(url);
+    showNotification('📤 Estadísticas exportadas exitosamente', 'success');
+}
+
+// Asteroid search functionality
+function searchAsteroid() {
+    const searchTerm = document.getElementById('asteroid-search-input').value.trim();
+    if (!searchTerm) {
+        showNotification('🔍 Por favor ingresa un término de búsqueda', 'warning');
+        return;
+    }
+    
+    showNotification('🔍 Buscando asteroides...', 'info');
+    
+    // Simulate asteroid search (in a real implementation, this would call the NASA API)
+    setTimeout(() => {
+        const mockAsteroids = [
+            {
+                id: '2000001',
+                name: 'Ceres',
+                diameter: 950000,
+                velocity: 17.9,
+                composition: 'rocky',
+                hazardous: false
+            },
+            {
+                id: '2000002',
+                name: 'Pallas',
+                diameter: 512000,
+                velocity: 20.6,
+                composition: 'metallic',
+                hazardous: false
+            },
+            {
+                id: '2000003',
+                name: 'Juno',
+                diameter: 267000,
+                velocity: 18.1,
+                composition: 'rocky',
+                hazardous: false
+            }
+        ];
+        
+        displayAsteroidList(mockAsteroids);
+        showNotification('✅ Búsqueda completada', 'success');
+    }, 1000);
+}
+
+function displayAsteroidList(asteroids) {
+    const container = document.getElementById('asteroid-list');
+    container.innerHTML = '';
+    
+    asteroids.forEach(asteroid => {
+        const item = document.createElement('div');
+        item.className = 'asteroid-item';
+        item.onclick = () => showAsteroidDetails(asteroid);
+        
+        item.innerHTML = `
+            <div class="asteroid-name">${asteroid.name}</div>
+            <div style="font-size: 0.875rem; color: var(--text-medium);">
+                ID: ${asteroid.id} | Diámetro: ${(asteroid.diameter / 1000).toFixed(1)} km
+            </div>
+            <div style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.25rem;">
+                Velocidad: ${asteroid.velocity} km/s | ${asteroid.hazardous ? '⚠️ Peligroso' : '✅ Seguro'}
+            </div>
+        `;
+        
+        container.appendChild(item);
+    });
+}
+
+function showAsteroidDetails(asteroid) {
+    const detailsContainer = document.getElementById('asteroid-details');
+    detailsContainer.style.display = 'block';
+    
+    detailsContainer.innerHTML = `
+        <h3>🪨 ${asteroid.name}</h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
+            <div>
+                <strong>ID NASA:</strong><br>
+                ${asteroid.id}
+            </div>
+            <div>
+                <strong>Diámetro:</strong><br>
+                ${(asteroid.diameter / 1000).toFixed(1)} km
+            </div>
+            <div>
+                <strong>Velocidad:</strong><br>
+                ${asteroid.velocity} km/s
+            </div>
+            <div>
+                <strong>Composición:</strong><br>
+                ${asteroid.composition === 'rocky' ? '🪨 Rocoso' : asteroid.composition === 'metallic' ? '⚙️ Metálico' : '🌑 Carbonáceo'}
+            </div>
+            <div>
+                <strong>Estado:</strong><br>
+                ${asteroid.hazardous ? '⚠️ Potencialmente Peligroso' : '✅ No Peligroso'}
+            </div>
+        </div>
+        <div style="margin-top: 1rem;">
+            <button class="btn-primary" onclick="useAsteroidInSimulation('${asteroid.id}')">
+                🚀 Usar en Simulación
+            </button>
+        </div>
+    `;
+}
+
+function useAsteroidInSimulation(asteroidId) {
+    // This would load the asteroid data into the simulation controls
+    showNotification('🚀 Asteroide cargado en la simulación', 'success');
+    closeModal('asteroid-info-modal');
+}
+
+// ============================================
+// ASTEROIDS BROWSER FUNCTIONALITY
+// ============================================
+
+// Variable para almacenar datos de asteroides
+let currentAsteroidData = null;
+
+function openAsteroidsBrowser() {
+    if (!currentAsteroidData || !currentAsteroidData.asteroids || currentAsteroidData.asteroids.length === 0) {
+        alert('No hay asteroides cargados. Por favor espera un momento.');
+        return;
+    }
+    
+    const modal = document.getElementById('asteroids-browser-modal');
+    const listContent = document.getElementById('asteroids-list-content');
+    
+    // Generar lista de asteroides
+    let html = '<div style="display: flex; flex-direction: column; gap: 1rem;">';
+    
+    currentAsteroidData.asteroids.forEach((asteroid, index) => {
+        const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
+        const isDangerous = asteroid.is_hazardous;
+        const dangerIcon = isDangerous ? '⚠️' : '✓';
+        const dangerColor = isDangerous ? '#FF4444' : '#4CAF50';
+        const dangerText = isDangerous ? 'PELIGROSO' : 'Seguro';
+        
+        // Emoji según tamaño
+        let sizeIcon = '🏠';
+        if (avgDiameter >= 500) sizeIcon = '🏔️';
+        else if (avgDiameter >= 300) sizeIcon = '🏙️';
+        else if (avgDiameter >= 100) sizeIcon = '🏟️';
+        else if (avgDiameter >= 50) sizeIcon = '🏢';
+        
+        html += `
+            <div style="
+                background: var(--card-bg);
+                border: 2px solid var(--border-color);
+                border-radius: 8px;
+                padding: 1rem;
+                display: flex;
+                align-items: center;
+                gap: 1rem;
+                transition: all 0.3s;
+                cursor: pointer;
+            " onmouseover="this.style.borderColor='var(--primary-color)'" onmouseout="this.style.borderColor='var(--border-color)'">
+                
+                <!-- Icono de tamaño -->
+                <div style="font-size: 2.5rem; flex-shrink: 0;">
+                    ${sizeIcon}
+                </div>
+                
+                <!-- Información principal -->
+                <div style="flex: 1; min-width: 0;">
+                    <div style="font-weight: 600; font-size: 1.1rem; margin-bottom: 0.25rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;">
+                        ${asteroid.name}
+                    </div>
+                    <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; color: var(--text-secondary);">
+                        <span>📏 ${Math.round(avgDiameter)}m</span>
+                        <span>🚀 ${asteroid.velocity_km_s.toFixed(1)} km/s</span>
+                        <span style="color: ${dangerColor}; font-weight: 600;">${dangerIcon} ${dangerText}</span>
+                    </div>
+                </div>
+                
+                <!-- Botones de acción -->
+                <div style="display: flex; gap: 0.5rem; flex-shrink: 0;">
+                    <button 
+                        onclick="useAsteroidFromList(${index}); event.stopPropagation();"
+                        style="
+                            background: var(--primary-color);
+                            color: white;
+                            border: none;
+                            border-radius: 6px;
+                            padding: 0.6rem 1.2rem;
+                            cursor: pointer;
+                            font-weight: 600;
+                            transition: all 0.2s;
+                        "
+                        onmouseover="this.style.transform='scale(1.05)'"
+                        onmouseout="this.style.transform='scale(1)'"
+                        title="Usar en simulación"
+                    >
+                        Usar en Simulación
+                    </button>
+                    <button 
+                        onclick="showAsteroidDetail(${index}); event.stopPropagation();"
+                        style="
+                            background: transparent;
+                            color: var(--primary-color);
+                            border: 2px solid var(--primary-color);
+                            border-radius: 6px;
+                            padding: 0.6rem 1.2rem;
+                            cursor: pointer;
+                            font-weight: 600;
+                            transition: all 0.2s;
+                        "
+                        onmouseover="this.style.background='var(--primary-color)'; this.style.color='white';"
+                        onmouseout="this.style.background='transparent'; this.style.color='var(--primary-color)';"
+                        title="Ver información completa"
+                    >
+                        Ver más
+                    </button>
+                </div>
+            </div>
+        `;
+    });
+    
+    html += '</div>';
+    listContent.innerHTML = html;
+    
+    // Mostrar modal
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAsteroidsBrowser() {
+    const modal = document.getElementById('asteroids-browser-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function useAsteroidFromList(index) {
+    const asteroid = currentAsteroidData.asteroids[index];
+    const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
+    
+    // Cargar datos en los controles
+    document.getElementById('diameter').value = Math.round(avgDiameter);
+    document.getElementById('velocity').value = asteroid.velocity_km_s;
+    document.getElementById('angle').value = 45; // Ángulo por defecto
+    
+    // Actualizar displays
+    updateSliderDisplays();
+    
+    // Cerrar modal
+    closeAsteroidsBrowser();
+    
+    // Mostrar notificación
+    showNotification(`🚀 Asteroide "${asteroid.name}" cargado en la simulación`, 'success');
+}
+
+function showAsteroidDetail(index) {
+    const asteroid = currentAsteroidData.asteroids[index];
+    const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
+    
+    const modal = document.getElementById('asteroid-detail-modal');
+    const title = document.getElementById('asteroid-detail-title');
+    const content = document.getElementById('asteroid-detail-content');
+    
+    title.textContent = `🪨 ${asteroid.name}`;
+    
+    content.innerHTML = `
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
+            <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                <strong>📏 Diámetro</strong><br>
+                ${Math.round(asteroid.diameter_min_m)}m - ${Math.round(asteroid.diameter_max_m)}m<br>
+                <span style="color: var(--text-secondary);">Promedio: ${Math.round(avgDiameter)}m</span>
+            </div>
+            <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                <strong>🚀 Velocidad</strong><br>
+                ${asteroid.velocity_km_s.toFixed(2)} km/s
+            </div>
+            <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid ${asteroid.is_hazardous ? '#FF4444' : '#4CAF50'};">
+                <strong>⚠️ Estado</strong><br>
+                ${asteroid.is_hazardous ? 'PELIGROSO' : 'Seguro'}
+            </div>
+            <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary-color);">
+                <strong>📅 Última Observación</strong><br>
+                ${asteroid.last_obs_date || 'N/A'}
+            </div>
+        </div>
+        
+        <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
+            <strong>📊 Información Orbital</strong><br>
+            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+                ${asteroid.orbital_data ? `
+                    Período orbital: ${asteroid.orbital_data.orbital_period || 'N/A'}<br>
+                    Excentricidad: ${asteroid.orbital_data.eccentricity || 'N/A'}<br>
+                    Inclinación: ${asteroid.orbital_data.inclination || 'N/A'}°
+                ` : 'Datos orbitales no disponibles'}
+            </div>
+        </div>
+        
+        <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px;">
+            <strong>🔬 Datos Técnicos</strong><br>
+            <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
+                ID NASA: ${asteroid.nasa_jpl_url ? asteroid.nasa_jpl_url.split('/').pop() : 'N/A'}<br>
+                Magnitud absoluta: ${asteroid.absolute_magnitude_h || 'N/A'}<br>
+                Albedo: ${asteroid.albedo || 'N/A'}
+            </div>
+        </div>
+    `;
+    
+    // Guardar índice para usar en simulación
+    window.selectedAsteroidIndex = index;
+    
+    // Mostrar modal
+    modal.style.display = 'block';
+    document.body.style.overflow = 'hidden';
+}
+
+function closeAsteroidDetail() {
+    const modal = document.getElementById('asteroid-detail-modal');
+    modal.style.display = 'none';
+    document.body.style.overflow = 'auto';
+}
+
+function useAsteroidInSimulation() {
+    if (window.selectedAsteroidIndex !== undefined) {
+        useAsteroidFromList(window.selectedAsteroidIndex);
+        closeAsteroidDetail();
+    }
+}
+
+// ============================================
 // MODE SWITCHING
 // ============================================
 
@@ -12,6 +983,11 @@ document.addEventListener('DOMContentLoaded', () => {
 });
 
 function initializeApp() {
+    
+    // Aplicar traducciones iniciales (español por defecto)
+    if (window.i18n) {
+        window.i18n.setLanguage('es');
+    }
     
     // Setup theme toggle
     setupThemeToggle();
@@ -24,6 +1000,9 @@ function initializeApp() {
     
     // Setup mitigation mode
     setupMitigationMode();
+    
+    // Initialize rewards system
+    initializeRewardsSystem();
     
     // Load asteroids from NASA
     loadNEOData();
@@ -121,7 +1100,6 @@ function setupModeSwitching() {
 // SIMULATION MODE
 // ============================================
 
-let currentAsteroidData = null;
 let impactMap = null;
 let currentMarker = null;
 let currentCircles = [];
@@ -795,6 +1773,14 @@ async function runImpactSimulation() {
             
             displayImpactResults(result);
             await updateImpactMap(result);
+            
+            // Registrar simulación en el sistema de recompensas
+            const energy = result.impact_energy_mt || result.energy?.megatons || 0;
+            const location = result.population_affected;
+            const hasTsunami = result.secondary_effects?.some(effect => effect.type === 'tsunami');
+            const hasMitigation = false; // Se puede mejorar para detectar si se usó mitigación
+            
+            recordSimulation(energy, location, hasTsunami, hasMitigation);
             
         } else {
             alert('Error en la simulación: ' + result.error);
