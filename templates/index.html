@@ -133,29 +133,32 @@
                     <div class="card-subtitle">Magnitud Richter</div>
                 </div>
 
-                <!-- Card 9: Simulation Status -->
-                <div class="bento-card status-card">
-                    <div class="card-header">
-                        <h3>Estado de Simulación</h3>
-                        <span class="card-icon">⚙️</span>
-                    </div>
-                    <div class="card-metric" id="simulation-status">Listo</div>
-                    <div class="card-trend" id="status-trend">
-                        <span class="trend-icon">✅</span>
-                        <span class="trend-text">Configura parámetros</span>
-                    </div>
-                </div>
-                
-                <!-- New Simulation Button -->
-                <div class="bento-card new-simulation-card">
-                    <div class="card-header">
-                        <h3>Nueva Simulación</h3>
-                        <span class="card-icon">🔄</span>
-                    </div>
-                    <button class="btn-primary" onclick="hideBentoDashboard()" style="width: 100%; margin-top: 8px;">
-                        Configurar Nuevos Parámetros
-                    </button>
-                </div>
+                 <!-- Card 9: Most Affected Fauna -->
+                 <div class="bento-card fauna-card">
+                     <div class="card-header">
+                         <h3>Fauna Más Afectada</h3>
+                         <span class="card-icon">🦋</span>
+                     </div>
+                     <div class="card-metric" id="most-affected-fauna">-</div>
+                     <div class="card-subtitle">Especie en mayor riesgo</div>
+                 </div>
+
+                 <!-- Card 10: Most Affected Flora -->
+                 <div class="bento-card flora-card">
+                     <div class="card-header">
+                         <h3>Flora Más Afectada</h3>
+                         <span class="card-icon">🌿</span>
+                     </div>
+                     <div class="card-metric" id="most-affected-flora">-</div>
+                     <div class="card-subtitle">Especie en mayor riesgo</div>
+                 </div>
+                 
+                 <!-- New Simulation Button -->
+                 <div class="bento-card new-simulation-card">
+                     <button class="btn-primary" onclick="hideBentoDashboard()" style="width: 100%; height: 100%; display: flex; align-items: center; justify-content: center; font-size: 2rem; border: none; background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); color: white; border-radius: 12px; cursor: pointer;">
+                         +
+                     </button>
+                 </div>
             </div>
 
             <!-- Simulation Controls -->
@@ -241,18 +244,6 @@
                         </select>
                     </div>
 
-                    <!-- Asteroid Parameters -->
-                    <div class="control-group">
-                        <label for="mit-diameter">Diámetro (m)</label>
-                        <input type="range" id="mit-diameter" min="50" max="500" value="150" step="10">
-                        <span id="mit-diameter-value" class="value-display">150 m</span>
-                    </div>
-
-                    <div class="control-group">
-                        <label for="mit-velocity">Velocidad (km/s)</label>
-                        <input type="range" id="mit-velocity" min="10" max="40" value="25" step="1">
-                        <span id="mit-velocity-value" class="value-display">25 km/s</span>
-                    </div>
 
                     <!-- Mission Parameters -->
                     <div class="control-group">

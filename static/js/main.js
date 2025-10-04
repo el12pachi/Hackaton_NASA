@@ -97,13 +97,21 @@ function setupModeSwitching() {
             btn.classList.add('active');
             
             // Update sections
-            document.getElementById('simulation-controls').classList.remove('active');
-            document.getElementById('mitigation-controls').classList.remove('active');
+            const simulationControls = document.getElementById('simulation-controls');
+            const mitigationControls = document.getElementById('mitigation-controls');
+            
+            // Remove active class from both sections
+            simulationControls.classList.remove('active');
+            mitigationControls.classList.remove('active');
             
             if (mode === 'simulation') {
-                document.getElementById('simulation-controls').classList.add('active');
+                simulationControls.classList.add('active');
+                console.log('✅ Showing simulation controls');
             } else {
-                document.getElementById('mitigation-controls').classList.add('active');
+                mitigationControls.classList.add('active');
+                console.log('✅ Showing mitigation controls');
+                // Hide Bento dashboard when switching to mitigation
+                hideBentoDashboard();
             }
         });
     });
@@ -641,7 +649,8 @@ async function runImpactSimulation() {
                     'calculations.magnitude',
                     'magnitude'
                 ]),
-                simulationStatus: 'Completado'
+                mostAffectedFauna: 'Aves migratorias',
+                mostAffectedFlora: 'Bosques de coníferas'
             };
             
             // Get population data BEFORE showing dashboard
@@ -1743,8 +1752,6 @@ async function updateImpactMap(result) {
 
 function setupMitigationMode() {
     // Range inputs
-    setupRangeInput('mit-diameter', 'mit-diameter-value', ' m');
-    setupRangeInput('mit-velocity', 'mit-velocity-value', ' km/s');
     setupRangeInput('time-before-impact', 'time-before-impact-value', ' días');
     setupRangeInput('impactor-mass', 'impactor-mass-value', ' kg');
     setupRangeInput('impactor-velocity', 'impactor-velocity-value', ' km/s');
@@ -1779,9 +1786,10 @@ async function runDeflectionSimulation() {
     showLoading(true);
     
     try {
+        // Use parameters from the previous simulation
         const params = {
-            asteroid_diameter: parseFloat(document.getElementById('mit-diameter').value),
-            asteroid_velocity: parseFloat(document.getElementById('mit-velocity').value) * 1000,
+            asteroid_diameter: parseFloat(document.getElementById('diameter').value),
+            asteroid_velocity: parseFloat(document.getElementById('velocity').value) * 1000,
             strategy: document.getElementById('strategy-select').value,
             time_before_impact: parseFloat(document.getElementById('time-before-impact').value),
             impactor_mass: parseFloat(document.getElementById('impactor-mass').value),
@@ -2707,7 +2715,8 @@ document.addEventListener('DOMContentLoaded', () => {
             'destruction-radius',
             'tsunami-risk',
             'seismic-magnitude',
-            'simulation-status'
+            'most-affected-fauna',
+            'most-affected-flora'
         ];
         
         elements.forEach(id => {
@@ -2770,7 +2779,8 @@ function updateBentoDashboard(data) {
         { id: 'destruction-radius', value: formatDistance(data.destructionRadius), log: '💀 Radius' },
         { id: 'tsunami-risk', value: data.tsunamiRisk, log: '🌊 Tsunami' },
         { id: 'seismic-magnitude', value: data.seismicMagnitude.toFixed(1), log: '🌍 Seismic' },
-        { id: 'simulation-status', value: data.simulationStatus, log: '⚙️ Status' }
+        { id: 'most-affected-fauna', value: data.mostAffectedFauna || '-', log: '🦋 Fauna' },
+        { id: 'most-affected-flora', value: data.mostAffectedFlora || '-', log: '🌿 Flora' }
     ];
     
     updates.forEach(update => {
