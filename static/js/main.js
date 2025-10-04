@@ -2388,6 +2388,113 @@ function getCountryPopulation(countryName) {
 // MAP FUNCTIONALITY
 // ============================================
 
+// Obtener ubicación aproximada del usuario usando su IP (sin permisos)
+async function getUserLocationByIP() {
+    try {
+        console.log('🌐 Obteniendo ubicación por IP...');
+        
+        // Usar múltiples servicios como fallback
+        const services = [
+            'https://ipapi.co/json/',
+            'https://ip-api.com/json/',
+            'http://ip-api.com/json/'
+        ];
+        
+        for (const service of services) {
+            try {
+                const response = await fetch(service);
+                if (!response.ok) continue;
+                
+                const data = await response.json();
+                
+                // Diferentes servicios tienen diferentes formatos
+                let lat, lon, city, country, countryCode;
+                
+                if (data.latitude && data.longitude) {
+                    // ipapi.co format
+                    lat = data.latitude;
+                    lon = data.longitude;
+                    city = data.city;
+                    country = data.country_name || data.country;
+                    countryCode = data.country_code;
+                } else if (data.lat && data.lon) {
+                    // ip-api.com format
+                    lat = data.lat;
+                    lon = data.lon;
+                    city = data.city;
+                    country = data.country;
+                    countryCode = data.countryCode;
+                }
+                
+                if (lat && lon) {
+                    // Obtener código de país (formato ISO 2 letras)
+                    if (countryCode) {
+                        countryCode = countryCode.toUpperCase();
+                    }
+                    
+                    console.log(`📍 Ubicación detectada por IP: ${city}, ${country} (${countryCode}) (${lat}, ${lon})`);
+                    return {
+                        lat: lat,
+                        lon: lon,
+                        city: city,
+                        country: country,
+                        countryCode: countryCode,
+                        method: 'ip'
+                    };
+                }
+            } catch (err) {
+                console.log(`⚠️ Servicio ${service} falló, intentando siguiente...`);
+                continue;
+            }
+        }
+        
+        throw new Error('Todos los servicios de geolocalización fallaron');
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo ubicación por IP:', error);
+        throw error;
+    }
+}
+
+// Obtener ubicación del usuario (primero intenta IP, luego GPS)
+function getUserLocation() {
+    return new Promise(async (resolve, reject) => {
+        // Primero intentar con IP (no requiere permisos)
+        try {
+            const ipLocation = await getUserLocationByIP();
+            resolve(ipLocation);
+            return;
+        } catch (ipError) {
+            console.log('⚠️ Geolocalización por IP falló, intentando GPS...');
+        }
+        
+        // Si IP falla, intentar con GPS (requiere permiso)
+        if (!navigator.geolocation) {
+            reject(new Error('Geolocation no está soportado por tu navegador'));
+            return;
+        }
+        
+        navigator.geolocation.getCurrentPosition(
+            (position) => {
+                resolve({
+                    lat: position.coords.latitude,
+                    lon: position.coords.longitude,
+                    method: 'gps'
+                });
+            },
+            (error) => {
+                console.log('No se pudo obtener la ubicación del usuario:', error.message);
+                reject(error);
+            },
+            {
+                enableHighAccuracy: false,
+                timeout: 5000,
+                maximumAge: 0
+            }
+        );
+    });
+}
+
 function initializeImpactMap() {
     // Esperar a que el DOM y Leaflet estén listos
     const mapContainer = document.getElementById('map-container');
@@ -2499,6 +2606,50 @@ function initializeImpactMap() {
                 impactMap.invalidateSize();
             }
         }, 1000);
+        
+        // Intentar obtener la ubicación del usuario después de que el mapa esté cargado
+        setTimeout(() => {
+            getUserLocation().then(userLocation => {
+                console.log('📍 Ubicación del usuario detectada:', userLocation);
+                
+                // Detectar y cambiar idioma automáticamente según el país
+                if (userLocation.countryCode && window.i18n) {
+                    const detectedLang = window.i18n.autoDetectLanguage(userLocation.countryCode);
+                    console.log(`🌐 Idioma detectado: ${detectedLang.toUpperCase()} para país: ${userLocation.country}`);
+                }
+                
+                // Determinar el nivel de zoom según el método de detección
+                let zoomLevel;
+                if (userLocation.method === 'ip') {
+                    // IP: menos preciso, zoom a nivel ciudad/región
+                    zoomLevel = 10;
+                    console.log(`🌐 Ubicación detectada por IP: ${userLocation.city || 'desconocida'}, ${userLocation.country || 'desconocido'}`);
+                } else if (userLocation.method === 'gps') {
+                    // GPS: más preciso, zoom a nivel barrio
+                    zoomLevel = 12;
+                    console.log('🛰️ Ubicación GPS precisa detectada');
+                } else {
+                    // Fallback
+                    zoomLevel = 8;
+                }
+                
+                // Hacer zoom animado a la ubicación del usuario
+                if (impactMap) {
+                    impactMap.flyTo([userLocation.lat, userLocation.lon], zoomLevel, {
+                        duration: 2,
+                        easeLinearity: 0.25
+                    });
+                }
+                
+                // Actualizar los campos de entrada con la ubicación del usuario
+                document.getElementById('latitude').value = userLocation.lat.toFixed(4);
+                document.getElementById('longitude').value = userLocation.lon.toFixed(4);
+                
+            }).catch(error => {
+                console.log('⚠️ Usando ubicación predeterminada - No se pudo obtener geolocalización');
+                // Si falla, mantener el centro predeterminado
+            });
+        }, 1200);
         
     } catch (error) {
         console.error('Error initializing map:', error);
