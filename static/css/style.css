@@ -390,6 +390,11 @@ body {
     background: linear-gradient(135deg, var(--input-bg) 0%, rgba(0, 230, 118, 0.1) 100%);
 }
 
+.pdf-card {
+    grid-column: span 2;
+    background: linear-gradient(135deg, var(--input-bg) 0%, rgba(231, 76, 60, 0.1) 100%);
+}
+
 .new-simulation-card {
     grid-column: span 2;
     background: linear-gradient(135deg, var(--input-bg) 0%, rgba(0, 168, 232, 0.1) 100%);

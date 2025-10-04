@@ -3960,3 +3960,718 @@ function hideBentoDashboard() {
     }
 }
 
+// ============================================
+// PDF GENERATION FUNCTIONALITY
+// ============================================
+
+function downloadSimulationPDF() {
+    if (!currentFullResults) {
+        showNotification('No hay datos de simulación para exportar', 'warning');
+        return;
+    }
+
+    try {
+        const { jsPDF} = window.jspdf;
+        const doc = new jsPDF();
+        
+        // Configuración de colores profesionales y científicos
+        const primaryColor = [26, 54, 93]; // #1a365d - Azul oscuro profesional
+        const secondaryColor = [44, 82, 130]; // #2c5282 - Azul medio
+        const dangerColor = [153, 27, 27]; // #991b1b - Rojo oscuro
+        const warningColor = [180, 83, 9]; // #b45309 - Naranja/Ámbar oscuro
+        const successColor = [21, 128, 61]; // #15803d - Verde oscuro
+        const textPrimary = [31, 41, 55]; // #1f2937 - Gris muy oscuro
+        const textSecondary = [75, 85, 99]; // #4b5563 - Gris medio
+        const accentColor = [30, 58, 138]; // #1e3a8a - Azul científico
+        
+        let yPos = 20;
+        const pageWidth = doc.internal.pageSize.getWidth();
+        const pageHeight = doc.internal.pageSize.getHeight();
+        const margin = 20;
+        const contentWidth = pageWidth - (margin * 2);
+        
+        // Extraer datos de las APIs
+        const usgsContext = currentFullResults.usgs_context || {};
+        const locationInfo = currentFullResults.locationInfo || {};
+        const popData = locationInfo.populationData || {};
+        const floraFaunaAnalysis = currentFullResults.flora_fauna_analysis || {};
+        const tsunamiAnalysis = currentFullResults.tsunami_analysis || {};
+        const secondaryEffects = currentFullResults.secondary_effects || [];
+        
+        // ==========================================
+        // PÁGINA 1: PORTADA CIENTÍFICA
+        // ==========================================
+        
+        // Fondo de encabezado profesional
+        doc.setFillColor(...primaryColor);
+        doc.rect(0, 0, pageWidth, 45, 'F');
+        
+        // Título principal en blanco sobre fondo oscuro
+        doc.setFontSize(22);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text('REPORTE CIENTÍFICO DE SIMULACIÓN', pageWidth / 2, 18, { align: 'center' });
+        
+        doc.setFontSize(14);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Análisis de Impacto de Asteroide NEO', pageWidth / 2, 28, { align: 'center' });
+        
+        // Barra secundaria con información del documento
+        doc.setFillColor(...secondaryColor);
+        doc.rect(0, 45, pageWidth, 12, 'F');
+        
+        doc.setFontSize(9);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'normal');
+        const currentDate = new Date().toLocaleString('es-ES', {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric',
+            hour: '2-digit',
+            minute: '2-digit'
+        });
+        doc.text('Generado: ' + currentDate, margin, 52);
+        doc.text('NASA Space Apps Challenge 2025', pageWidth - margin, 52, { align: 'right' });
+        
+        yPos = 65;
+        
+        // Línea decorativa
+        doc.setDrawColor(...accentColor);
+        doc.setLineWidth(1);
+        doc.line(margin, yPos, pageWidth - margin, yPos);
+        yPos += 3;
+        
+        // ==========================================
+        // SECCIÓN 1: PARÁMETROS DEL ASTEROIDE
+        // ==========================================
+        yPos += 10;
+        
+        // Caja de sección con fondo
+        doc.setFillColor(245, 247, 250); // Gris muy claro
+        doc.setDrawColor(...secondaryColor);
+        doc.setLineWidth(0.5);
+        doc.roundedRect(margin - 2, yPos - 5, contentWidth + 4, 50, 2, 2, 'FD');
+        
+        // Título de sección con fondo de color
+        doc.setFillColor(...primaryColor);
+        doc.rect(margin, yPos - 3, 80, 8, 'F');
+        doc.setFontSize(12);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text('1. PARÁMETROS DEL ASTEROIDE', margin + 2, yPos + 3);
+        
+        yPos += 12;
+        doc.setFontSize(10);
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'normal');
+        
+        // Obtener datos del asteroide de los inputs actuales
+        const asteroidName = document.getElementById('asteroid-name')?.value || 'Personalizado';
+        const diameter = document.getElementById('diameter')?.value || 'N/A';
+        const velocity = document.getElementById('velocity')?.value || 'N/A';
+        const angle = document.getElementById('angle')?.value || 'N/A';
+        const composition = document.getElementById('composition')?.value || 'rocky';
+        
+        const asteroidData = [
+            ['Nombre/ID:', asteroidName],
+            ['Diámetro:', `${diameter} metros`],
+            ['Velocidad:', `${velocity} km/s`],
+            ['Ángulo de entrada:', `${angle}°`],
+            ['Composición:', composition === 'rocky' ? 'Rocoso (S-type)' : composition === 'iron' ? 'Metálico (M-type)' : 'Carbonáceo (C-type)']
+        ];
+        
+        asteroidData.forEach(([label, value]) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...textPrimary);
+            doc.text(label, margin + 5, yPos);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...textSecondary);
+            doc.text(value, margin + 60, yPos);
+            yPos += 6;
+        });
+        
+        yPos += 5;
+        
+        // ==========================================
+        // SECCIÓN 2: UBICACIÓN DEL IMPACTO
+        // ==========================================
+        
+        // Caja de sección
+        doc.setFillColor(245, 247, 250);
+        doc.setDrawColor(...secondaryColor);
+        doc.roundedRect(margin - 2, yPos - 5, contentWidth + 4, 35, 2, 2, 'FD');
+        
+        // Título de sección
+        doc.setFillColor(...primaryColor);
+        doc.rect(margin, yPos - 3, 75, 8, 'F');
+        doc.setFontSize(12);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text('2. UBICACIÓN DEL IMPACTO', margin + 2, yPos + 3);
+        
+        yPos += 12;
+        doc.setFontSize(10);
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'normal');
+        
+        const latitude = document.getElementById('latitude')?.value || 'N/A';
+        const longitude = document.getElementById('longitude')?.value || 'N/A';
+        
+        const locationData = [
+            ['Latitud:', `${latitude}°`],
+            ['Longitud:', `${longitude}°`],
+            ['Ubicación:', currentFullResults.location || 'Coordenadas personalizadas']
+        ];
+        
+        locationData.forEach(([label, value]) => {
+            doc.setFont('helvetica', 'bold');
+            doc.setTextColor(...textPrimary);
+            doc.text(label, margin + 5, yPos);
+            doc.setFont('helvetica', 'normal');
+            doc.setTextColor(...textSecondary);
+            doc.text(value, margin + 60, yPos);
+            yPos += 6;
+        });
+        
+        yPos += 5;
+        
+        // ==========================================
+        // SECCIÓN 3: RESULTADOS DEL IMPACTO
+        // ==========================================
+        
+        // Caja de alerta con borde rojo
+        doc.setFillColor(254, 242, 242); // Rojo muy claro
+        doc.setDrawColor(...dangerColor);
+        doc.setLineWidth(1);
+        doc.roundedRect(margin - 2, yPos - 5, contentWidth + 4, 58, 2, 2, 'FD');
+        
+        // Título de sección crítica
+        doc.setFillColor(...dangerColor);
+        doc.rect(margin, yPos - 3, 80, 8, 'F');
+        doc.setFontSize(12);
+        doc.setTextColor(255, 255, 255);
+        doc.setFont('helvetica', 'bold');
+        doc.text('3. RESULTADOS DEL IMPACTO', margin + 2, yPos + 3);
+        
+        yPos += 12;
+        doc.setFontSize(10);
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'normal');
+        
+        // Energía de impacto
+        const impactEnergy = currentFullResults.impact_energy || 
+                            document.getElementById('impact-energy')?.textContent || '0 MT';
+        doc.setFont('helvetica', 'bold');
+        doc.setTextColor(...textPrimary);
+        doc.text('Energía de Impacto:', margin + 5, yPos);
+        doc.setTextColor(...dangerColor);
+        doc.setFont('helvetica', 'bold');
+        doc.setFontSize(11);
+        doc.text(impactEnergy, margin + 60, yPos);
+        yPos += 7;
+        
+        doc.setFontSize(10);
+        // Tamaño del cráter
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Diámetro del Cráter:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...textSecondary);
+        const craterSize = document.getElementById('crater-diameter')?.textContent || '0 km';
+        doc.text(craterSize, margin + 60, yPos);
+        yPos += 6;
+        
+        // Población afectada
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Población Afectada:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...dangerColor);
+        const population = document.getElementById('affected-population')?.textContent || '0';
+        doc.text(`${population} personas`, margin + 60, yPos);
+        yPos += 6;
+        
+        // Radio de destrucción
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Radio de Destrucción:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...textSecondary);
+        const destructionRadius = document.getElementById('destruction-radius')?.textContent || '0 km';
+        doc.text(destructionRadius, margin + 60, yPos);
+        yPos += 6;
+        
+        // Actividad sísmica
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Magnitud Sísmica:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...textSecondary);
+        const seismic = document.getElementById('seismic-magnitude')?.textContent || '0.0';
+        doc.text(`${seismic} Richter`, margin + 60, yPos);
+        yPos += 6;
+        
+        // Riesgo de tsunami
+        doc.setTextColor(...textPrimary);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Riesgo de Tsunami:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        doc.setTextColor(...textSecondary);
+        const tsunami = document.getElementById('tsunami-risk')?.textContent || 'Bajo';
+        doc.text(tsunami, margin + 60, yPos);
+        yPos += 6;
+        
+        yPos += 5;
+        
+        // ==========================================
+        // NUEVA PÁGINA: IMPACTO AMBIENTAL
+        // ==========================================
+        doc.addPage();
+        yPos = 20;
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...successColor);
+        doc.setFont('helvetica', 'bold');
+        doc.text('4. IMPACTO AMBIENTAL', margin, yPos);
+        
+        yPos += 10;
+        doc.setFontSize(11);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        // Fauna afectada
+        doc.setFont('helvetica', 'bold');
+        doc.text('Fauna Más Afectada:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        const fauna = document.getElementById('most-affected-fauna')?.textContent || 'N/A';
+        doc.text(fauna, margin + 60, yPos);
+        yPos += 7;
+        
+        // Flora afectada
+        doc.setFont('helvetica', 'bold');
+        doc.text('Flora Más Afectada:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        const flora = document.getElementById('most-affected-flora')?.textContent || 'N/A';
+        doc.text(flora, margin + 60, yPos);
+        yPos += 7;
+        
+        // Biodiversidad detallada (GBIF API)
+        if (floraFaunaAnalysis && floraFaunaAnalysis.affected_species) {
+            yPos += 5;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Especies en Peligro (GBIF):', margin + 5, yPos);
+            yPos += 7;
+            doc.setFont('helvetica', 'normal');
+            doc.setFontSize(9);
+            const speciesText = `${floraFaunaAnalysis.affected_species.length} especies identificadas en zona de riesgo`;
+            doc.text(speciesText, margin + 10, yPos);
+            yPos += 5;
+        }
+        
+        // ==========================================
+        // NUEVA PÁGINA: POBLACIÓN AFECTADA POR ZONAS
+        // ==========================================
+        yPos += 10;
+        if (yPos > pageHeight - 60) {
+            doc.addPage();
+            yPos = 20;
+        }
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...dangerColor);
+        doc.setFont('helvetica', 'bold');
+        doc.text('5. POBLACIÓN AFECTADA (GeoNames API)', margin, yPos);
+        
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        if (popData && popData.total_population > 0) {
+            // Población total
+            doc.setFont('helvetica', 'bold');
+            doc.text('Población Total en Zona de Riesgo:', margin + 5, yPos);
+            doc.setTextColor(...dangerColor);
+            doc.setFontSize(12);
+            doc.text(popData.total_population.toLocaleString() + ' personas', margin + 80, yPos);
+            yPos += 10;
+            
+            // Desglose por zonas
+            doc.setFontSize(10);
+            doc.setTextColor(0, 0, 0);
+            doc.setFont('helvetica', 'bold');
+            doc.text('Desglose por Zonas:', margin + 5, yPos);
+            yPos += 7;
+            
+            doc.setFont('helvetica', 'normal');
+            
+            // Zona de destrucción total
+            if (popData.destruction_zone_population) {
+                doc.setTextColor(...dangerColor);
+                doc.text('• Zona de Destrucción Total:', margin + 10, yPos);
+                doc.text(popData.destruction_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
+                yPos += 6;
+            }
+            
+            // Zona de daño severo
+            if (popData.damage_zone_population) {
+                doc.setTextColor(255, 140, 0);
+                doc.text('• Zona de Daño Severo:', margin + 10, yPos);
+                doc.text(popData.damage_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
+                yPos += 6;
+            }
+            
+            // Ciudades principales afectadas
+            if (popData.major_cities && popData.major_cities.length > 0) {
+                yPos += 5;
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Ciudades Principales Afectadas:', margin + 5, yPos);
+                yPos += 7;
+                
+                doc.setFont('helvetica', 'normal');
+                popData.major_cities.slice(0, 5).forEach(city => {
+                    const cityText = `• ${city.name}: ${city.population.toLocaleString()} hab. (${city.distance_km.toFixed(1)} km del impacto)`;
+                    const splitText = doc.splitTextToSize(cityText, contentWidth - 15);
+                    doc.text(splitText, margin + 10, yPos);
+                    yPos += splitText.length * 5;
+                });
+            }
+        } else {
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(100, 100, 100);
+            doc.text('No hay población significativa en la zona de impacto', margin + 5, yPos);
+            yPos += 7;
+        }
+        
+        // ==========================================
+        // SECCIÓN 6: ANÁLISIS SÍSMICO (USGS API)
+        // ==========================================
+        yPos += 10;
+        if (yPos > pageHeight - 60) {
+            doc.addPage();
+            yPos = 20;
+        }
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...warningColor);
+        doc.setFont('helvetica', 'bold');
+        doc.text('6. ANÁLISIS SÍSMICO (USGS API)', margin, yPos);
+        
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        const seismicMag = document.getElementById('seismic-magnitude')?.textContent || '0.0';
+        
+        doc.setFont('helvetica', 'bold');
+        doc.text('Magnitud del Impacto:', margin + 5, yPos);
+        doc.setTextColor(...dangerColor);
+        doc.setFontSize(12);
+        doc.text(`${seismicMag} Richter`, margin + 60, yPos);
+        yPos += 10;
+        
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        
+        // Historial sísmico de la zona
+        if (usgsContext && usgsContext.seismic_history) {
+            const seismic = usgsContext.seismic_history;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Historial Sísmico de la Zona:', margin + 5, yPos);
+            yPos += 7;
+            
+            doc.setFont('helvetica', 'normal');
+            doc.text(`• Sismos registrados: ${seismic.count}`, margin + 10, yPos);
+            yPos += 6;
+            
+            if (seismic.count > 0) {
+                doc.text(`• Magnitud máxima histórica: ${seismic.max_magnitude.toFixed(1)} Richter`, margin + 10, yPos);
+                yPos += 6;
+                doc.text(`• Magnitud promedio: ${seismic.avg_magnitude.toFixed(1)} Richter`, margin + 10, yPos);
+                yPos += 6;
+                
+                const comparison = parseFloat(seismicMag) > seismic.max_magnitude ? 
+                    'Este impacto SUPERARÍA todos los sismos históricos de la zona' :
+                    'Este impacto es comparable a sismos históricos locales';
+                    
+                doc.setFont('helvetica', 'bold');
+                doc.setTextColor(...dangerColor);
+                const splitComp = doc.splitTextToSize(comparison, contentWidth - 15);
+                doc.text(splitComp, margin + 10, yPos);
+                yPos += splitComp.length * 5 + 5;
+            }
+        }
+        
+        // Efectos sísmicos esperados
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'bold');
+        doc.text('Efectos Sísmicos Esperados:', margin + 5, yPos);
+        yPos += 7;
+        
+        doc.setFont('helvetica', 'normal');
+        const seismicEffects = [
+            '• Daños estructurales en edificios hasta 50 km',
+            '• Deslizamientos de tierra en zonas montañosas',
+            '• Posible licuefacción del suelo en áreas saturadas',
+            '• Réplicas sísmicas durante días o semanas'
+        ];
+        
+        seismicEffects.forEach(effect => {
+            const splitEffect = doc.splitTextToSize(effect, contentWidth - 15);
+            doc.text(splitEffect, margin + 10, yPos);
+            yPos += splitEffect.length * 5 + 3;
+        });
+        
+        // ==========================================
+        // SECCIÓN 7: EFECTOS SECUNDARIOS
+        // ==========================================
+        yPos += 10;
+        if (yPos > pageHeight - 80) {
+            doc.addPage();
+            yPos = 20;
+        }
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...warningColor);
+        doc.setFont('helvetica', 'bold');
+        doc.text('7. EFECTOS SECUNDARIOS', margin, yPos);
+        
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        // Tsunami (NOAA API)
+        const tsunamiRisk = document.getElementById('tsunami-risk')?.textContent || 'Bajo';
+        doc.setFont('helvetica', 'bold');
+        doc.text('Riesgo de Tsunami (NOAA):', margin + 5, yPos);
+        const tsunamiColor = tsunamiRisk.toLowerCase().includes('alto') ? dangerColor :
+                            tsunamiRisk.toLowerCase().includes('medio') ? warningColor :
+                            successColor;
+        doc.setTextColor(...tsunamiColor);
+        doc.text(tsunamiRisk, margin + 70, yPos);
+        yPos += 10;
+        
+        doc.setTextColor(0, 0, 0);
+        if (tsunamiAnalysis && tsunamiAnalysis.tsunami_analysis) {
+            doc.setFont('helvetica', 'normal');
+            const tsunamiText = tsunamiAnalysis.tsunami_analysis.interpretation || 'Análisis no disponible';
+            const splitTsunami = doc.splitTextToSize(tsunamiText, contentWidth - 10);
+            doc.text(splitTsunami, margin + 5, yPos);
+            yPos += splitTsunami.length * 5 + 5;
+        }
+        
+        // Radiación y partículas
+        yPos += 5;
+        doc.setFont('helvetica', 'bold');
+        doc.text('Efectos Atmosféricos y Radiación:', margin + 5, yPos);
+        yPos += 7;
+        
+        doc.setFont('helvetica', 'normal');
+        const atmosphericEffects = [
+            '• Generación de polvo y cenizas en la atmósfera',
+            '• Posible "invierno de impacto" con reducción de luz solar',
+            '• Emisión de gases y vapor de agua',
+            '• Alteración temporal de la temperatura global/local',
+            '• Radiación térmica en el área cercana al impacto'
+        ];
+        
+        atmosphericEffects.forEach(effect => {
+            const splitEffect = doc.splitTextToSize(effect, contentWidth - 15);
+            doc.text(splitEffect, margin + 10, yPos);
+            yPos += splitEffect.length * 5 + 3;
+        });
+        
+        // Efectos secundarios específicos del backend
+        if (secondaryEffects && secondaryEffects.length > 0) {
+            yPos += 5;
+            doc.setFont('helvetica', 'bold');
+            doc.text('Efectos Adicionales Detectados:', margin + 5, yPos);
+            yPos += 7;
+            
+            doc.setFont('helvetica', 'normal');
+            secondaryEffects.slice(0, 5).forEach(effect => {
+                const effectText = `• ${effect.type || effect.effect_type}: ${effect.description || effect.severity || 'Efecto significativo'}`;
+                const splitEffect = doc.splitTextToSize(effectText, contentWidth - 15);
+                doc.text(splitEffect, margin + 10, yPos);
+                yPos += splitEffect.length * 5 + 3;
+            });
+        }
+        
+        // ==========================================
+        // SECCIÓN 8: ANÁLISIS DETALLADO (renumerado)
+        // ==========================================
+        yPos += 10;
+        if (yPos > pageHeight - 60) {
+            doc.addPage();
+            yPos = 20;
+        }
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...primaryColor);
+        doc.setFont('helvetica', 'bold');
+        doc.text('8. ANÁLISIS DETALLADO', margin, yPos);
+        
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        // Descripción del impacto
+        const impactDesc = `Este reporte documenta los resultados de una simulación de impacto de asteroide realizada ` +
+                          `con el Asteroid Impact Simulator. Los datos presentados son estimaciones basadas en modelos ` +
+                          `científicos y no representan predicciones reales de eventos futuros.`;
+        
+        const splitDesc = doc.splitTextToSize(impactDesc, contentWidth);
+        doc.text(splitDesc, margin, yPos);
+        yPos += splitDesc.length * 5 + 10;
+        
+        // Comparación de energía
+        doc.setFont('helvetica', 'bold');
+        doc.text('Comparación de Energía:', margin, yPos);
+        yPos += 7;
+        doc.setFont('helvetica', 'normal');
+        
+        const energyValue = parseFloat(impactEnergy);
+        let comparison = '';
+        if (energyValue < 0.001) {
+            comparison = 'Equivalente a una pequeña explosión convencional';
+        } else if (energyValue < 0.01) {
+            comparison = 'Similar a 1 tonelada de TNT';
+        } else if (energyValue < 0.1) {
+            comparison = 'Comparable a 100 toneladas de TNT';
+        } else if (energyValue < 1) {
+            comparison = 'Equivalente a una bomba pequeña';
+        } else if (energyValue < 15) {
+            comparison = 'Similar a la bomba de Hiroshima (15 MT)';
+        } else if (energyValue < 50) {
+            comparison = 'Mayor que todas las armas nucleares actuales';
+        } else {
+            comparison = 'Evento catastrófico global - Nivel de extinción masiva';
+        }
+        
+        const splitComparison = doc.splitTextToSize(comparison, contentWidth - 10);
+        doc.text(splitComparison, margin + 5, yPos);
+        yPos += splitComparison.length * 5 + 10;
+        
+        // Efectos secundarios
+        doc.setFont('helvetica', 'bold');
+        doc.text('Efectos Secundarios Esperados:', margin, yPos);
+        yPos += 7;
+        doc.setFont('helvetica', 'normal');
+        
+        const effects = [
+            '• Ondas sísmicas que se propagarán por cientos de kilómetros',
+            '• Generación de polvo y escombros en la atmósfera',
+            '• Posible alteración temporal del clima local',
+            '• Daños estructurales en edificaciones cercanas',
+            '• Riesgo de incendios en la zona de impacto'
+        ];
+        
+        if (tsunami !== 'Bajo') {
+            effects.push('• Generación de tsunamis en costas cercanas');
+        }
+        
+        effects.forEach(effect => {
+            const splitEffect = doc.splitTextToSize(effect, contentWidth - 10);
+            doc.text(splitEffect, margin + 5, yPos);
+            yPos += splitEffect.length * 5 + 3;
+        });
+        
+        // ==========================================
+        // SECCIÓN 9: RECOMENDACIONES
+        // ==========================================
+        yPos += 10;
+        if (yPos > pageHeight - 60) {
+            doc.addPage();
+            yPos = 20;
+        }
+        
+        doc.setFontSize(16);
+        doc.setTextColor(...primaryColor);
+        doc.setFont('helvetica', 'bold');
+        doc.text('9. RECOMENDACIONES', margin, yPos);
+        
+        yPos += 10;
+        doc.setFontSize(10);
+        doc.setTextColor(0, 0, 0);
+        doc.setFont('helvetica', 'normal');
+        
+        const recommendations = [
+            'Evacuación inmediata de la población en un radio de ' + destructionRadius,
+            'Establecer un perímetro de seguridad ampliado',
+            'Alertar a servicios de emergencia y hospitales cercanos',
+            'Preparar refugios para la población desplazada',
+            'Monitorear actividad sísmica posterior al impacto',
+            'Coordinar con autoridades locales y nacionales'
+        ];
+        
+        recommendations.forEach((rec, index) => {
+            const text = `${index + 1}. ${rec}`;
+            const splitRec = doc.splitTextToSize(text, contentWidth - 10);
+            doc.text(splitRec, margin + 5, yPos);
+            yPos += splitRec.length * 5 + 5;
+        });
+        
+        // ==========================================
+        // PIE DE PÁGINA CIENTÍFICO
+        // ==========================================
+        const footerY = pageHeight - 12;
+        
+        // Línea superior del pie de página
+        doc.setDrawColor(...secondaryColor);
+        doc.setLineWidth(0.5);
+        doc.line(margin, footerY - 5, pageWidth - margin, footerY - 5);
+        
+        // Pie de página con estilo profesional
+        doc.setFontSize(7);
+        doc.setTextColor(...textSecondary);
+        doc.setFont('helvetica', 'normal');
+        doc.text('Asteroid Impact Simulator - NASA Space Apps Challenge 2025', margin, footerY);
+        doc.setFont('helvetica', 'italic');
+        doc.text('DOCUMENTO DE SIMULACIÓN - No representa eventos reales', margin, footerY + 3.5);
+        
+        // Logo/Marca en el pie
+        doc.setFont('helvetica', 'bold');
+        doc.text('AIS', pageWidth - margin - 10, footerY + 1.5);
+        
+        // Agregar números de página con estilo científico
+        const pageCount = doc.internal.getNumberOfPages();
+        for (let i = 1; i <= pageCount; i++) {
+            doc.setPage(i);
+            
+            // Añadir header en todas las páginas excepto la primera
+            if (i > 1) {
+                doc.setFillColor(...primaryColor);
+                doc.rect(0, 0, pageWidth, 8, 'F');
+                doc.setFontSize(8);
+                doc.setTextColor(255, 255, 255);
+                doc.setFont('helvetica', 'normal');
+                doc.text('REPORTE CIENTÍFICO - Simulación de Impacto de Asteroide', margin, 5.5);
+            }
+            
+            // Número de página con caja
+            const pageNumY = pageHeight - 10;
+            doc.setFillColor(...secondaryColor);
+            doc.roundedRect(pageWidth - margin - 15, pageNumY - 4, 13, 6, 1, 1, 'F');
+            doc.setFontSize(8);
+            doc.setTextColor(255, 255, 255);
+            doc.setFont('helvetica', 'bold');
+            doc.text(`${i}/${pageCount}`, pageWidth - margin - 8.5, pageNumY, { align: 'center' });
+        }
+        
+        // Guardar el PDF
+        const fileName = `Reporte_Impacto_Asteroide_${new Date().getTime()}.pdf`;
+        doc.save(fileName);
+        
+        showNotification('PDF generado exitosamente', 'success');
+        
+    } catch (error) {
+        console.error('Error generando PDF:', error);
+        showNotification('Error al generar el PDF: ' + error.message, 'error');
+    }
+}
+
+
