@@ -1014,6 +1014,9 @@ function initializeApp() {
     
     // Load asteroids from NASA
     loadNEOData();
+    
+    // Setup location search
+    setupLocationSearch();
 }
 
 // ============================================
@@ -1044,6 +1047,206 @@ function setupThemeToggle() {
 
 function updateThemeIcon(theme, iconElement) {
     iconElement.textContent = theme === 'dark' ? '◐' : '◑';
+}
+
+// ============================================
+// LOCATION SEARCH
+// ============================================
+
+function setupLocationSearch() {
+    const searchInput = document.getElementById('location-search');
+    const searchBtn = document.getElementById('search-location-btn');
+    const resultsDiv = document.getElementById('location-search-results');
+    const currentLocationText = document.getElementById('current-location-text');
+    
+    if (!searchInput || !searchBtn) return;
+    
+    // Buscar al hacer clic en el botón
+    searchBtn.addEventListener('click', () => {
+        const query = searchInput.value.trim();
+        if (query) {
+            searchLocation(query);
+        }
+    });
+    
+    // Buscar al presionar Enter
+    searchInput.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') {
+            const query = searchInput.value.trim();
+            if (query) {
+                searchLocation(query);
+            }
+        }
+    });
+    
+    // Ocultar resultados al hacer clic fuera
+    document.addEventListener('click', (e) => {
+        if (!searchInput.contains(e.target) && !resultsDiv.contains(e.target) && !searchBtn.contains(e.target)) {
+            resultsDiv.style.display = 'none';
+        }
+    });
+}
+
+async function searchLocation(query) {
+    const resultsDiv = document.getElementById('location-search-results');
+    const searchBtn = document.getElementById('search-location-btn');
+    
+    try {
+        // Cambiar botón a estado de carga
+        const originalText = searchBtn.textContent;
+        searchBtn.textContent = 'Buscando...';
+        searchBtn.disabled = true;
+        
+        // Usar Nominatim de OpenStreetMap para geocoding
+        const response = await fetch(
+            `https://nominatim.openstreetmap.org/search?q=${encodeURIComponent(query)}&format=json&addressdetails=1&limit=5`,
+            {
+                headers: {
+                    'User-Agent': 'AsteroidImpactSimulator/1.0'
+                }
+            }
+        );
+        
+        if (!response.ok) {
+            throw new Error('Error en la búsqueda');
+        }
+        
+        const results = await response.json();
+        
+        if (results.length === 0) {
+            resultsDiv.innerHTML = `
+                <div style="padding: 1rem; text-align: center; color: var(--text-secondary);">
+                    No se encontraron resultados para "${query}"
+                </div>
+            `;
+            resultsDiv.style.display = 'block';
+        } else {
+            displaySearchResults(results);
+        }
+        
+        // Restaurar botón
+        searchBtn.textContent = originalText;
+        searchBtn.disabled = false;
+        
+    } catch (error) {
+        console.error('Error buscando ubicación:', error);
+        resultsDiv.innerHTML = `
+            <div style="padding: 1rem; text-align: center; color: var(--danger-color);">
+                Error al buscar. Intenta de nuevo.
+            </div>
+        `;
+        resultsDiv.style.display = 'block';
+        
+        // Restaurar botón
+        searchBtn.textContent = 'Buscar';
+        searchBtn.disabled = false;
+    }
+}
+
+function displaySearchResults(results) {
+    const resultsDiv = document.getElementById('location-search-results');
+    
+    resultsDiv.innerHTML = results.map((result, index) => {
+        const displayName = result.display_name;
+        const lat = parseFloat(result.lat);
+        const lon = parseFloat(result.lon);
+        const type = result.type || 'lugar';
+        
+        return `
+            <div 
+                class="location-result-item" 
+                onclick="selectLocation(${lat}, ${lon}, '${displayName.replace(/'/g, "\\'")}', ${index})"
+                style="
+                    padding: 0.75rem 1rem;
+                    cursor: pointer;
+                    border-bottom: 1px solid var(--border-color);
+                    transition: background 0.2s;
+                "
+                onmouseover="this.style.background='var(--hover-bg)'"
+                onmouseout="this.style.background='transparent'"
+            >
+                <div style="font-weight: 600; margin-bottom: 0.25rem; color: var(--text-light);">
+                    ${result.name || displayName.split(',')[0]}
+                </div>
+                <div style="font-size: 0.75rem; color: var(--text-secondary);">
+                    ${displayName}
+                </div>
+                <div style="font-size: 0.7rem; color: var(--text-medium); margin-top: 0.25rem;">
+                    ${type.charAt(0).toUpperCase() + type.slice(1)} • ${lat.toFixed(4)}°, ${lon.toFixed(4)}°
+                </div>
+            </div>
+        `;
+    }).join('');
+    
+    resultsDiv.style.display = 'block';
+}
+
+function selectLocation(lat, lon, displayName, index) {
+    const resultsDiv = document.getElementById('location-search-results');
+    const currentLocationText = document.getElementById('current-location-text');
+    const searchInput = document.getElementById('location-search');
+    
+    // Ocultar resultados
+    resultsDiv.style.display = 'none';
+    
+    // Actualizar display de ubicación actual
+    const shortName = displayName.split(',').slice(0, 2).join(',');
+    currentLocationText.textContent = shortName;
+    currentLocationText.style.color = 'var(--primary-color)';
+    currentLocationText.style.fontWeight = '600';
+    
+    // Limpiar input de búsqueda
+    searchInput.value = '';
+    
+    // Animar el mapa hacia la ubicación
+    if (impactMap) {
+        impactMap.flyTo([lat, lon], 12, {
+            duration: 2,
+            easeLinearity: 0.25
+        });
+    }
+    
+    // Actualizar los campos de latitud y longitud
+    document.getElementById('latitude').value = lat.toFixed(4);
+    document.getElementById('longitude').value = lon.toFixed(4);
+    
+    // Agregar un marcador temporal en la ubicación
+    if (window.L && impactMap) {
+        // Remover marcador anterior si existe
+        if (window.tempLocationMarker) {
+            impactMap.removeLayer(window.tempLocationMarker);
+        }
+        
+        // Crear nuevo marcador
+        window.tempLocationMarker = L.marker([lat, lon], {
+            icon: L.divIcon({
+                className: 'temp-location-marker',
+                html: '<div style="background: var(--primary-color); width: 20px; height: 20px; border-radius: 50%; border: 3px solid white; box-shadow: 0 2px 8px rgba(0,0,0,0.3);"></div>',
+                iconSize: [20, 20],
+                iconAnchor: [10, 10]
+            })
+        }).addTo(impactMap);
+        
+        // Remover el marcador después de 3 segundos
+        setTimeout(() => {
+            if (window.tempLocationMarker && impactMap) {
+                impactMap.removeLayer(window.tempLocationMarker);
+                window.tempLocationMarker = null;
+            }
+        }, 3000);
+    }
+    
+    console.log(`Ubicación seleccionada: ${displayName} (${lat}, ${lon})`);
+}
+
+function updateCurrentLocationDisplay(locationInfo) {
+    const currentLocationText = document.getElementById('current-location-text');
+    if (currentLocationText && locationInfo) {
+        const displayText = `${locationInfo.city || 'Ubicación'}, ${locationInfo.country || 'desconocido'}`;
+        currentLocationText.textContent = displayText;
+        currentLocationText.style.color = 'var(--text-secondary)';
+        currentLocationText.style.fontWeight = 'normal';
+    }
 }
 
 function updateMapTheme(theme) {
@@ -1083,13 +1286,23 @@ function setupModeSwitching() {
             modeBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
+            // Ocultar el Bento dashboard si está visible
+            const bentoDashboard = document.querySelector('.bento-dashboard');
+            if (bentoDashboard && bentoDashboard.classList.contains('show')) {
+                bentoDashboard.classList.remove('show');
+            }
+            
             // Obtener todas las secciones de controles
             const allControlSections = document.querySelectorAll('.controls-section');
             
-            // Ocultar TODAS las secciones primero
+            // Ocultar TODAS las secciones primero y limpiar estilos forzados
             allControlSections.forEach(section => {
                 section.classList.remove('active');
                 section.style.display = 'none';
+                // Limpiar cualquier estilo forzado por showBentoDashboard
+                section.style.visibility = '';
+                section.style.opacity = '';
+                section.style.pointerEvents = '';
             });
             
             // Mostrar solo la sección correspondiente
@@ -1098,6 +1311,9 @@ function setupModeSwitching() {
                 if (simulationControls) {
                     simulationControls.classList.add('active');
                     simulationControls.style.display = 'flex';
+                    simulationControls.style.visibility = 'visible';
+                    simulationControls.style.opacity = '1';
+                    simulationControls.style.pointerEvents = 'auto';
                     console.log('Mostrando controles de simulación');
                 }
             } else if (mode === 'mitigation') {
@@ -1105,10 +1321,11 @@ function setupModeSwitching() {
                 if (mitigationControls) {
                     mitigationControls.classList.add('active');
                     mitigationControls.style.display = 'flex';
+                    mitigationControls.style.visibility = 'visible';
+                    mitigationControls.style.opacity = '1';
+                    mitigationControls.style.pointerEvents = 'auto';
                     console.log('Mostrando controles de mitigación');
                 }
-                // Ocultar Bento dashboard cuando cambiamos a mitigación
-                hideBentoDashboard();
             }
         });
     });
@@ -2603,6 +2820,9 @@ function initializeImpactMap() {
                 document.getElementById('latitude').value = userLocation.lat.toFixed(4);
                 document.getElementById('longitude').value = userLocation.lon.toFixed(4);
                 
+                // Actualizar el display de ubicación actual
+                updateCurrentLocationDisplay(userLocation);
+                
             }).catch(error => {
                 console.log('Usando ubicación predeterminada - No se pudo obtener geolocalización');
                 // Si falla, mantener el centro predeterminado
@@ -3923,13 +4143,31 @@ function showBentoDashboard(simulationData) {
     console.log(' Data type:', typeof simulationData);
     console.log(' Data keys:', Object.keys(simulationData));
     
-    // Hide simulation controls
+    // Hide ALL controls sections completely
+    const allControlsSections = document.querySelectorAll('.controls-section');
+    allControlsSections.forEach(section => {
+        if (section) {
+            section.style.display = 'none';
+            section.style.visibility = 'hidden';
+            section.style.opacity = '0';
+            section.style.pointerEvents = 'none';
+            section.classList.remove('active');
+        }
+    });
+    
+    // Specifically hide simulation controls
     const simulationControls = document.getElementById('simulation-controls');
     if (simulationControls) {
         simulationControls.style.display = 'none';
         console.log(' Simulation controls hidden');
     } else {
         console.error('❌ Simulation controls not found');
+    }
+    
+    // Hide mitigation controls too
+    const mitigationControls = document.getElementById('mitigation-controls');
+    if (mitigationControls) {
+        mitigationControls.style.display = 'none';
     }
     
     // Show bento dashboard
@@ -3953,10 +4191,21 @@ function hideBentoDashboard() {
         bentoDashboard.classList.remove('show');
     }
     
-    // Show simulation controls
+    // Restore simulation controls completely
     const simulationControls = document.getElementById('simulation-controls');
     if (simulationControls) {
         simulationControls.style.display = 'flex';
+        simulationControls.style.visibility = 'visible';
+        simulationControls.style.opacity = '1';
+        simulationControls.style.pointerEvents = 'auto';
+        simulationControls.classList.add('active');
+    }
+    
+    // Make sure mitigation controls stay hidden
+    const mitigationControls = document.getElementById('mitigation-controls');
+    if (mitigationControls) {
+        mitigationControls.style.display = 'none';
+        mitigationControls.classList.remove('active');
     }
 }
 
