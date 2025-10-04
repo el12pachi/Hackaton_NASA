@@ -26,7 +26,7 @@ const availableAchievements = [
         id: 'first_simulation',
         title: 'Primera Simulación',
         description: 'Completa tu primera simulación',
-        icon: '🎯',
+        icon: '★',
         points: 10,
         condition: (data) => data.simulations >= 1
     },
@@ -34,7 +34,7 @@ const availableAchievements = [
         id: 'big_impact',
         title: 'Impacto Masivo',
         description: 'Simula un impacto de más de 1000 MT',
-        icon: '💥',
+        icon: '★',
         points: 25,
         condition: (data) => data.maxEnergy >= 1000
     },
@@ -42,7 +42,7 @@ const availableAchievements = [
         id: 'city_destroyer',
         title: 'Destructor de Ciudades',
         description: 'Simula impacto en una ciudad',
-        icon: '🏙️',
+        icon: '★',
         points: 30,
         condition: (data) => data.cityImpacts >= 1
     },
@@ -50,7 +50,7 @@ const availableAchievements = [
         id: 'tsunami_master',
         title: 'Maestro del Tsunami',
         description: 'Simula un tsunami masivo',
-        icon: '🌊',
+        icon: '★',
         points: 20,
         condition: (data) => data.tsunamiSimulations >= 1
     },
@@ -58,7 +58,7 @@ const availableAchievements = [
         id: 'defender_earth',
         title: 'Defensor de la Tierra',
         description: 'Usa estrategias de mitigación',
-        icon: '🛡️',
+        icon: '★',
         points: 40,
         condition: (data) => data.mitigationAttempts >= 1
     },
@@ -66,7 +66,7 @@ const availableAchievements = [
         id: 'scientist_mode',
         title: 'Modo Científico',
         description: 'Activa el modo científico',
-        icon: '🔬',
+        icon: '★',
         points: 50,
         condition: (data) => data.specialModes.scientist
     },
@@ -74,7 +74,7 @@ const availableAchievements = [
         id: 'apocalypse_survivor',
         title: 'Superviviente del Apocalipsis',
         description: 'Activa el modo apocalipsis',
-        icon: '💀',
+        icon: '★',
         points: 75,
         condition: (data) => data.specialModes.apocalypse
     },
@@ -82,7 +82,7 @@ const availableAchievements = [
         id: 'simulation_master',
         title: 'Maestro de Simulaciones',
         description: 'Completa 10 simulaciones',
-        icon: '🏆',
+        icon: '★',
         points: 100,
         condition: (data) => data.simulations >= 10
     }
@@ -94,7 +94,7 @@ const activeChallenges = [
         id: 'daily_simulator',
         title: 'Simulador Diario',
         description: 'Completa 3 simulaciones hoy',
-        icon: '📅',
+        icon: '▶',
         progress: 0,
         target: 3,
         reward: 50
@@ -103,7 +103,7 @@ const activeChallenges = [
         id: 'energy_explorer',
         title: 'Explorador de Energía',
         description: 'Simula impactos de diferentes energías',
-        icon: '⚡',
+        icon: '▶',
         progress: 0,
         target: 5,
         reward: 75
@@ -112,7 +112,7 @@ const activeChallenges = [
         id: 'location_master',
         title: 'Maestro de Ubicaciones',
         description: 'Simula impactos en 5 continentes diferentes',
-        icon: '🌍',
+        icon: '▶',
         progress: 0,
         target: 5,
         reward: 100
@@ -300,18 +300,18 @@ function activateSpecialMode(mode) {
     // Aplicar efectos del modo
     switch(mode) {
         case 'apocalypse':
-            showNotification('💀 Modo Apocalipsis activado! Asteroides masivos disponibles.', 'warning');
+            showNotification('Modo Apocalipsis activado! Asteroides masivos disponibles.', 'warning');
             // Ajustar rangos para asteroides masivos
             document.getElementById('diameter').max = 5000;
             document.getElementById('velocity').max = 100;
             break;
         case 'defender':
-            showNotification('🛡️ Modo Defensor activado! Enfoque en mitigación.', 'info');
+            showNotification('Modo Defensor activado! Enfoque en mitigación.', 'info');
             // Cambiar a modo mitigación
             switchToMode('mitigation');
             break;
         case 'scientist':
-            showNotification('🔬 Modo Científico activado! Datos precisos habilitados.', 'success');
+            showNotification('Modo Científico activado! Datos precisos habilitados.', 'success');
             // Mostrar datos adicionales
             break;
     }
@@ -323,7 +323,7 @@ function activateSpecialMode(mode) {
 
 // Activar modo desafío
 function activateChallengeMode() {
-    showNotification('🎯 Modo Desafío activado! Completa objetivos para ganar puntos.', 'info');
+    showNotification('Modo Desafío activado! Completa objetivos para ganar puntos.', 'info');
     // Implementar lógica de desafíos específicos
 }
 
@@ -350,7 +350,7 @@ function unlockAchievement(achievement) {
     rewardsSystem.achievements.push(achievement.id);
     rewardsSystem.points += achievement.points;
     
-    showNotification(`🏆 Logro desbloqueado: ${achievement.title}! +${achievement.points} puntos`, 'success');
+    showNotification(`Logro desbloqueado: ${achievement.title}! +${achievement.points} puntos`, 'success');
     
     // Efecto visual
     createAchievementEffect(achievement);
@@ -567,7 +567,7 @@ function saveSettings() {
     };
     
     localStorage.setItem('appSettings', JSON.stringify(settings));
-    showNotification('⚙️ Configuración guardada exitosamente', 'success');
+    showNotification('Configuración guardada exitosamente', 'success');
     
     // Apply settings
     applySettings(settings);
@@ -590,7 +590,7 @@ function resetSettings() {
     document.getElementById('nasa-api-key').value = defaultSettings.nasaApiKey;
     document.getElementById('data-cache').checked = defaultSettings.dataCache;
     
-    showNotification('🔄 Configuración restablecida', 'info');
+    showNotification('Configuración restablecida', 'info');
 }
 
 function applySettings(settings) {
@@ -650,18 +650,18 @@ function exportStats() {
     link.click();
     
     URL.revokeObjectURL(url);
-    showNotification('📤 Estadísticas exportadas exitosamente', 'success');
+    showNotification('Estadísticas exportadas exitosamente', 'success');
 }
 
 // Asteroid search functionality
 function searchAsteroid() {
     const searchTerm = document.getElementById('asteroid-search-input').value.trim();
     if (!searchTerm) {
-        showNotification('🔍 Por favor ingresa un término de búsqueda', 'warning');
+        showNotification('Por favor ingresa un término de búsqueda', 'warning');
         return;
     }
     
-    showNotification('🔍 Buscando asteroides...', 'info');
+    showNotification('Buscando asteroides...', 'info');
     
     // Simulate asteroid search (in a real implementation, this would call the NASA API)
     setTimeout(() => {
@@ -693,7 +693,7 @@ function searchAsteroid() {
         ];
         
         displayAsteroidList(mockAsteroids);
-        showNotification('✅ Búsqueda completada', 'success');
+        showNotification('Búsqueda completada', 'success');
     }, 1000);
 }
 
@@ -712,7 +712,7 @@ function displayAsteroidList(asteroids) {
                 ID: ${asteroid.id} | Diámetro: ${(asteroid.diameter / 1000).toFixed(1)} km
             </div>
             <div style="font-size: 0.75rem; color: var(--text-medium); margin-top: 0.25rem;">
-                Velocidad: ${asteroid.velocity} km/s | ${asteroid.hazardous ? '⚠️ Peligroso' : '✅ Seguro'}
+                Velocidad: ${asteroid.velocity} km/s | ${asteroid.hazardous ? 'Peligroso' : 'Seguro'}
             </div>
         `;
         
@@ -725,7 +725,7 @@ function showAsteroidDetails(asteroid) {
     detailsContainer.style.display = 'block';
     
     detailsContainer.innerHTML = `
-        <h3>🪨 ${asteroid.name}</h3>
+        <h3>${asteroid.name}</h3>
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-top: 1rem;">
             <div>
                 <strong>ID NASA:</strong><br>
@@ -741,16 +741,16 @@ function showAsteroidDetails(asteroid) {
             </div>
             <div>
                 <strong>Composición:</strong><br>
-                ${asteroid.composition === 'rocky' ? '🪨 Rocoso' : asteroid.composition === 'metallic' ? '⚙️ Metálico' : '🌑 Carbonáceo'}
+                ${asteroid.composition === 'rocky' ? 'Rocoso' : asteroid.composition === 'metallic' ? 'Metálico' : 'Carbonáceo'}
             </div>
             <div>
                 <strong>Estado:</strong><br>
-                ${asteroid.hazardous ? '⚠️ Potencialmente Peligroso' : '✅ No Peligroso'}
+                ${asteroid.hazardous ? 'Potencialmente Peligroso' : 'No Peligroso'}
             </div>
         </div>
         <div style="margin-top: 1rem;">
             <button class="btn-primary" onclick="useAsteroidInSimulation('${asteroid.id}')">
-                🚀 Usar en Simulación
+                Usar en Simulación
             </button>
         </div>
     `;
@@ -758,7 +758,7 @@ function showAsteroidDetails(asteroid) {
 
 function useAsteroidInSimulation(asteroidId) {
     // This would load the asteroid data into the simulation controls
-    showNotification('🚀 Asteroide cargado en la simulación', 'success');
+    showNotification('Asteroide cargado en la simulación', 'success');
     closeModal('asteroid-info-modal');
 }
 
@@ -784,16 +784,16 @@ function openAsteroidsBrowser() {
     currentAsteroidData.asteroids.forEach((asteroid, index) => {
         const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
         const isDangerous = asteroid.is_hazardous;
-        const dangerIcon = isDangerous ? '⚠️' : '✓';
+        const dangerIcon = isDangerous ? '!' : '✓';
         const dangerColor = isDangerous ? '#FF4444' : '#4CAF50';
         const dangerText = isDangerous ? 'PELIGROSO' : 'Seguro';
         
-        // Emoji según tamaño
-        let sizeIcon = '🏠';
-        if (avgDiameter >= 500) sizeIcon = '🏔️';
-        else if (avgDiameter >= 300) sizeIcon = '🏙️';
-        else if (avgDiameter >= 100) sizeIcon = '🏟️';
-        else if (avgDiameter >= 50) sizeIcon = '🏢';
+        // Icon según tamaño
+        let sizeIcon = '●';
+        if (avgDiameter >= 500) sizeIcon = '●●●';
+        else if (avgDiameter >= 300) sizeIcon = '●●';
+        else if (avgDiameter >= 100) sizeIcon = '●';
+        else if (avgDiameter >= 50) sizeIcon = '○';
         
         html += `
             <div style="
@@ -819,8 +819,8 @@ function openAsteroidsBrowser() {
                         ${asteroid.name}
                     </div>
                     <div style="display: flex; gap: 1rem; flex-wrap: wrap; font-size: 0.9rem; color: var(--text-secondary);">
-                        <span>📏 ${Math.round(avgDiameter)}m</span>
-                        <span>🚀 ${asteroid.velocity_km_s.toFixed(1)} km/s</span>
+                        <span>${Math.round(avgDiameter)}m</span>
+                        <span>${asteroid.velocity_km_s.toFixed(1)} km/s</span>
                         <span style="color: ${dangerColor}; font-weight: 600;">${dangerIcon} ${dangerText}</span>
                     </div>
                 </div>
@@ -898,7 +898,7 @@ function useAsteroidFromList(index) {
     closeAsteroidsBrowser();
     
     // Mostrar notificación
-    showNotification(`🚀 Asteroide "${asteroid.name}" cargado en la simulación`, 'success');
+    showNotification(`Asteroide "${asteroid.name}" cargado en la simulación`, 'success');
 }
 
 function showAsteroidDetail(index) {
@@ -909,31 +909,31 @@ function showAsteroidDetail(index) {
     const title = document.getElementById('asteroid-detail-title');
     const content = document.getElementById('asteroid-detail-content');
     
-    title.textContent = `🪨 ${asteroid.name}`;
+    title.textContent = asteroid.name;
     
     content.innerHTML = `
         <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
             <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                <strong>📏 Diámetro</strong><br>
+                <strong>Diámetro</strong><br>
                 ${Math.round(asteroid.diameter_min_m)}m - ${Math.round(asteroid.diameter_max_m)}m<br>
                 <span style="color: var(--text-secondary);">Promedio: ${Math.round(avgDiameter)}m</span>
             </div>
             <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                <strong>🚀 Velocidad</strong><br>
+                <strong>Velocidad</strong><br>
                 ${asteroid.velocity_km_s.toFixed(2)} km/s
             </div>
             <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid ${asteroid.is_hazardous ? '#FF4444' : '#4CAF50'};">
-                <strong>⚠️ Estado</strong><br>
+                <strong>Estado</strong><br>
                 ${asteroid.is_hazardous ? 'PELIGROSO' : 'Seguro'}
             </div>
             <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                <strong>📅 Última Observación</strong><br>
+                <strong>Última Observación</strong><br>
                 ${asteroid.last_obs_date || 'N/A'}
             </div>
         </div>
         
         <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-            <strong>📊 Información Orbital</strong><br>
+            <strong>Información Orbital</strong><br>
             <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
                 ${asteroid.orbital_data ? `
                     Período orbital: ${asteroid.orbital_data.orbital_period || 'N/A'}<br>
@@ -944,7 +944,7 @@ function showAsteroidDetail(index) {
         </div>
         
         <div style="background: var(--card-bg); padding: 1rem; border-radius: 8px;">
-            <strong>🔬 Datos Técnicos</strong><br>
+            <strong>Datos Técnicos</strong><br>
             <div style="margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary);">
                 ID NASA: ${asteroid.nasa_jpl_url ? asteroid.nasa_jpl_url.split('/').pop() : 'N/A'}<br>
                 Magnitud absoluta: ${asteroid.absolute_magnitude_h || 'N/A'}<br>
@@ -1085,10 +1085,10 @@ function setupModeSwitching() {
             
             if (mode === 'simulation') {
                 simulationControls.classList.add('active');
-                console.log('✅ Showing simulation controls');
+                console.log('Showing simulation controls');
             } else {
                 mitigationControls.classList.add('active');
-                console.log('✅ Showing mitigation controls');
+                console.log('Showing mitigation controls');
                 // Hide Bento dashboard when switching to mitigation
                 hideBentoDashboard();
             }
@@ -1168,7 +1168,7 @@ function handleAsteroidSelection(e) {
 
 // Función eliminada - interfaz simplificada
 function displayNasaAsteroidData_ELIMINADA(data) {
-    console.log('📊 Datos de la NASA cargados:', data);
+    console.log('Datos de la NASA cargados:', data);
     
     // Crear modal para mostrar datos detallados
     const modal = document.createElement('div');
@@ -1184,7 +1184,7 @@ function displayNasaAsteroidData_ELIMINADA(data) {
     modal.innerHTML = `
         <div style="background: var(--bg-primary); border-radius: 12px; padding: 2rem; max-width: 800px; max-height: 90vh; overflow-y: auto; border: 2px solid #00A8E8;">
             <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1.5rem;">
-                <h2 style="color: #00A8E8; margin: 0;">🔬 Datos Científicos de la NASA</h2>
+                <h2 style="color: #00A8E8; margin: 0;">Datos Científicos de la NASA</h2>
                 <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #A0A0A0; font-size: 24px; cursor: pointer; padding: 0; margin-left: auto;">×</button>
             </div>
             
@@ -1199,7 +1199,7 @@ function displayNasaAsteroidData_ELIMINADA(data) {
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                 <div style="background: rgba(255,193,7,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #FFC107;">
-                    <h4 style="color: #FFC107; margin: 0 0 0.5rem 0;">📏 Parámetros Físicos</h4>
+                    <h4 style="color: #FFC107; margin: 0 0 0.5rem 0;">Parámetros Físicos</h4>
                     <div style="font-size: 14px; line-height: 1.6;">
                         <strong>Diámetro:</strong> ${diameter !== 'N/A' ? diameter.toFixed(0) + ' m' : 'N/A'}<br>
                         <strong>Albedo:</strong> ${data.albedo || 'N/A'}<br>
@@ -1209,7 +1209,7 @@ function displayNasaAsteroidData_ELIMINADA(data) {
                 </div>
                 
                 <div style="background: rgba(0,230,118,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #00E676;">
-                    <h4 style="color: #00E676; margin: 0 0 0.5rem 0;">🌍 Elementos Orbitales</h4>
+                    <h4 style="color: #00E676; margin: 0 0 0.5rem 0;">Elementos Orbitales</h4>
                     <div style="font-size: 14px; line-height: 1.6;">
                         <strong>Semieje mayor:</strong> ${orbital.semi_major_axis_au ? orbital.semi_major_axis_au.toFixed(3) + ' AU' : 'N/A'}<br>
                         <strong>Excentricidad:</strong> ${orbital.eccentricity || 'N/A'}<br>
@@ -1220,7 +1220,7 @@ function displayNasaAsteroidData_ELIMINADA(data) {
             </div>
             
             <div style="background: rgba(156,39,176,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #9C27B0;">
-                <h4 style="color: #9C27B0; margin: 0 0 0.5rem 0;">🎯 Parámetros de Impacto Estimados</h4>
+                <h4 style="color: #9C27B0; margin: 0 0 0.5rem 0;">Parámetros de Impacto Estimados</h4>
                 <div style="font-size: 14px; line-height: 1.6;">
                     <strong>Diámetro promedio:</strong> ${diameter !== 'N/A' ? (diameter/2).toFixed(0) + ' m' : 'Estimado 150 m'}<br>
                     <strong>Velocidad típica:</strong> 15-25 km/s (promedio: 20 km/s)<br>
@@ -1232,7 +1232,7 @@ function displayNasaAsteroidData_ELIMINADA(data) {
             <div style="margin-top: 1.5rem; text-align: center;">
                 <button onclick="applyNasaDataToSimulation('${data.asteroid_id}', ${diameter !== 'N/A' ? diameter/2 : 150}, 20)" 
                         style="background: #00A8E8; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; margin-right: 1rem;">
-                    🚀 Usar estos datos en la simulación
+                    Usar estos datos en la simulación
                 </button>
                 <button onclick="this.parentElement.parentElement.parentElement.remove()" 
                         style="background: #666; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer;">
@@ -1247,7 +1247,7 @@ function displayNasaAsteroidData_ELIMINADA(data) {
 
 // Función eliminada - interfaz simplificada
 function displayNasaNEOData_ELIMINADA(asteroid) {
-    console.log('📊 Datos de la NASA NEO API cargados:', asteroid);
+    console.log('Datos de la NASA NEO API cargados:', asteroid);
     
     // Crear modal para mostrar datos de la NASA NEO API
     const modal = document.createElement('div');
@@ -1262,12 +1262,12 @@ function displayNasaNEOData_ELIMINADA(asteroid) {
     modal.innerHTML = `
         <div style="background: var(--bg-primary); border-radius: 12px; padding: 2rem; max-width: 700px; max-height: 90vh; overflow-y: auto; border: 2px solid #00A8E8;">
             <div style="display: flex; justify-content: between; align-items: center; margin-bottom: 1.5rem;">
-                <h2 style="color: #00A8E8; margin: 0;">🛰️ Datos de la NASA NEO API</h2>
+                <h2 style="color: #00A8E8; margin: 0;">Datos de la NASA NEO API</h2>
                 <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #A0A0A0; font-size: 24px; cursor: pointer; padding: 0; margin-left: auto;">×</button>
             </div>
             
             <div style="background: rgba(255,193,7,0.1); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                <h3 style="color: #FFC107; margin: 0 0 0.5rem 0;">⚠️ Datos Limitados</h3>
+                <h3 style="color: #FFC107; margin: 0 0 0.5rem 0;">Datos Limitados</h3>
                 <p style="margin: 0; color: #A0A0A0; font-size: 14px;">
                     La NASA JPL Small Body Database no está disponible para este asteroide. 
                     Mostrando datos básicos de la NASA NEO API.
@@ -1283,17 +1283,17 @@ function displayNasaNEOData_ELIMINADA(asteroid) {
             
             <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
                 <div style="background: rgba(255,193,7,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #FFC107;">
-                    <h4 style="color: #FFC107; margin: 0 0 0.5rem 0;">📏 Parámetros Físicos</h4>
+                    <h4 style="color: #FFC107; margin: 0 0 0.5rem 0;">Parámetros Físicos</h4>
                     <div style="font-size: 14px; line-height: 1.6;">
                         <strong>Diámetro mínimo:</strong> ${asteroid.diameter_min_m.toFixed(0)} m<br>
                         <strong>Diámetro máximo:</strong> ${asteroid.diameter_max_m.toFixed(0)} m<br>
                         <strong>Diámetro promedio:</strong> ${avgDiameter.toFixed(0)} m<br>
-                        <strong>Potencialmente peligroso:</strong> ${asteroid.is_hazardous ? 'SÍ ⚠️' : 'No'}
+                        <strong>Potencialmente peligroso:</strong> ${asteroid.is_hazardous ? 'SÍ' : 'No'}
                     </div>
                 </div>
                 
                 <div style="background: rgba(0,230,118,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #00E676;">
-                    <h4 style="color: #00E676; margin: 0 0 0.5rem 0;">🚀 Parámetros de Aproximación</h4>
+                    <h4 style="color: #00E676; margin: 0 0 0.5rem 0;">Parámetros de Aproximación</h4>
                     <div style="font-size: 14px; line-height: 1.6;">
                         <strong>Velocidad relativa:</strong> ${asteroid.velocity_km_s.toFixed(2)} km/s<br>
                         <strong>Distancia de fallo:</strong> ${asteroid.miss_distance_km.toLocaleString()} km<br>
@@ -1304,7 +1304,7 @@ function displayNasaNEOData_ELIMINADA(asteroid) {
             </div>
             
             <div style="background: rgba(156,39,176,0.1); padding: 1rem; border-radius: 8px; border-left: 4px solid #9C27B0;">
-                <h4 style="color: #9C27B0; margin: 0 0 0.5rem 0;">🎯 Parámetros de Impacto Estimados</h4>
+                <h4 style="color: #9C27B0; margin: 0 0 0.5rem 0;">Parámetros de Impacto Estimados</h4>
                 <div style="font-size: 14px; line-height: 1.6;">
                     <strong>Diámetro para simulación:</strong> ${avgDiameter.toFixed(0)} m<br>
                     <strong>Velocidad típica:</strong> ${asteroid.velocity_km_s.toFixed(1)} km/s<br>
@@ -1316,7 +1316,7 @@ function displayNasaNEOData_ELIMINADA(asteroid) {
             <div style="margin-top: 1.5rem; text-align: center;">
                 <button onclick="applyNasaDataToSimulation('${asteroid.id}', ${avgDiameter}, ${asteroid.velocity_km_s})" 
                         style="background: #00A8E8; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer; margin-right: 1rem;">
-                    🚀 Usar estos datos en la simulación
+                    Usar estos datos en la simulación
                 </button>
                 <button onclick="this.parentElement.parentElement.parentElement.remove()" 
                         style="background: #666; color: white; border: none; padding: 0.8rem 1.5rem; border-radius: 6px; cursor: pointer;">
@@ -1341,14 +1341,14 @@ function applyNasaDataToSimulation(asteroidId, diameter, velocity) {
     const modal = document.querySelector('[style*="z-index: 10000"]');
     if (modal) modal.remove();
     
-    console.log(`✅ Datos de ${asteroidId} aplicados a la simulación`);
+    console.log(`Datos de ${asteroidId} aplicados a la simulación`);
 }
 
 async function loadNEOData() {
     const asteroidSelect = document.getElementById('asteroid-select');
     
     try {
-        console.log('🔄 Cargando datos de asteroides de la NASA...');
+        console.log('Cargando datos de asteroides de la NASA...');
         
         const response = await fetch('/api/neo/recent');
         const data = await response.json();
@@ -1356,7 +1356,7 @@ async function loadNEOData() {
         if (data.success && data.asteroids && data.asteroids.length > 0) {
             currentAsteroidData = data;
             populateAsteroidSelector(data.asteroids);
-            console.log(`✅ Cargados ${data.count} asteroides de la NASA`);
+            console.log(`Cargados ${data.count} asteroides de la NASA`);
         } else {
             throw new Error(data.message || 'No se pudieron obtener datos de asteroides');
         }
@@ -1393,7 +1393,7 @@ function populateAsteroidSelector(asteroids) {
         // Crear texto descriptivo
         let displayText = asteroid.name;
         if (asteroid.is_hazardous) {
-            displayText += ' ⚠️ [PELIGROSO]';
+            displayText += ' [PELIGROSO]';
         }
         
         // Agregar información adicional
@@ -1404,7 +1404,7 @@ function populateAsteroidSelector(asteroids) {
         select.appendChild(option);
     });
     
-    console.log(`✅ ${asteroids.length} asteroides agregados al selector`);
+    console.log(`${asteroids.length} asteroides agregados al selector`);
 }
 
 async function runImpactSimulation() {
@@ -1431,33 +1431,33 @@ async function runImpactSimulation() {
         
         if (result.success) {
             // Show Bento Dashboard with simulation results
-            console.log('📊 Full Simulation Result:', result);
-            console.log('📊 Calculations Object:', result.calculations);
-            console.log('📊 Population Data:', result.population_affected);
-            console.log('📊 All result keys:', Object.keys(result));
-            console.log('📊 Calculations keys:', result.calculations ? Object.keys(result.calculations) : 'No calculations object');
-            console.log('📊 Direct result keys for energy:', {
+            console.log('Full Simulation Result:', result);
+            console.log(' Calculations Object:', result.calculations);
+            console.log(' Population Data:', result.population_affected);
+            console.log(' All result keys:', Object.keys(result));
+            console.log(' Calculations keys:', result.calculations ? Object.keys(result.calculations) : 'No calculations object');
+            console.log(' Direct result keys for energy:', {
                 impact_energy_mt: result.impact_energy_mt,
                 energy: result.energy,
                 impact_energy: result.impact_energy
             });
-            console.log('📊 Severity object:', result.severity);
-            console.log('📊 Secondary effects:', result.secondary_effects);
-            console.log('📊 Secondary effects details:', result.secondary_effects.map(effect => ({
+            console.log(' Severity object:', result.severity);
+            console.log(' Secondary effects:', result.secondary_effects);
+            console.log(' Secondary effects details:', result.secondary_effects.map(effect => ({
                 type: effect.type,
                 population_affected: effect.population_affected,
                 affected_population: effect.affected_population,
                 keys: Object.keys(effect)
             })));
-            console.log('📊 Input object:', result.input);
-            console.log('📊 Input keys:', result.input ? Object.keys(result.input) : 'No input object');
+            console.log(' Input object:', result.input);
+            console.log(' Input keys:', result.input ? Object.keys(result.input) : 'No input object');
             if (result.input) {
-                console.log('📊 Input details:', JSON.stringify(result.input, null, 2));
+                console.log(' Input details:', JSON.stringify(result.input, null, 2));
             }
-            console.log('📊 USGS Context:', result.usgs_context);
-            console.log('📊 USGS Context keys:', result.usgs_context ? Object.keys(result.usgs_context) : 'No USGS context');
+            console.log(' USGS Context:', result.usgs_context);
+            console.log(' USGS Context keys:', result.usgs_context ? Object.keys(result.usgs_context) : 'No USGS context');
             if (result.usgs_context) {
-                console.log('📊 USGS Context details:', JSON.stringify(result.usgs_context, null, 2));
+                console.log(' USGS Context details:', JSON.stringify(result.usgs_context, null, 2));
             }
             
             // Extract data from the result object - more robust mapping
@@ -1487,7 +1487,7 @@ async function runImpactSimulation() {
                     'crater_diameter_km'
                 ]),
                 affectedPopulation: (() => {
-                    console.log('🔍 Searching for population data...');
+                    console.log(' Searching for population data...');
                     
                     // First try direct paths
                     const directValue = getValue([
@@ -1502,22 +1502,22 @@ async function runImpactSimulation() {
                         'usgs_context.population_affected',
                         'usgs_context.affected_population'
                     ]);
-                    console.log('🔍 Direct population value:', directValue);
+                    console.log(' Direct population value:', directValue);
                     
                     if (directValue > 0) {
-                        console.log('✅ Found population in direct paths:', directValue);
+                        console.log(' Found population in direct paths:', directValue);
                         return directValue;
                     }
                     
                     // Then try secondary effects
                     if (result.secondary_effects && Array.isArray(result.secondary_effects)) {
-                        console.log('🔍 Searching in secondary effects...');
+                        console.log(' Searching in secondary effects...');
                         for (let i = 0; i < result.secondary_effects.length; i++) {
                             const effect = result.secondary_effects[i];
-                            console.log(`🔍 Effect ${i}:`, effect);
-                            console.log(`🔍 Effect ${i} keys:`, Object.keys(effect));
-                            console.log(`🔍 Effect ${i} population_affected:`, effect.population_affected);
-                            console.log(`🔍 Effect ${i} affected_population:`, effect.affected_population);
+                            console.log(` Effect ${i}:`, effect);
+                            console.log(` Effect ${i} keys:`, Object.keys(effect));
+                            console.log(` Effect ${i} population_affected:`, effect.population_affected);
+                            console.log(` Effect ${i} affected_population:`, effect.affected_population);
                             
                             // Look for any key containing 'population' or 'people'
                             const populationKeys = Object.keys(effect).filter(key => 
@@ -1526,20 +1526,20 @@ async function runImpactSimulation() {
                                 key.toLowerCase().includes('inhabitants')
                             );
                             if (populationKeys.length > 0) {
-                                console.log(`🔍 Effect ${i} population-related keys:`, populationKeys);
+                                console.log(` Effect ${i} population-related keys:`, populationKeys);
                                 populationKeys.forEach(key => {
-                                    console.log(`🔍 Effect ${i} ${key}:`, effect[key]);
+                                    console.log(` Effect ${i} ${key}:`, effect[key]);
                                 });
                             }
                             
                             // Check the effects array for population data
                             if (effect.effects && Array.isArray(effect.effects)) {
-                                console.log(`🔍 Effect ${i} effects array:`, effect.effects);
+                                console.log(` Effect ${i} effects array:`, effect.effects);
                                 effect.effects.forEach((subEffect, j) => {
-                                    console.log(`🔍 Effect ${i} sub-effect ${j}:`, subEffect);
+                                    console.log(` Effect ${i} sub-effect ${j}:`, subEffect);
                                     if (subEffect && typeof subEffect === 'object') {
                                         const subKeys = Object.keys(subEffect);
-                                        console.log(`🔍 Effect ${i} sub-effect ${j} keys:`, subKeys);
+                                        console.log(` Effect ${i} sub-effect ${j} keys:`, subKeys);
                                         
                                         // Look for population in sub-effects
                                         const subPopulationKeys = subKeys.filter(key => 
@@ -1549,9 +1549,9 @@ async function runImpactSimulation() {
                                             key.toLowerCase().includes('affected')
                                         );
                                         if (subPopulationKeys.length > 0) {
-                                            console.log(`🔍 Effect ${i} sub-effect ${j} population keys:`, subPopulationKeys);
+                                            console.log(` Effect ${i} sub-effect ${j} population keys:`, subPopulationKeys);
                                             subPopulationKeys.forEach(key => {
-                                                console.log(`🔍 Effect ${i} sub-effect ${j} ${key}:`, subEffect[key]);
+                                                console.log(` Effect ${i} sub-effect ${j} ${key}:`, subEffect[key]);
                                             });
                                         }
                                     }
@@ -1559,11 +1559,11 @@ async function runImpactSimulation() {
                             }
                             
                             if (effect.population_affected && effect.population_affected > 0) {
-                                console.log('✅ Found population in effect:', effect.population_affected);
+                                console.log(' Found population in effect:', effect.population_affected);
                                 return effect.population_affected;
                             }
                             if (effect.affected_population && effect.affected_population > 0) {
-                                console.log('✅ Found population in effect:', effect.affected_population);
+                                console.log(' Found population in effect:', effect.affected_population);
                                 return effect.affected_population;
                             }
                         }
@@ -1571,7 +1571,7 @@ async function runImpactSimulation() {
                     
                     // Finally, try to search in USGS context more thoroughly
                     if (result.usgs_context) {
-                        console.log('🔍 Searching in USGS context...');
+                        console.log(' Searching in USGS context...');
                         const searchInObject = (obj, path = '') => {
                             for (const key in obj) {
                                 if (obj.hasOwnProperty(key)) {
@@ -1585,7 +1585,7 @@ async function runImpactSimulation() {
                                                 key.toLowerCase().includes('people') ||
                                                 key.toLowerCase().includes('inhabitants') ||
                                                 key.toLowerCase().includes('affected'))) {
-                                        console.log(`✅ Found population in USGS: ${currentPath} = ${value}`);
+                                        console.log(` Found population in USGS: ${currentPath} = ${value}`);
                                         return value;
                                     }
                                 }
@@ -1639,7 +1639,7 @@ async function runImpactSimulation() {
             
             let populationData = { totalPopulation: 0 };
             try {
-                console.log('🔍 Calling Overpass API with params:', {
+                console.log(' Calling Overpass API with params:', {
                     latitude: params.latitude,
                     longitude: params.longitude,
                     radius: maxRadius * 1000
@@ -1655,18 +1655,18 @@ async function runImpactSimulation() {
                     })
                 });
                 
-                console.log('🔍 Overpass API Response status:', citiesResponse.status);
+                console.log(' Overpass API Response status:', citiesResponse.status);
                 const citiesData = await citiesResponse.json();
-                console.log('🔍 Overpass API Response:', citiesData);
-                console.log('🔍 Cities found:', citiesData.cities ? citiesData.cities.length : 0);
-                console.log('🔍 Total population:', citiesData.totalPopulation);
-                console.log('🔍 Population in destruction zone:', citiesData.populationInDestructionZone);
-                console.log('🔍 Population in damage zone:', citiesData.populationInDamageZone);
-                console.log('🔍 Success status:', citiesData.success);
+                console.log(' Overpass API Response:', citiesData);
+                console.log(' Cities found:', citiesData.cities ? citiesData.cities.length : 0);
+                console.log(' Total population:', citiesData.totalPopulation);
+                console.log(' Population in destruction zone:', citiesData.populationInDestructionZone);
+                console.log(' Population in damage zone:', citiesData.populationInDamageZone);
+                console.log(' Success status:', citiesData.success);
                 
                 if (citiesData.success && citiesData.totalPopulation) {
                     populationData = citiesData;
-                    console.log(`✅ Population data obtained: ${citiesData.totalPopulation} people`);
+                    console.log(` Population data obtained: ${citiesData.totalPopulation} people`);
                 } else {
                     console.log('❌ No population data in Overpass response');
                     console.log('❌ Response success:', citiesData.success);
@@ -1688,13 +1688,13 @@ async function runImpactSimulation() {
                 console.log(`🔧 Using estimated population: ${simulationData.affectedPopulation} people (based on ${simulationData.impactEnergy} MT)`);
             }
             
-            console.log('📊 Processed Dashboard Data:', simulationData);
-            console.log('📊 About to call showBentoDashboard...');
+            console.log(' Processed Dashboard Data:', simulationData);
+            console.log(' About to call showBentoDashboard...');
             showBentoDashboard(simulationData);
             
         if (result.usgs_context) {
             // logUSGSData(result.usgs_context);  // Comentado temporalmente
-            console.log('📊 USGS Context:', result.usgs_context);
+            console.log(' USGS Context:', result.usgs_context);
         }
             
             // 2. Correlación sísmica con USGS (opcional)
@@ -1711,11 +1711,11 @@ async function runImpactSimulation() {
                     const seismicData = await seismicResponse.json();
                     if (seismicData.success) {
                         result.seismic_analysis = seismicData;
-                        console.log('✅ Análisis sísmico obtenido del USGS');
+                        console.log(' Análisis sísmico obtenido del USGS');
                     }
                 }
             } catch (error) {
-                console.warn('⚠️ No se pudo obtener análisis sísmico del USGS:', error);
+                console.warn(' No se pudo obtener análisis sísmico del USGS:', error);
             }
             
             // 3. Análisis de tsunami con NASA-NOAA (solo si está cerca de costa)
@@ -1736,11 +1736,11 @@ async function runImpactSimulation() {
                         const tsunamiData = await tsunamiResponse.json();
                         if (tsunamiData.success) {
                             result.tsunami_analysis = tsunamiData;
-                            console.log('✅ Análisis de tsunami obtenido de NASA-NOAA');
+                            console.log(' Análisis de tsunami obtenido de NASA-NOAA');
                         }
                     }
                 } catch (error) {
-                    console.warn('⚠️ No se pudo obtener análisis de tsunami de NASA-NOAA:', error);
+                    console.warn(' No se pudo obtener análisis de tsunami de NASA-NOAA:', error);
                 }
             }
             
@@ -1762,13 +1762,13 @@ async function runImpactSimulation() {
                     const floraFaunaData = await floraFaunaResponse.json();
                     if (floraFaunaData.success) {
                         result.flora_fauna_analysis = floraFaunaData;
-                        console.log('✅ Análisis de flora y fauna obtenido de GBIF');
-                        console.log(`🌿 ${floraFaunaData.flora_species.length} especies de flora encontradas`);
-                        console.log(`🦋 ${floraFaunaData.fauna_species.length} especies de fauna encontradas`);
+                        console.log(' Análisis de flora y fauna obtenido de GBIF');
+                        console.log(` ${floraFaunaData.flora_species.length} especies de flora encontradas`);
+                        console.log(` ${floraFaunaData.fauna_species.length} especies de fauna encontradas`);
                     }
                 }
             } catch (error) {
-                console.warn('⚠️ No se pudo obtener análisis de flora y fauna de GBIF:', error);
+                console.warn(' No se pudo obtener análisis de flora y fauna de GBIF:', error);
             }
             
             displayImpactResults(result);
@@ -1854,11 +1854,11 @@ function formatNumber(num) {
 // ============================================
 
 async function getLocationInfo(lat, lon, destructionRadiusKm, damageRadiusKm) {
-    console.log(`🗺️ Obteniendo información de ubicación para: ${lat}, ${lon}`);
+    console.log(` Obteniendo información de ubicación para: ${lat}, ${lon}`);
     
     try {
         // 1. Usar Nominatim de OpenStreetMap para reverse geocoding
-        console.log('🔍 Consultando Nominatim para geocoding inverso...');
+        console.log(' Consultando Nominatim para geocoding inverso...');
         const nominatimResponse = await fetch(
             `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lon}&format=json&addressdetails=1&extratags=1`,
             {
@@ -1904,7 +1904,7 @@ async function getLocationInfo(lat, lon, destructionRadiusKm, damageRadiusKm) {
 }
 
 async function getPopulationFromGeoNames(lat, lon, destructionRadiusKm, damageRadiusKm) {
-    console.log('🌍 Intentando GeoNames API como primera opción...');
+    console.log(' Intentando GeoNames API como primera opción...');
     
     try {
         // Usar la API de GeoNames para buscar todos los asentamientos humanos
@@ -1928,12 +1928,12 @@ async function getPopulationFromGeoNames(lat, lon, destructionRadiusKm, damageRa
         
         for (let i = 0; i < queries.length; i++) {
             try {
-                console.log(`🔍 Consultando GeoNames query ${i + 1}/${queries.length}...`);
+                console.log(` Consultando GeoNames query ${i + 1}/${queries.length}...`);
                 const response = await fetch(queries[i]);
                 if (response.ok) {
         const data = await response.json();
                     if (data.geonames && data.geonames.length > 0) {
-                        console.log(`✅ GeoNames query ${i + 1}: ${data.geonames.length} lugares encontrados`);
+                        console.log(` GeoNames query ${i + 1}: ${data.geonames.length} lugares encontrados`);
                         allPlaces.push(...data.geonames);
                     } else {
                         console.log(`GeoNames query ${i + 1}: Sin lugares encontrados`);
@@ -2858,8 +2858,8 @@ function displayDeflectionResults(data) {
                     </div>
                     
                     ${strat.estimated_cost ? `<div style="margin-top: 0.5rem; font-size: 11px;">💰 Costo estimado: ${strat.estimated_cost}</div>` : ''}
-                    ${strat.success_rate ? `<div style="font-size: 11px;">✅ Tasa éxito: ${strat.success_rate}</div>` : ''}
-                    ${strat.warning ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255,68,68,0.2); border-radius: 4px; font-size: 11px;">⚠️ ${strat.warning}</div>` : ''}
+                    ${strat.success_rate ? `<div style="font-size: 11px;"> Tasa éxito: ${strat.success_rate}</div>` : ''}
+                    ${strat.warning ? `<div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(255,68,68,0.2); border-radius: 4px; font-size: 11px;"> ${strat.warning}</div>` : ''}
                 </div>
             `;
         });
@@ -2873,7 +2873,7 @@ function displayDeflectionResults(data) {
 function getDeflectionRecommendations(result) {
     if (result.success) {
         return `
-            ✅ La deflexión es exitosa con los parámetros actuales.<br>
+ La deflexión es exitosa con los parámetros actuales.<br>
             • Considere un margen de seguridad adicional<br>
             • Planifique misiones de seguimiento para verificar la nueva trayectoria<br>
             • Mantenga opciones de backup disponibles
@@ -2961,7 +2961,7 @@ function generateFullResultsHTML(result) {
         html += `
             <div class="collapsible-section" data-section="secondary-effects">
                 <div class="section-header" onclick="toggleSection('secondary-effects')">
-                    <strong style="font-size: 16px;">⚠️ EFECTOS SECUNDARIOS Y CATÁSTROFES</strong>
+                    <strong style="font-size: 16px;"> EFECTOS SECUNDARIOS Y CATÁSTROFES</strong>
                     <span class="toggle-icon">▼</span>
                 </div>
                 <div class="section-content" id="secondary-effects-content">
@@ -2986,7 +2986,7 @@ function generateFullResultsHTML(result) {
                     
                     ${effect.radius_km ? `<div style="font-size: 12px; margin-bottom: 0.5rem;"><strong>Radio afectado:</strong> ${effect.radius_km.toFixed(1)} km</div>` : ''}
                     ${effect.duration ? `<div style="font-size: 12px; margin-bottom: 0.5rem;"><strong>Duración:</strong> ${effect.duration}</div>` : ''}
-                    ${effect.global_impact ? `<div style="font-size: 11px; padding: 0.4rem; background: rgba(255,0,0,0.2); border-radius: 4px; margin-bottom: 0.5rem;"><strong>🌍 IMPACTO GLOBAL</strong></div>` : ''}
+                    ${effect.global_impact ? `<div style="font-size: 11px; padding: 0.4rem; background: rgba(255,0,0,0.2); border-radius: 4px; margin-bottom: 0.5rem;"><strong> IMPACTO GLOBAL</strong></div>` : ''}
                     
                     <div style="margin-top: 0.5rem; font-size: 11px;">
                         <strong>Efectos específicos:</strong>
@@ -3530,7 +3530,7 @@ function displayUSGSContext(usgsContext, result) {
     
     if (usgsContext.elevation) {
         const elev = usgsContext.elevation;
-        let terrainIcon = elev.is_oceanic ? '🌊' : '🏔️';
+        let terrainIcon = elev.is_oceanic ? '' : '';
         let terrainColor = elev.is_oceanic ? '#4169E1' : '#4CAF50';
         let terrainBg = elev.is_oceanic ? 'rgba(65,105,225,0.15)' : 'rgba(76,175,80,0.15)';
         
@@ -3588,21 +3588,21 @@ function logUSGSData(usgsContext) {
     if (!usgsContext) return;
     
     console.log('═══════════════════════════════════════════');
-    console.log('📊 DATOS USGS - CONTEXTO GEOGRÁFICO');
+    console.log(' DATOS USGS - CONTEXTO GEOGRÁFICO');
     console.log('═══════════════════════════════════════════');
     
     if (usgsContext.elevation) {
-        console.log(`\n🏔️ Terreno: ${usgsContext.elevation.description}`);
+        console.log(`\n Terreno: ${usgsContext.elevation.description}`);
         console.log(`   Elevación: ${usgsContext.elevation.elevation_m.toFixed(1)}m`);
     }
     
     if (usgsContext.seismic_history && usgsContext.seismic_history.count > 0) {
-        console.log(`\n📈 Sismos: ${usgsContext.seismic_history.count}`);
+        console.log(`\n Sismos: ${usgsContext.seismic_history.count}`);
         console.log(`   Magnitud máx: ${usgsContext.seismic_history.max_magnitude.toFixed(1)}`);
     }
     
     if (usgsContext.coastal_distance_km !== undefined) {
-        console.log(`\n🌊 Distancia costa: ${usgsContext.coastal_distance_km === 0 ? 'OCEÁNICO' : usgsContext.coastal_distance_km.toFixed(1) + ' km'}`);
+        console.log(`\n Distancia costa: ${usgsContext.coastal_distance_km === 0 ? 'OCEÁNICO' : usgsContext.coastal_distance_km.toFixed(1) + ' km'}`);
     }
     
     console.log('═══════════════════════════════════════════\n');
@@ -3691,7 +3691,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     // Diagnostic function
     window.diagnoseBentoDashboard = function() {
-        console.log('🔍 DIAGNOSTIC: Checking Bento Dashboard elements...');
+        console.log(' DIAGNOSTIC: Checking Bento Dashboard elements...');
         
         const elements = [
             'impact-energy',
@@ -3708,7 +3708,7 @@ document.addEventListener('DOMContentLoaded', () => {
         elements.forEach(id => {
             const element = document.getElementById(id);
             if (element) {
-                console.log(`✅ Found element: ${id}`, element);
+                console.log(` Found element: ${id}`, element);
             } else {
                 console.error(`❌ Missing element: ${id}`);
             }
@@ -3717,7 +3717,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if dashboard is visible
         const dashboard = document.querySelector('.bento-dashboard');
         if (dashboard) {
-            console.log('✅ Dashboard found:', dashboard);
+            console.log(' Dashboard found:', dashboard);
             console.log('Dashboard classes:', dashboard.className);
             console.log('Dashboard display:', getComputedStyle(dashboard).display);
         } else {
@@ -3727,7 +3727,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check simulation controls
         const controls = document.getElementById('simulation-controls');
         if (controls) {
-            console.log('✅ Simulation controls found:', controls);
+            console.log(' Simulation controls found:', controls);
             console.log('Controls display:', getComputedStyle(controls).display);
         } else {
             console.error('❌ Simulation controls not found');
@@ -3754,19 +3754,19 @@ function setupBentoDashboard() {
 }
 
 function updateBentoDashboard(data) {
-    console.log('🔄 Updating Bento Dashboard with data:', data);
+    console.log(' Updating Bento Dashboard with data:', data);
     
     // Force update all elements with a more direct approach
     const updates = [
-        { id: 'impact-energy', value: formatEnergy(data.impactEnergy), log: '⚡ Energy' },
-        { id: 'crater-diameter', value: formatDistance(data.craterDiameter), log: '🕳️ Crater' },
-        { id: 'affected-population', value: formatNumber(data.affectedPopulation), log: '👥 Population' },
-        { id: 'asteroid-speed', value: `${data.asteroidSpeed} km/s`, log: '🚀 Speed' },
-        { id: 'destruction-radius', value: formatDistance(data.destructionRadius), log: '💀 Radius' },
-        { id: 'tsunami-risk', value: data.tsunamiRisk, log: '🌊 Tsunami' },
-        { id: 'seismic-magnitude', value: data.seismicMagnitude.toFixed(1), log: '🌍 Seismic' },
-        { id: 'most-affected-fauna', value: data.mostAffectedFauna || '-', log: '🦋 Fauna' },
-        { id: 'most-affected-flora', value: data.mostAffectedFlora || '-', log: '🌿 Flora' }
+        { id: 'impact-energy', value: formatEnergy(data.impactEnergy), log: ' Energy' },
+        { id: 'crater-diameter', value: formatDistance(data.craterDiameter), log: ' Crater' },
+        { id: 'affected-population', value: formatNumber(data.affectedPopulation), log: ' Population' },
+        { id: 'asteroid-speed', value: `${data.asteroidSpeed} km/s`, log: ' Speed' },
+        { id: 'destruction-radius', value: formatDistance(data.destructionRadius), log: ' Radius' },
+        { id: 'tsunami-risk', value: data.tsunamiRisk, log: ' Tsunami' },
+        { id: 'seismic-magnitude', value: data.seismicMagnitude.toFixed(1), log: ' Seismic' },
+        { id: 'most-affected-fauna', value: data.mostAffectedFauna || '-', log: ' Fauna' },
+        { id: 'most-affected-flora', value: data.mostAffectedFlora || '-', log: ' Flora' }
     ];
     
     updates.forEach(update => {
@@ -3810,15 +3810,15 @@ function formatNumber(number) {
 }
 
 function showBentoDashboard(simulationData) {
-    console.log('🎯 showBentoDashboard called with data:', simulationData);
-    console.log('🎯 Data type:', typeof simulationData);
-    console.log('🎯 Data keys:', Object.keys(simulationData));
+    console.log(' showBentoDashboard called with data:', simulationData);
+    console.log(' Data type:', typeof simulationData);
+    console.log(' Data keys:', Object.keys(simulationData));
     
     // Hide simulation controls
     const simulationControls = document.getElementById('simulation-controls');
     if (simulationControls) {
         simulationControls.style.display = 'none';
-        console.log('✅ Simulation controls hidden');
+        console.log(' Simulation controls hidden');
     } else {
         console.error('❌ Simulation controls not found');
     }
@@ -3827,13 +3827,13 @@ function showBentoDashboard(simulationData) {
     const bentoDashboard = document.querySelector('.bento-dashboard');
     if (bentoDashboard) {
         bentoDashboard.classList.add('show');
-        console.log('✅ Bento dashboard shown');
+        console.log(' Bento dashboard shown');
     } else {
         console.error('❌ Bento dashboard not found');
     }
     
     // Update dashboard with simulation data
-    console.log('🎯 About to call updateBentoDashboard...');
+    console.log(' About to call updateBentoDashboard...');
     updateBentoDashboard(simulationData);
 }
 
