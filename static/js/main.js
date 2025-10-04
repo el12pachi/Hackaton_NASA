@@ -979,6 +979,19 @@ function initializeApp() {
         }
     });
     
+    // Asegurar que solo la sección de simulación esté visible al inicio
+    const allControlSections = document.querySelectorAll('.controls-section');
+    allControlSections.forEach(section => {
+        section.style.display = 'none';
+        section.classList.remove('active');
+    });
+    
+    const simulationControls = document.getElementById('simulation-controls');
+    if (simulationControls) {
+        simulationControls.style.display = 'flex';
+        simulationControls.classList.add('active');
+    }
+    
     // Aplicar traducciones iniciales (español por defecto)
     if (window.i18n) {
         window.i18n.setLanguage('es');
@@ -1070,21 +1083,31 @@ function setupModeSwitching() {
             modeBtns.forEach(b => b.classList.remove('active'));
             btn.classList.add('active');
             
-            // Update sections
-            const simulationControls = document.getElementById('simulation-controls');
-            const mitigationControls = document.getElementById('mitigation-controls');
+            // Obtener todas las secciones de controles
+            const allControlSections = document.querySelectorAll('.controls-section');
             
-            // Remove active class from both sections
-            simulationControls.classList.remove('active');
-            mitigationControls.classList.remove('active');
+            // Ocultar TODAS las secciones primero
+            allControlSections.forEach(section => {
+                section.classList.remove('active');
+                section.style.display = 'none';
+            });
             
+            // Mostrar solo la sección correspondiente
             if (mode === 'simulation') {
-                simulationControls.classList.add('active');
-                console.log('Showing simulation controls');
-            } else {
-                mitigationControls.classList.add('active');
-                console.log('Showing mitigation controls');
-                // Hide Bento dashboard when switching to mitigation
+                const simulationControls = document.getElementById('simulation-controls');
+                if (simulationControls) {
+                    simulationControls.classList.add('active');
+                    simulationControls.style.display = 'flex';
+                    console.log('Mostrando controles de simulación');
+                }
+            } else if (mode === 'mitigation') {
+                const mitigationControls = document.getElementById('mitigation-controls');
+                if (mitigationControls) {
+                    mitigationControls.classList.add('active');
+                    mitigationControls.style.display = 'flex';
+                    console.log('Mostrando controles de mitigación');
+                }
+                // Ocultar Bento dashboard cuando cambiamos a mitigación
                 hideBentoDashboard();
             }
         });

@@ -1005,12 +1005,22 @@ body {
 
 /* ========== CONTROLS SECTION ========== */
 .controls-section {
-    display: none;
+    display: none !important;
     flex-direction: column;
 }
 
 .controls-section.active {
-    display: flex;
+    display: flex !important;
+}
+
+/* Asegurar que solo el modo activo sea visible */
+#simulation-controls:not(.active),
+#mitigation-controls:not(.active) {
+    display: none !important;
+    visibility: hidden;
+    opacity: 0;
+    height: 0;
+    overflow: hidden;
 }
 
 .section-title {
