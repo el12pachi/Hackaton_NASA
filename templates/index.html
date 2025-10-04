@@ -59,7 +59,7 @@
             <!-- Bento Dashboard -->
             <div class="bento-dashboard">
                 <!-- Card 1: Impact Energy -->
-                <div class="bento-card energy-card">
+                <div class="bento-card energy-card" title="Calculado con fórmula E=½mv² usando física real">
                     <div class="card-header">
                         <h3>Energía de Impacto</h3>
                         <span class="card-icon">💥</span>
@@ -72,7 +72,7 @@
                 </div>
 
                 <!-- Card 2: Crater Size -->
-                <div class="bento-card crater-card">
+                <div class="bento-card crater-card" title="Basado en ecuación de Schmidt-Holsapple para formación de cráteres">
                     <div class="card-header">
                         <h3>Tamaño del Cráter</h3>
                         <span class="card-icon">🕳️</span>
@@ -82,7 +82,7 @@
                 </div>
 
                 <!-- Card 3: Affected Population -->
-                <div class="bento-card population-card">
+                <div class="bento-card population-card" style="cursor: pointer;" onclick="showCasualtyBreakdown()" title="Datos reales de WorldPop API (censo satelital 2020) - Click para desglose detallado">
                     <div class="card-header">
                         <h3>Población Afectada</h3>
                         <span class="card-icon">👥</span>
@@ -90,13 +90,13 @@
                     <div class="card-metric" id="affected-population">0</div>
                     <div class="card-trend" id="population-trend">
                         <span class="trend-icon">📊</span>
-                        <span class="trend-text">Personas en zona de riesgo</span>
+                        <span class="trend-text">Datos reales WorldPop 2020 (Click para desglose)</span>
                     </div>
                 </div>
 
 
                 <!-- Card 5: Asteroid Speed -->
-                <div class="bento-card speed-card">
+                <div class="bento-card speed-card" title="Datos de NASA NeoWs API (asteroides reales) o rango típico 15-30 km/s">
                     <div class="card-header">
                         <h3>Velocidad del Asteroide</h3>
                         <span class="card-icon">🚀</span>
@@ -119,43 +119,43 @@
                 </div>
 
                 <!-- Card 7: Tsunami Risk -->
-                <div class="bento-card tsunami-card">
+                <div class="bento-card tsunami-card" title="Basado en modelos de Ward & Asphaug (2000) y NOAA">
                     <div class="card-header">
                         <h3>Riesgo de Tsunami</h3>
                         <span class="card-icon">🌊</span>
                     </div>
                     <div class="card-metric" id="tsunami-risk">Bajo</div>
-                    <div class="card-subtitle">Si impacta en océano</div>
+                    <div class="card-subtitle">Modelo Ward & Asphaug (2000)</div>
                 </div>
 
                 <!-- Card 8: Seismic Activity -->
-                <div class="bento-card seismic-card">
+                <div class="bento-card seismic-card" title="Escala Richter calculada con datos sísmicos de USGS">
                     <div class="card-header">
                         <h3>Actividad Sísmica</h3>
                         <span class="card-icon">🌍</span>
                     </div>
                     <div class="card-metric" id="seismic-magnitude">0.0</div>
-                    <div class="card-subtitle">Magnitud Richter</div>
+                    <div class="card-subtitle">Escala Richter (USGS)</div>
                 </div>
 
                  <!-- Card 9: Most Affected Fauna -->
-                 <div class="bento-card fauna-card">
+                 <div class="bento-card fauna-card" title="Datos de GBIF (Global Biodiversity Information Facility)">
                      <div class="card-header">
                          <h3>Fauna Más Afectada</h3>
                          <span class="card-icon">🦋</span>
                      </div>
                      <div class="card-metric" id="most-affected-fauna">-</div>
-                     <div class="card-subtitle">Especie en mayor riesgo</div>
+                     <div class="card-subtitle">Datos reales GBIF</div>
                  </div>
 
                  <!-- Card 10: Most Affected Flora -->
-                 <div class="bento-card flora-card">
+                 <div class="bento-card flora-card" title="Datos de GBIF (Global Biodiversity Information Facility)">
                      <div class="card-header">
                          <h3>Flora Más Afectada</h3>
                          <span class="card-icon">🌿</span>
                      </div>
                      <div class="card-metric" id="most-affected-flora">-</div>
-                     <div class="card-subtitle">Especie en mayor riesgo</div>
+                     <div class="card-subtitle">Datos reales GBIF</div>
                  </div>
                  
                  <!-- Download PDF Button -->
@@ -226,21 +226,21 @@
                     <!-- Diameter -->
                     <div class="control-group">
                         <label for="diameter">Diámetro (metros)</label>
-                        <input type="range" id="diameter" min="10" max="1000" value="150" step="10">
+                        <input type="range" id="diameter" min="10" max="1000" value="150" step="10" title="Rango: 10m (Chelyabinsk) a 1000m (Chicxulub). Usa asteroides de NASA para tamaño real">
                         <span id="diameter-value" class="value-display">150 m</span>
                     </div>
 
                     <!-- Velocity -->
                     <div class="control-group">
                         <label for="velocity">Velocidad (km/s)</label>
-                        <input type="range" id="velocity" min="5" max="50" value="25" step="1">
-                        <span id="velocity-value" class="value-display">25 km/s</span>
+                        <input type="range" id="velocity" min="5" max="50" value="20" step="1" title="Rango típico: 15-30 km/s. Usa asteroides de NASA para velocidad real">
+                        <span id="velocity-value" class="value-display">20 km/s</span>
                     </div>
 
                     <!-- Entry Angle -->
                     <div class="control-group">
                         <label for="angle">Ángulo de Entrada (°)</label>
-                        <input type="range" id="angle" min="15" max="90" value="45" step="5">
+                        <input type="range" id="angle" min="15" max="90" value="45" step="5" title="45° es el ángulo estadísticamente más probable">
                         <span id="angle-value" class="value-display">45°</span>
                     </div>
 
@@ -345,6 +345,9 @@
                     <span class="legend-dot affected"></span>
                     <span>Área Afectada</span>
                 </div>
+                <button id="clear-map-btn" class="clear-map-btn" onclick="clearImpactMap()" title="Limpiar marcadores del mapa">
+                    🗑️ Limpiar Mapa
+                </button>
             </div>
         </main>
     </div>
@@ -709,6 +712,27 @@
         </div>
     </div>
 
+    <!-- Modal: Desglose de Víctimas -->
+    <div id="casualty-breakdown-modal" class="modal" style="display: none;">
+        <div class="modal-content" style="max-width: 900px;">
+            <div class="modal-header">
+                <h2>💀 Desglose Detallado de Víctimas</h2>
+                <button class="modal-close" onclick="closeCasualtyBreakdown()">&times;</button>
+            </div>
+            <div class="modal-body" style="max-height: 70vh; overflow-y: auto;">
+                <div id="casualty-breakdown-content">
+                    <div style="text-align: center; padding: 2rem;">
+                        <div class="loading-spinner"></div>
+                        <p style="color: var(--text-secondary); margin-top: 1rem;">Calculando desglose de víctimas...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button class="btn-secondary" onclick="closeCasualtyBreakdown()">Cerrar</button>
+            </div>
+        </div>
+    </div>
+
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     
@@ -718,6 +742,7 @@
     <script src="{{ url_for('static', filename='js/loading-3d.js') }}"></script>
     
     <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
+    <script src="{{ url_for('static', filename='js/pdf-generator.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>
 

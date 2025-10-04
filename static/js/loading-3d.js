@@ -571,12 +571,35 @@ function hide3DLoading() {
         overlay.style.display = 'none';
     }
     
+    // Cancelar animación
     if (animationFrame3d) {
         cancelAnimationFrame(animationFrame3d);
         animationFrame3d = null;
     }
     
+    // Reiniciar todas las variables de estado
     orbitPhase3d = 'orbiting';
+    impactOccurred3d = false;
+    simulationStartTime3d = null;
+    approachStartTime3d = null;
+    impactStartTime3d = null;
+    
+    // Limpiar partículas de explosión
+    explosionParticles3d.forEach(p => {
+        if (p && p.geometry) {
+            p.geometry.dispose();
+            if (p.material) p.material.dispose();
+            scene3d.remove(p);
+        }
+    });
+    explosionParticles3d = [];
+    
+    // Limpiar callback de impacto completado
+    if (window.onImpactComplete3D) {
+        window.onImpactComplete3D = null;
+    }
+    
+    console.log('✅ Animación 3D limpiada correctamente');
 }
 
 // Exponer funciones globales

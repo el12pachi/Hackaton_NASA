@@ -1335,6 +1335,8 @@ function setupModeSwitching() {
                     simulationControls.style.pointerEvents = 'auto';
                     console.log('Mostrando controles de simulación');
                 }
+                // Limpiar el mapa cuando se entra al modo simulación
+                clearImpactMap();
             } else if (mode === 'mitigation') {
                 const mitigationControls = document.getElementById('mitigation-controls');
                 if (mitigationControls) {
@@ -1345,6 +1347,8 @@ function setupModeSwitching() {
                     mitigationControls.style.pointerEvents = 'auto';
                     console.log('Mostrando controles de mitigación');
                 }
+                // Limpiar el mapa cuando se entra al modo mitigación
+                clearImpactMap();
             }
         });
     });
@@ -1359,6 +1363,31 @@ let currentMarker = null;
 let currentCircles = [];
 let currentFullResults = null;
 let currentTileLayer = null;
+
+// Función para limpiar el mapa completamente
+function clearImpactMap() {
+    if (!impactMap) {
+        console.log('⚠️ Mapa no inicializado');
+        return;
+    }
+    
+    // Eliminar marcador
+    if (currentMarker) {
+        impactMap.removeLayer(currentMarker);
+        currentMarker = null;
+    }
+    
+    // Eliminar círculos
+    currentCircles.forEach(circle => {
+        impactMap.removeLayer(circle);
+    });
+    currentCircles = [];
+    
+    console.log('🗺️ Mapa limpiado completamente');
+}
+
+// Exponer la función globalmente para el botón
+window.clearImpactMap = clearImpactMap;
 
 function setupSimulationMode() {
     // Range inputs
@@ -1602,6 +1631,18 @@ async function loadNEOData() {
 // Función populateAsteroidSelector eliminada - ya no se usa el selector, se usa el explorador de asteroides
 
 async function runImpactSimulation() {
+    // Limpiar estado anterior antes de empezar nueva simulación
+    processedSimulationData = null;
+    currentFullResults = null;
+    
+    // Limpiar callback anterior si existe
+    if (window.onImpactComplete3D) {
+        window.onImpactComplete3D = null;
+    }
+    
+    // Limpiar marcadores y círculos del mapa usando la función dedicada
+    clearImpactMap();
+    
     // Obtener datos del asteroide seleccionado
     let asteroidData = window.selectedAsteroidData || null;
     
@@ -1960,12 +2001,15 @@ async function processAllSimulationData(result, params) {
             const airPressureRadius = damageRadius * 1.5;
             const maxRadius = Math.max(destructionRadius, damageRadius, airPressureRadius);
             
-            let populationData = { totalPopulation: 0 };
+            let populationData = { cities: [], totalPopulation: 0 };
             try {
-                console.log(' Calling Overpass API with params:', {
+                console.log('📍 Llamando a Overpass API con parámetros:', {
                     latitude: params.latitude,
                     longitude: params.longitude,
-                    radius: maxRadius * 1000
+                    radius: maxRadius * 1000,
+                    destructionRadius: destructionRadius,
+                    damageRadius: damageRadius,
+                    airPressureRadius: airPressureRadius
                 });
                 
                 const citiesResponse = await fetch('/api/cities', {
@@ -1978,26 +2022,29 @@ async function processAllSimulationData(result, params) {
                     })
                 });
                 
-                console.log(' Overpass API Response status:', citiesResponse.status);
-                const citiesData = await citiesResponse.json();
-                console.log(' Overpass API Response:', citiesData);
-                console.log(' Cities found:', citiesData.cities ? citiesData.cities.length : 0);
-                console.log(' Total population:', citiesData.totalPopulation);
-                console.log(' Population in destruction zone:', citiesData.populationInDestructionZone);
-                console.log(' Population in damage zone:', citiesData.populationInDamageZone);
-                console.log(' Success status:', citiesData.success);
+                console.log('📡 Overpass API Response status:', citiesResponse.status);
                 
-                if (citiesData.success && citiesData.totalPopulation) {
+                if (!citiesResponse.ok) {
+                    throw new Error(`HTTP ${citiesResponse.status}`);
+                }
+                
+                const citiesData = await citiesResponse.json();
+                console.log('📦 Overpass API Response data:', citiesData);
+                console.log(`🏙️ Ciudades encontradas: ${citiesData.cities ? citiesData.cities.length : 0}`);
+                
+                if (citiesData.success && citiesData.cities && citiesData.cities.length > 0) {
                     populationData = citiesData;
-                    console.log(` Population data obtained: ${citiesData.totalPopulation} people`);
+                    console.log(`✅ Datos de población obtenidos: ${citiesData.cities.length} lugares`);
+                    console.log(`🏙️ Primeras 3 ciudades:`, citiesData.cities.slice(0, 3));
                 } else {
-                    console.log('❌ No population data in Overpass response');
-                    console.log('❌ Response success:', citiesData.success);
-                    console.log('❌ Total population value:', citiesData.totalPopulation);
+                    console.warn('⚠️ Overpass API no devolvió ciudades');
+                    console.warn('⚠️ Success:', citiesData.success);
+                    console.warn('⚠️ Cities array:', citiesData.cities);
                 }
             } catch (error) {
-                console.warn('❌ Error obteniendo población:', error);
-                console.warn('❌ Error details:', error.message);
+                console.error('❌ Error obteniendo población de Overpass API:', error);
+                console.error('❌ Error message:', error.message);
+                console.error('❌ Error stack:', error.stack);
             }
             
             // Analyze terrain type FIRST to determine population calculation method
@@ -2040,13 +2087,51 @@ async function processAllSimulationData(result, params) {
                 console.log(`   Barcos estimados en área: ${estimatedShips}`);
                 console.log(`   Población estimada: ${simulationData.affectedPopulation} personas`);
             }
-            // For land impacts, use Overpass data if available
-            else if (populationData.totalPopulation && populationData.totalPopulation > 0) {
-                simulationData.affectedPopulation = populationData.totalPopulation;
-                console.log(`✅ Población obtenida de Overpass: ${simulationData.affectedPopulation.toLocaleString()} personas`);
+            // For land impacts, use Overpass data (ciudades + áreas administrativas)
+            else if (!isOceanic && populationData.cities && populationData.cities.length > 0) {
+                let totalPopInDestructionZone = 0;
+                let totalPopInDamageZone = 0;
+                let totalPopInAirPressureZone = 0;
+                
+                console.log(`📊 Analizando ${populationData.cities.length} lugares encontrados...`);
+                
+                populationData.cities.forEach(city => {
+                    const distance = city.distancia_km || 999;
+                    const population = parseInt(city.poblacion) || 0;
+                    
+                    if (population > 0) {
+                        if (distance <= destructionRadius) {
+                            totalPopInDestructionZone += population;
+                            console.log(`  🔴 ${city.nombre}: ${population.toLocaleString()} hab. a ${distance.toFixed(1)} km (DESTRUCCIÓN)`);
+                        } else if (distance <= damageRadius) {
+                            totalPopInDamageZone += population;
+                            console.log(`  🟠 ${city.nombre}: ${population.toLocaleString()} hab. a ${distance.toFixed(1)} km (DAÑO)`);
+                        } else if (distance <= airPressureRadius) {
+                            totalPopInAirPressureZone += population;
+                            console.log(`  🔵 ${city.nombre}: ${population.toLocaleString()} hab. a ${distance.toFixed(1)} km (PRESIÓN)`);
+                        }
+                    }
+                });
+                
+                simulationData.affectedPopulation = totalPopInDestructionZone + totalPopInDamageZone + totalPopInAirPressureZone;
+                
+                // Guardar ciudades y radios para el desglose de víctimas (EN KILÓMETROS)
+                simulationData.cities = populationData.cities || [];
+                simulationData.damageRadiusKm = damageRadius;  // Ya está en km
+                simulationData.destructionRadiusKm = destructionRadius; // Ya está en km
+                simulationData.latitude = params.latitude;
+                simulationData.longitude = params.longitude;
+                
+                console.log(`✅ Población obtenida de Overpass API (ciudades + áreas administrativas):`);
+                console.log(`   🔴 Zona de destrucción (0-${destructionRadius.toFixed(1)} km): ${totalPopInDestructionZone.toLocaleString()} personas`);
+                console.log(`   🟠 Zona de daño (${destructionRadius.toFixed(1)}-${damageRadius.toFixed(1)} km): ${totalPopInDamageZone.toLocaleString()} personas`);
+                console.log(`   🔵 Zona de presión (${damageRadius.toFixed(1)}-${airPressureRadius.toFixed(1)} km): ${totalPopInAirPressureZone.toLocaleString()} personas`);
+                console.log(`   📊 TOTAL AFECTADO: ${simulationData.affectedPopulation.toLocaleString()} personas`);
             }
             // Fallback: Estimate based on terrain type
             else {
+                console.log('⚠️ Sin datos de ciudades, usando estimación por terreno');
+                
                 let populationDensityFactor = 1.0; // Default multiplier
                 
                 if (terrainType === 'desert') {
@@ -2070,11 +2155,10 @@ async function processAllSimulationData(result, params) {
                 }
                 
                 // USAR SOLO ÁREA DE DESTRUCCIÓN DIRECTA, NO ZONA DE DAÑO
-                // El damageRadius es demasiado grande y sobrestima la población
                 const destructionAreaKm2 = Math.PI * Math.pow(destructionRadius, 2);
                 
                 // Densidad típica rural: 50 personas/km² (más realista)
-                const typicalDensity = 50; // persons per km² (rural average)
+                const typicalDensity = 50;
                 const estimatedPopulation = Math.round(destructionAreaKm2 * typicalDensity * populationDensityFactor);
                 
                 // Cap más bajo: 1M personas máximo en estimación
@@ -2087,6 +2171,18 @@ async function processAllSimulationData(result, params) {
             }
             
             console.log(' Processed Dashboard Data (initial):', simulationData);
+            
+            // IMPORTANTE: Actualizar el dashboard con la población calculada
+            console.log(`📊 ACTUALIZANDO POBLACIÓN EN DASHBOARD: ${simulationData.affectedPopulation.toLocaleString()} personas`);
+            
+            // Actualizar el elemento del dashboard inmediatamente
+            const popElement = document.getElementById('affected-population');
+            if (popElement) {
+                popElement.textContent = formatNumber(simulationData.affectedPopulation);
+                console.log(' Población actualizada en dashboard');
+            } else {
+                console.warn('⚠️ Elemento affected-population no encontrado');
+            }
             
             // Completar población
             completeLoadingStep('population');
@@ -2240,8 +2336,27 @@ async function processAllSimulationData(result, params) {
                         console.log(`   Fauna seleccionada: ${mostAffectedFauna || 'ninguna'}`);
                         console.log(`   Flora seleccionada: ${mostAffectedFlora || 'ninguna'}`);
                         
+                        // IMPORTANTE: Si hay especies de GBIF, usarlas con más detalle
+                        if (faunaSpecies && faunaSpecies.length > 0) {
+                            // Obtener las 3 especies más comunes de fauna
+                            const top3Fauna = faunaSpecies.slice(0, 3).map(s => s.species || s.name).filter(Boolean);
+                            if (top3Fauna.length > 0) {
+                                mostAffectedFauna = top3Fauna.join(', ');
+                                console.log(`   🔬 USANDO DATOS REALES DE GBIF - Fauna: ${mostAffectedFauna}`);
+                            }
+                        }
+                        
+                        if (floraSpecies && floraSpecies.length > 0) {
+                            // Obtener las 3 especies más comunes de flora
+                            const top3Flora = floraSpecies.slice(0, 3).map(s => s.species || s.name).filter(Boolean);
+                            if (top3Flora.length > 0) {
+                                mostAffectedFlora = top3Flora.join(', ');
+                                console.log(`   🔬 USANDO DATOS REALES DE GBIF - Flora: ${mostAffectedFlora}`);
+                            }
+                        }
+                        
                         // Si no hay especies detectadas, inferir por tipo de terreno
-                        if (!mostAffectedFauna || mostAffectedFauna === 'No detectada') {
+                        if (!mostAffectedFauna || mostAffectedFauna === 'No detectada' || (!faunaSpecies || faunaSpecies.length === 0)) {
                             if (result.usgs_context && result.usgs_context.elevation) {
                                 const terrainType = result.usgs_context.elevation.terrain_type;
                                 const isOceanic = result.usgs_context.elevation.is_oceanic;
@@ -2264,7 +2379,7 @@ async function processAllSimulationData(result, params) {
                             console.log(`   ⚠️ Fauna inferida por terreno: ${mostAffectedFauna}`);
                         }
                         
-                        if (!mostAffectedFlora || mostAffectedFlora === 'No detectada') {
+                        if (!mostAffectedFlora || mostAffectedFlora === 'No detectada' || (!floraSpecies || floraSpecies.length === 0)) {
                             if (result.usgs_context && result.usgs_context.elevation) {
                                 const terrainType = result.usgs_context.elevation.terrain_type;
                                 const isOceanic = result.usgs_context.elevation.is_oceanic;
@@ -4234,12 +4349,14 @@ function generateCasualtyEstimates(calc, cities) {
         }
     });
     
-    // Calcular estimaciones de muertes por zona
+    // Calcular estimaciones de víctimas por zona (fallecidos y heridos)
     const destructionDeaths = calculateZoneCasualties(citiesInDestructionZone, 'destruction', calc.energy_megatons_tnt);
     const damageDeaths = calculateZoneCasualties(citiesInDamageZone, 'damage', calc.energy_megatons_tnt);
     const airPressureDeaths = calculateZoneCasualties(citiesInAirPressureZone, 'airPressure', calc.energy_megatons_tnt);
     
     const totalDeaths = destructionDeaths.total + damageDeaths.total + airPressureDeaths.total;
+    const totalInjured = destructionDeaths.injured + damageDeaths.injured + airPressureDeaths.injured;
+    const totalAffected = totalDeaths + totalInjured;
     
     return `
         <div class="collapsible-section" data-section="casualties">
@@ -4252,8 +4369,26 @@ function generateCasualtyEstimates(calc, cities) {
             <hr style="border-color: #3A3A3A; margin: 12px 0;">
             
             <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                <div style="text-align: center; font-size: 20px; color: var(--text-light); font-weight: bold;">
-                    ESTIMACIÓN TOTAL DE VÍCTIMAS: ${formatNumber(totalDeaths)}
+                <div style="text-align: center; font-size: 20px; color: var(--text-light); font-weight: bold; margin-bottom: 0.8rem;">
+                    ESTIMACIÓN TOTAL DE VÍCTIMAS: ${formatNumber(totalAffected)}
+                </div>
+                <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 0.5rem;">
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; color: #FF4444; font-weight: bold;">
+                            ☠️ ${formatNumber(totalDeaths)}
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">
+                            Fallecidos
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 16px; color: #FFB84D; font-weight: bold;">
+                            🏥 ${formatNumber(totalInjured)}
+                        </div>
+                        <div style="font-size: 11px; color: var(--text-secondary);">
+                            Heridos
+                        </div>
+                    </div>
                 </div>
                 <div style="text-align: center; font-size: 12px; color: var(--text-secondary); margin-top: 0.5rem;">
                     Basado en modelos de impacto aerolítico y densidad poblacional
@@ -4264,9 +4399,10 @@ function generateCasualtyEstimates(calc, cities) {
                 <!-- Zona de Destrucción Total -->
                 <div class="result-stat" style="background: rgba(255,68,68,0.2); border-left-color: #FF4444;">
                     <strong style="color: #FF4444;">ZONA ROJA (0-${destructionRadius.toFixed(1)} km):</strong><br>
-                    <span style="font-size: 18px; color: #FF4444;">${formatNumber(destructionDeaths.total)} víctimas mortales</span><br>
+                    <span style="font-size: 18px; color: #FF4444;">☠️ ${formatNumber(destructionDeaths.total)} fallecidos</span><br>
+                    <span style="font-size: 14px; color: #FFB84D;">🏥 ${formatNumber(destructionDeaths.injured)} heridos</span><br>
                     <span style="font-size: 12px; color: var(--text-secondary);">
-                        ${destructionDeaths.cities} ciudades • 95-100% fatalidad
+                        ${destructionDeaths.cities} ciudades • 95% fatalidad
                     </span><br><br>
                     <strong style="color: #FF4444; font-size: 13px;">CIUDADES CRÍTICAS:</strong><br>
                     <div style="font-size: 11px; margin-top: 0.3rem;">
@@ -4282,15 +4418,16 @@ function generateCasualtyEstimates(calc, cities) {
                 <!-- Zona de Daño Significativo -->
                 <div class="result-stat" style="background: rgba(255,184,77,0.2); border-left-color: #FFB84D;">
                     <strong style="color: #FFB84D;">ZONA NARANJA (${destructionRadius.toFixed(1)}-${damageRadius.toFixed(1)} km):</strong><br>
-                    <span style="font-size: 18px; color: #FFB84D;">${formatNumber(damageDeaths.total)} víctimas mortales</span><br>
+                    <span style="font-size: 18px; color: #FF4444;">☠️ ${formatNumber(damageDeaths.total)} fallecidos</span><br>
+                    <span style="font-size: 14px; color: #FFB84D;">🏥 ${formatNumber(damageDeaths.injured)} heridos</span><br>
                     <span style="font-size: 12px; color: var(--text-secondary);">
-                        ${damageDeaths.cities} ciudades • 60-80% fatalidad
+                        ${damageDeaths.cities} ciudades • 70% fatalidad
                     </span><br><br>
                     <strong style="color: #FFB84D; font-size: 13px;">CIUDADES AFECTADAS:</strong><br>
                     <div style="font-size: 11px; margin-top: 0.3rem;">
                         ${citiesInDamageZone.length > 0 ? 
                             citiesInDamageZone.slice(0, 3).map(city => 
-                                `<div style="margin: 0.2rem 0;">• ${city.nombre} (${city.poblacion ? formatNumber(city.poblacion) : 'N/A'} hab.)</div><br>`
+                                `<div style="margin: 0.2rem 0;">• ${city.nombre} (${city.poblacion ? formatNumber(city.poblacion) : 'N/A'} hab.)</div>`
                             ).join('')
                             : '<div style="color: var(--text-secondary);">Sin ciudades afectadas</div>'
                         }
@@ -4300,9 +4437,10 @@ function generateCasualtyEstimates(calc, cities) {
                 <!-- Zona de Ondas Atmosféricas -->
                 <div class="result-stat" style="background: rgba(65,105,225,0.2); border-left-color: #4169E1;">
                     <strong style="color: #4169E1;">ZONA AZUL (${damageRadius.toFixed(1)}-${airPressureRadius.toFixed(1)} km):</strong><br>
-                    <span style="font-size: 18px; color: #4169E1;">${formatNumber(airPressureDeaths.total)} víctimas mortales</span><br>
+                    <span style="font-size: 18px; color: #FF4444;">☠️ ${formatNumber(airPressureDeaths.total)} fallecidos</span><br>
+                    <span style="font-size: 14px; color: #FFB84D;">🏥 ${formatNumber(airPressureDeaths.injured)} heridos</span><br>
                     <span style="font-size: 12px; color: var(--text-secondary);">
-                        ${airPressureDeaths.cities} ciudades • 10-25% fatalidad
+                        ${airPressureDeaths.cities} ciudades • 15% fatalidad
                     </span><br><br>
                     <strong style="color: #4169E1; font-size: 13px;">CIUDADES EN RIESGO:</strong><br>
                     <div style="font-size: 11px; margin-top: 0.3rem;">
@@ -4320,9 +4458,10 @@ function generateCasualtyEstimates(calc, cities) {
     `;
 }
 
-// Función para calcular víctimas por zona
+// Función para calcular víctimas por zona (fallecidos y heridos)
 function calculateZoneCasualties(cities, zoneType, energyMegatons) {
     let totalDeaths = 0;
+    let totalInjured = 0;
     let totalCities = cities.length;
     
     cities.forEach(city => {
@@ -4330,25 +4469,37 @@ function calculateZoneCasualties(cities, zoneType, energyMegatons) {
         
         if (population > 0) {
             let fatalityRate;
+            let injuryRate;
+            
             switch (zoneType) {
                 case 'destruction':
-                    fatalityRate = 0.95; // 95% fatalidad en zona roja
+                    fatalityRate = 0.95; // 95% fallecidos en zona roja
+                    injuryRate = 0.04;   // 4% heridos (los pocos que sobreviven)
                     break;
                 case 'damage':
-                    fatalityRate = 0.70; // 70% fatalidad en zona naranja
+                    fatalityRate = 0.70; // 70% fallecidos en zona naranja
+                    injuryRate = 0.25;   // 25% heridos graves
                     break;
                 case 'airPressure':
-                    fatalityRate = 0.15; // 15% fatalidad en zona azul
+                    fatalityRate = 0.15; // 15% fallecidos en zona azul
+                    injuryRate = 0.40;   // 40% heridos
                     break;
                 default:
                     fatalityRate = 0.20;
+                    injuryRate = 0.30;
             }
             
             totalDeaths += Math.round(population * fatalityRate);
+            totalInjured += Math.round(population * injuryRate);
         }
     });
     
-    return { total: totalDeaths, cities: totalCities };
+    return { 
+        total: totalDeaths, 
+        injured: totalInjured,
+        cities: totalCities,
+        totalAffected: totalDeaths + totalInjured
+    };
 }
 
 // Función para alternar secciones minimizables
@@ -4735,6 +4886,37 @@ function showBentoDashboard(simulationData) {
     
     // Update dashboard with simulation data
     console.log(' About to call updateBentoDashboard...');
+    
+    // Guardar datos para el desglose de víctimas
+    console.log('💾 Almacenando datos de simulación para desglose de víctimas...');
+    
+    // Intentar usar los valores guardados en km, o convertir de metros si no existen
+    let destructionRadiusKm = simulationData.destructionRadiusKm;
+    let damageRadiusKm = simulationData.damageRadiusKm;
+    
+    // Fallback: si no existen en km, convertir desde metros
+    if (!destructionRadiusKm && simulationData.destructionRadius) {
+        destructionRadiusKm = simulationData.destructionRadius / 1000;
+    }
+    if (!damageRadiusKm && simulationData.damageRadius) {
+        damageRadiusKm = simulationData.damageRadius / 1000;
+    }
+    
+    currentSimulationData = {
+        cities: simulationData.cities || [],
+        destructionRadius: destructionRadiusKm || 0,
+        damageRadius: damageRadiusKm || 0,
+        airPressureRadius: (damageRadiusKm || 0) * 1.5,
+        energyMT: simulationData.impactEnergy || 0,
+        latitude: simulationData.latitude || 0,
+        longitude: simulationData.longitude || 0
+    };
+    console.log('✅ Datos almacenados (radios en km):', currentSimulationData);
+    console.log(`   🔴 Radio destrucción: ${(destructionRadiusKm || 0).toFixed(2)} km`);
+    console.log(`   🟠 Radio daño: ${(damageRadiusKm || 0).toFixed(2)} km`);
+    console.log(`   🔵 Radio presión: ${((damageRadiusKm || 0) * 1.5).toFixed(2)} km`);
+    console.log(`   📊 Ciudades a enviar: ${(simulationData.cities || []).length}`);
+    
     updateBentoDashboard(simulationData);
 }
 
@@ -4767,7 +4949,9 @@ function hideBentoDashboard() {
 // PDF GENERATION FUNCTIONALITY
 // ============================================
 
-function downloadSimulationPDF() {
+// FUNCIÓN ANTIGUA - AHORA SE USA LA VERSIÓN DEL BACKEND EN pdf-generator.js
+/*
+function downloadSimulationPDF_OLD() {
     if (!currentFullResults) {
         showNotification('No hay datos de simulación para exportar', 'warning');
         return;
@@ -5476,5 +5660,287 @@ function downloadSimulationPDF() {
         showNotification('Error al generar el PDF: ' + error.message, 'error');
     }
 }
+*/
+// LA NUEVA FUNCIÓN downloadSimulationPDF() ESTÁ EN pdf-generator.js Y USA EL BACKEND
+
+// ============================================
+// FUNCIONES PARA DESGLOSE DE VÍCTIMAS
+// ============================================
+
+// Variable global para almacenar los datos de la simulación actual
+let currentSimulationData = null;
+
+// Función para mostrar el desglose de víctimas
+async function showCasualtyBreakdown() {
+    console.log('🔍 Mostrando desglose de víctimas...');
+    
+    // Verificar que hay datos de simulación
+    if (!currentSimulationData) {
+        showNotification('Primero ejecuta una simulación', 'warning');
+        return;
+    }
+    
+    // Mostrar modal
+    const modal = document.getElementById('casualty-breakdown-modal');
+    if (!modal) {
+        console.error('Modal no encontrado');
+        return;
+    }
+    
+    modal.style.display = 'flex';
+    
+    // Preparar datos para la petición
+    const requestData = {
+        cities: currentSimulationData.cities || [],
+        destruction_radius_km: currentSimulationData.destructionRadius || 5,
+        damage_radius_km: currentSimulationData.damageRadius || 15,
+        air_pressure_radius_km: currentSimulationData.airPressureRadius || 22.5,
+        energy_megatons: currentSimulationData.energyMT || 1
+    };
+    
+    console.log('📤 Enviando petición de desglose:', requestData);
+    
+    try {
+        // Llamar al backend para calcular el desglose
+        const response = await fetch('/api/population/casualties', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestData)
+        });
+        
+        if (!response.ok) {
+            throw new Error(`Error HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📥 Respuesta del servidor:', data);
+        
+        if (data.success) {
+            displayCasualtyBreakdown(data);
+        } else {
+            throw new Error(data.error || 'Error desconocido');
+        }
+        
+    } catch (error) {
+        console.error('❌ Error obteniendo desglose:', error);
+        
+        // Mostrar error en el modal
+        const content = document.getElementById('casualty-breakdown-content');
+        content.innerHTML = `
+            <div style="text-align: center; padding: 2rem; color: var(--danger);">
+                <h3>❌ Error al calcular el desglose</h3>
+                <p style="color: var(--text-secondary); margin-top: 1rem;">
+                    ${error.message}
+                </p>
+                <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0.5rem;">
+                    Intenta ejecutar la simulación nuevamente
+                </p>
+            </div>
+        `;
+    }
+}
+
+// Función para mostrar los datos del desglose en el modal
+function displayCasualtyBreakdown(data) {
+    const content = document.getElementById('casualty-breakdown-content');
+    const breakdown = data.breakdown;
+    const totals = data.totals;
+    
+    // Crear HTML con el desglose detallado
+    const html = `
+        <div style="padding: 1rem;">
+            <!-- Resumen Total -->
+            <div style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.2)); 
+                        border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 2px solid var(--danger);">
+                <h3 style="color: var(--text-light); text-align: center; margin-bottom: 1.5rem; font-size: 1.5em;">
+                    📊 RESUMEN TOTAL
+                </h3>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
+                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 0.5rem;">👥 Población Total</div>
+                        <div style="color: var(--primary); font-size: 1.8em; font-weight: bold;">${totals.total_population.toLocaleString()}</div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 0.5rem;">💀 Fallecidos</div>
+                        <div style="color: var(--danger); font-size: 1.8em; font-weight: bold;">${totals.total_deaths.toLocaleString()}</div>
+                        <div style="color: var(--text-secondary); font-size: 0.8em; margin-top: 0.3rem;">(${totals.overall_fatality_rate}%)</div>
+                    </div>
+                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 0.5rem;">🏥 Heridos</div>
+                        <div style="color: var(--warning); font-size: 1.8em; font-weight: bold;">${totals.total_injured.toLocaleString()}</div>
+                        <div style="color: var(--text-secondary); font-size: 0.8em; margin-top: 0.3rem;">(${totals.overall_injury_rate}%)</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Desglose por Zonas -->
+            <h3 style="color: var(--text-light); margin-bottom: 1.5rem; font-size: 1.3em;">
+                🎯 DESGLOSE POR ZONAS DE IMPACTO
+            </h3>
+            
+            <!-- ZONA ROJA - Destrucción Total -->
+            <div style="background: rgba(231, 76, 60, 0.15); border-left: 4px solid var(--danger); 
+                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <h4 style="color: var(--danger); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.5em;">🔴</span>
+                    ZONA ROJA - Destrucción Total
+                    <span style="font-size: 0.8em; color: var(--text-secondary);">(${breakdown.destruction_zone.cities_count} ubicaciones)</span>
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Población</div>
+                        <div style="color: var(--text-light); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.destruction_zone.total_population.toLocaleString()}
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Fallecidos</div>
+                        <div style="color: var(--danger); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.destruction_zone.deaths.toLocaleString()}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.destruction_zone.fatality_rate}%)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Heridos</div>
+                        <div style="color: var(--warning); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.destruction_zone.injured.toLocaleString()}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.destruction_zone.injury_rate}%)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Sobrevivientes</div>
+                        <div style="color: var(--success); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.destruction_zone.survivors.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85em; color: var(--text-secondary);">
+                    ⚠️ Zona de máxima destrucción: vaporización parcial, ondas de choque extremas, temperaturas >1000°C, y radiación térmica instantánea (70-85% mortalidad)
+                </div>
+            </div>
+            
+            <!-- ZONA NARANJA - Daño Severo -->
+            <div style="background: rgba(255, 140, 0, 0.15); border-left: 4px solid var(--warning); 
+                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <h4 style="color: var(--warning); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.5em;">🟠</span>
+                    ZONA NARANJA - Daño Severo
+                    <span style="font-size: 0.8em; color: var(--text-secondary);">(${breakdown.damage_zone.cities_count} ubicaciones)</span>
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Población</div>
+                        <div style="color: var(--text-light); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.damage_zone.total_population.toLocaleString()}
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Fallecidos</div>
+                        <div style="color: var(--danger); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.damage_zone.deaths.toLocaleString()}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.damage_zone.fatality_rate}%)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Heridos</div>
+                        <div style="color: var(--warning); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.damage_zone.injured.toLocaleString()}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.damage_zone.injury_rate}%)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Sobrevivientes</div>
+                        <div style="color: var(--success); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.damage_zone.survivors.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85em; color: var(--text-secondary);">
+                    ⚠️ Zona de alto impacto: ondas de choque devastadoras (>20 psi), incendios masivos, colapso de edificios, y radiación térmica de segundo/tercer grado (35-50% mortalidad)
+                </div>
+            </div>
+            
+            <!-- ZONA AZUL - Presión de Aire -->
+            <div style="background: rgba(52, 152, 219, 0.15); border-left: 4px solid var(--info); 
+                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
+                <h4 style="color: var(--info); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                    <span style="font-size: 1.5em;">🔵</span>
+                    ZONA AZUL - Presión de Aire
+                    <span style="font-size: 0.8em; color: var(--text-secondary);">(${breakdown.air_pressure_zone.cities_count} ubicaciones)</span>
+                </h4>
+                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Población</div>
+                        <div style="color: var(--text-light); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.air_pressure_zone.total_population.toLocaleString()}
+                        </div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Fallecidos</div>
+                        <div style="color: var(--danger); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.air_pressure_zone.deaths.toLocaleString()}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.air_pressure_zone.fatality_rate}%)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Heridos</div>
+                        <div style="color: var(--warning); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.air_pressure_zone.injured.toLocaleString()}
+                        </div>
+                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.air_pressure_zone.injury_rate}%)</div>
+                    </div>
+                    <div style="text-align: center;">
+                        <div style="color: var(--text-secondary); font-size: 0.85em;">Sobrevivientes</div>
+                        <div style="color: var(--success); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
+                            ${breakdown.air_pressure_zone.survivors.toLocaleString()}
+                        </div>
+                    </div>
+                </div>
+                <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85em; color: var(--text-secondary);">
+                    ⚠️ Zona de impacto moderado: presión de aire (5-20 psi), ventanas rotas, estructuras dañadas, lesiones por escombros voladores y quemaduras menores (8-15% mortalidad)
+                </div>
+            </div>
+            
+            <!-- Nota metodológica -->
+            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 1rem; margin-top: 2rem; font-size: 0.85em;">
+                <h4 style="color: var(--text-light); margin-bottom: 0.8rem; font-size: 1em;">📋 Metodología de Cálculo</h4>
+                <p style="color: var(--text-secondary); line-height: 1.6; margin: 0 0 0.8rem 0;">
+                    <strong style="color: var(--text-light);">Fuentes científicas:</strong> Los cálculos se basan en estudios de impactos de asteroides (Evento de Tunguska 1908, 
+                    Chelyabinsk 2013), datos históricos de explosiones nucleares (Hiroshima/Nagasaki), 
+                    y modelos computacionales de propagación de ondas de choque desarrollados por NASA/ESA.
+                </p>
+                <p style="color: var(--text-secondary); line-height: 1.6; margin: 0;">
+                    <strong style="color: var(--text-light);">Tasas de mortalidad:</strong> Las tasas se ajustan dinámicamente según 
+                    la energía del impacto (${totals.total_affected > 0 ? ((totals.total_deaths / totals.total_population * 100).toFixed(1)) : '0'}% promedio en esta simulación) 
+                    y la distancia al epicentro. Los datos de población provienen de OpenStreetMap (Overpass API) con datos censales reales.
+                </p>
+            </div>
+        </div>
+    `;
+    
+    content.innerHTML = html;
+}
+
+// Función para cerrar el modal
+function closeCasualtyBreakdown() {
+    const modal = document.getElementById('casualty-breakdown-modal');
+    if (modal) {
+        modal.style.display = 'none';
+    }
+}
+
+// Cerrar modal al hacer click fuera de él
+document.addEventListener('DOMContentLoaded', function() {
+    const modal = document.getElementById('casualty-breakdown-modal');
+    if (modal) {
+        modal.addEventListener('click', function(event) {
+            if (event.target === modal) {
+                closeCasualtyBreakdown();
+            }
+        });
+    }
+});
 
 
