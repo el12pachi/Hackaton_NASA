@@ -2628,15 +2628,18 @@ async function getPopulationFromOverpass(lat, lon, destructionRadiusKm, damageRa
         
         console.log('Radios en metros:', { destructionRadiusM, damageRadiusM, airPressureRadiusM });
         
-        // Consulta Overpass para obtener ciudades, pueblos y aldeas
+        // Consulta Overpass mejorada para obtener más datos de población
         const query = `
 [out:json];
 (
-  node["place"~"city|town|village"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  way["place"~"city|town|village"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  relation["place"~"city|town|village"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  node["place"~"city|town|village|hamlet|suburb"]["population"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  way["place"~"city|town|village|hamlet|suburb"]["population"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  relation["place"~"city|town|village|hamlet|suburb"]["population"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  node["place"~"city|town|village|hamlet|suburb"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  way["place"~"city|town|village|hamlet|suburb"](around:${airPressureRadiusM}, ${lat}, ${lon});
+  relation["place"~"city|town|village|hamlet|suburb"](around:${airPressureRadiusM}, ${lat}, ${lon});
 );
-out center;
+out center tags;
 `;
         
         console.log('Query Overpass:', query);
@@ -2696,34 +2699,70 @@ out center;
                 // Calcular distancia desde el punto de impacto
                 const distance = calculateDistance(lat, lon, placeLat, placeLon);
                 
-                // Estimar población basada en el tipo de lugar
-                let estimatedPopulation = 0;
-                switch (placeType) {
-                    case 'city':
-                        estimatedPopulation = Math.floor(Math.random() * 500000) + 100000; // 100k-600k
-                        break;
-                    case 'town':
-                        estimatedPopulation = Math.floor(Math.random() * 50000) + 5000; // 5k-55k
-                        break;
-                    case 'village':
-                        estimatedPopulation = Math.floor(Math.random() * 2000) + 100; // 100-2.1k
-                        break;
-                    default:
-                        estimatedPopulation = Math.floor(Math.random() * 1000) + 50; // 50-1k
+                // Usar población real de la API si está disponible, sino estimar
+                let population = 0;
+                
+                // Buscar población en diferentes campos de la API
+                if (tags.population) {
+                    population = parseInt(tags.population) || 0;
+                } else if (tags['population:date']) {
+                    population = parseInt(tags['population:date']) || 0;
+                } else if (tags['addr:population']) {
+                    population = parseInt(tags['addr:population']) || 0;
+                } else if (tags['census:population']) {
+                    population = parseInt(tags['census:population']) || 0;
+                }
+                
+                // Si no hay datos reales de población, estimar basado en el tipo
+                if (population === 0) {
+                    switch (placeType) {
+                        case 'city':
+                            population = Math.floor(Math.random() * 500000) + 100000; // 100k-600k
+                            break;
+                        case 'town':
+                            population = Math.floor(Math.random() * 50000) + 5000; // 5k-55k
+                            break;
+                        case 'village':
+                            population = Math.floor(Math.random() * 2000) + 100; // 100-2.1k
+                            break;
+                        default:
+                            population = Math.floor(Math.random() * 1000) + 50; // 50-1k
+                    }
                 }
                 
                 places.push({
                     name: name,
                     type: placeType,
-                    population: estimatedPopulation,
+                    population: population,
                     distance: distance,
                     lat: placeLat,
-                    lon: placeLon
+                    lon: placeLon,
+                    isRealData: population > 0 && (tags.population || tags['population:date'] || tags['addr:population'] || tags['census:population'])
                 });
             }
         });
         
         console.log('Lugares encontrados:', places);
+        
+        // Estadísticas de datos reales vs estimados
+        const realDataCount = places.filter(p => p.isRealData).length;
+        const estimatedDataCount = places.filter(p => !p.isRealData).length;
+        const totalRealPopulation = places.filter(p => p.isRealData).reduce((sum, p) => sum + p.population, 0);
+        const totalEstimatedPopulation = places.filter(p => !p.isRealData).reduce((sum, p) => sum + p.population, 0);
+        
+        console.log('📊 ESTADÍSTICAS DE POBLACIÓN:');
+        console.log(`Datos reales: ${realDataCount} lugares, ${totalRealPopulation.toLocaleString()} habitantes`);
+        console.log(`Datos estimados: ${estimatedDataCount} lugares, ${totalEstimatedPopulation.toLocaleString()} habitantes`);
+        console.log(`Total población: ${(totalRealPopulation + totalEstimatedPopulation).toLocaleString()} habitantes`);
+        
+        // Mostrar lugares con datos reales
+        const realDataPlaces = places.filter(p => p.isRealData);
+        if (realDataPlaces.length > 0) {
+            console.log('🏙️ LUGARES CON DATOS REALES DE POBLACIÓN:');
+            realDataPlaces.forEach(place => {
+                console.log(`  ${place.name} (${place.type}): ${place.population.toLocaleString()} habitantes`);
+            });
+        }
         
         // Clasificar por zonas
         const citiesInDestructionZone = [];
@@ -3420,23 +3459,85 @@ function initializeImpactMap() {
         
         currentTileLayer.addTo(impactMap);
         
-        // Crear control de capas
-        const baseMaps = {
-            "Vista Normal": currentTheme === 'dark' ? darkLayer : lightLayer,
-            "Satélite": satelliteLayer,
-            "Satélite + Etiquetas": satelliteHybridLayer
-        };
-        
-        // Agregar control de capas al mapa
-        const layerControl = L.control.layers(baseMaps, null, {
-            position: 'bottomleft',
-            collapsed: false
-        }).addTo(impactMap);
-        
-        // Actualizar la capa actual cuando cambie
-        impactMap.on('baselayerchange', function(e) {
-            currentTileLayer = e.layer;
+        // CREAR CONTROL PERSONALIZADO EN LUGAR DEL ESTÁNDAR
+        createCustomLayersControl({
+            'normal': currentTheme === 'dark' ? darkLayer : lightLayer,
+            'satellite': satelliteLayer,
+            'hybrid': satelliteHybridLayer
         });
+        
+// NUEVA FUNCIÓN: Control personalizado de capas
+function createCustomLayersControl(layers) {
+    // Crear contenedor
+    const controlDiv = document.createElement('div');
+    controlDiv.className = 'custom-layers-control';
+    
+    // Botón principal
+    const toggleBtn = document.createElement('button');
+    toggleBtn.className = 'custom-layers-toggle';
+    toggleBtn.innerHTML = `
+        <span class="icon">🗺️</span>
+        <span class="label">Vista del Mapa</span>
+        <span class="arrow">▼</span>
+    `;
+    
+    // Contenedor de opciones
+    const optionsDiv = document.createElement('div');
+    optionsDiv.className = 'custom-layers-options';
+    
+    // Opciones de capas
+    const layerOptions = [
+        { key: 'normal', label: 'Vista Normal', layer: layers.normal },
+        { key: 'satellite', label: 'Satélite', layer: layers.satellite },
+        { key: 'hybrid', label: 'Satélite + Etiquetas', layer: layers.hybrid }
+    ];
+    
+    let activeLayer = 'normal';
+    
+    layerOptions.forEach(option => {
+        const optionDiv = document.createElement('div');
+        optionDiv.className = `custom-layer-option ${option.key === activeLayer ? 'active' : ''}`;
+        optionDiv.innerHTML = `
+            <input type="radio" name="map-layer" value="${option.key}" ${option.key === activeLayer ? 'checked' : ''}>
+            <span>${option.label}</span>
+        `;
+        
+        optionDiv.addEventListener('click', () => {
+            // Remover capa actual
+            if (currentTileLayer) {
+                impactMap.removeLayer(currentTileLayer);
+            }
+            
+            // Añadir nueva capa
+            currentTileLayer = option.layer;
+            currentTileLayer.addTo(impactMap);
+            
+            // Actualizar UI
+            document.querySelectorAll('.custom-layer-option').forEach(el => el.classList.remove('active'));
+            optionDiv.classList.add('active');
+            optionDiv.querySelector('input').checked = true;
+            
+            activeLayer = option.key;
+            
+            // Cerrar el menú
+            controlDiv.classList.remove('expanded');
+        });
+        
+        optionsDiv.appendChild(optionDiv);
+    });
+    
+    // Toggle expandir/contraer
+    toggleBtn.addEventListener('click', () => {
+        controlDiv.classList.toggle('expanded');
+    });
+    
+    // Ensamblar control
+    controlDiv.appendChild(toggleBtn);
+    controlDiv.appendChild(optionsDiv);
+    
+    // Añadir al mapa
+    document.getElementById('map-container').appendChild(controlDiv);
+}
         
         // Actualizar minZoom cuando cambie el tamaño de la ventana
         let resizeTimeout;
@@ -5672,6 +5773,25 @@ function downloadSimulationPDF() {
                 doc.text('ZONA DE DESTRUCCIÓN TOTAL (95% mortalidad):', margin + 10, yPos);
                 doc.text(`${popData.destruction_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
                 yPos += 6;
+                
+                // Mostrar ciudades específicas en zona de destrucción
+                if (popData.citiesInDestructionZone && popData.citiesInDestructionZone.length > 0) {
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    const topDestructionCities = popData.citiesInDestructionZone.slice(0, 3);
+                    topDestructionCities.forEach((city, index) => {
+                        if (yPos > pageHeight - 40) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        const cityVictims = Math.round(city.population * 0.95);
+                        const dataType = city.isRealData ? '(datos reales)' : '(estimado)';
+                        doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. → ${cityVictims.toLocaleString()} víctimas ${dataType}`, margin + 15, yPos);
+                        yPos += 5;
+                    });
+                    yPos += 3;
+                }
             }
             
             // Zona de daño severo (15% mortalidad)
@@ -5682,6 +5802,25 @@ function downloadSimulationPDF() {
                 doc.text('ZONA DE DAÑO SEVERO (15% mortalidad):', margin + 10, yPos);
                 doc.text(`${popData.damage_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
                 yPos += 6;
+                
+                // Mostrar ciudades específicas en zona de daño
+                if (popData.citiesInDamageZone && popData.citiesInDamageZone.length > 0) {
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    const topDamageCities = popData.citiesInDamageZone.slice(0, 3);
+                    topDamageCities.forEach((city, index) => {
+                        if (yPos > pageHeight - 40) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        const cityVictims = Math.round(city.population * 0.15);
+                        const dataType = city.isRealData ? '(datos reales)' : '(estimado)';
+                        doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. → ${cityVictims.toLocaleString()} víctimas ${dataType}`, margin + 15, yPos);
+                        yPos += 5;
+                    });
+                    yPos += 3;
+                }
             }
             
             // Zona de presión de aire (5% mortalidad)
@@ -5692,6 +5831,25 @@ function downloadSimulationPDF() {
                 doc.text('ZONA DE PRESIÓN DE AIRE (5% mortalidad):', margin + 10, yPos);
                 doc.text(`${popData.air_pressure_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
                 yPos += 6;
+                
+                // Mostrar ciudades específicas en zona de presión de aire
+                if (popData.citiesInAirPressureZone && popData.citiesInAirPressureZone.length > 0) {
+                    doc.setFontSize(9);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(0, 0, 0);
+                    const topAirPressureCities = popData.citiesInAirPressureZone.slice(0, 3);
+                    topAirPressureCities.forEach((city, index) => {
+                        if (yPos > pageHeight - 40) {
+                            doc.addPage();
+                            yPos = 20;
+                        }
+                        const cityVictims = Math.round(city.population * 0.05);
+                        const dataType = city.isRealData ? '(datos reales)' : '(estimado)';
+                        doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. → ${cityVictims.toLocaleString()} víctimas ${dataType}`, margin + 15, yPos);
+                        yPos += 5;
+                    });
+                    yPos += 3;
+                }
             }
             
             // Total de víctimas estimadas

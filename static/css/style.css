@@ -927,16 +927,115 @@ body {
     margin-bottom: 1rem;
 }
 
+/* ========== CUSTOM MAP LAYERS CONTROL (Top Right) ========== */
+.custom-layers-control {
+    position: absolute !important;
+    top: auto !important;  /* ← Cambiado de bottom a top */
+    right: auto !important;  /* ← Cambiado de left a right */
+    left: 380px !important;
+    bottom: 20px !important;
+    z-index: 9999 !important;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
+    overflow: hidden;
+    transition: all 0.3s ease;
+    pointer-events: auto;
+}
+
+.custom-layers-toggle {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--sidebar-bg);
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    width: 100%;
+    text-align: left;
+}
+
+.custom-layers-toggle:hover {
+    background: var(--input-bg);
+    color: var(--primary-blue);
+}
+
+.custom-layers-toggle .icon {
+    font-size: 18px;
+}
+
+.custom-layers-toggle .arrow {
+    margin-left: auto;
+    transition: transform 0.3s ease;
+    font-size: 12px;
+}
+
+.custom-layers-control.expanded .custom-layers-toggle .arrow {
+    transform: rotate(180deg);
+}
+
+.custom-layers-options {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background: var(--sidebar-bg);
+}
+
+.custom-layers-control.expanded .custom-layers-options {
+    max-height: 200px;
+    border-top: 1px solid var(--sidebar-border);
+}
+
+.custom-layer-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: var(--text-light);
+    font-size: 14px;
+}
+
+.custom-layer-option:hover {
+    background: var(--input-bg);
+    color: var(--primary-blue);
+}
+
+.custom-layer-option.active {
+    background: var(--primary-blue);
+    color: white;
+}
+
+.custom-layer-option input[type="radio"] {
+    margin: 0;
+    accent-color: var(--primary-blue);
+}
+
+/* Ocultar el control de capas por defecto de Leaflet */
+.leaflet-control-layers {
+    display: none !important;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+    .custom-layers-control {
+        top: 10px !important;
+        right: 10px !important;
+    }
+}
+
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .rewards-modal-content {
         width: 95%;
         margin: auto;
         max-height: 90vh;
-    }
-    
-    .modal-header {
-        padding: 1rem 1.5rem;
     }
     
     .modal-header h2 {
