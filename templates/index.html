@@ -349,10 +349,41 @@
         </main>
     </div>
 
-    <!-- Loading Overlay -->
+    <!-- Loading Overlay con Animación 3D -->
     <div id="loading-overlay" class="loading-overlay" style="display: none;">
-        <div class="loader"></div>
-        <p>Calculando...</p>
+        <div id="loading-3d-container" class="loading-3d-container"></div>
+        <!-- Indicador de progreso de carga de datos -->
+        <div id="loading-progress-indicator" class="loading-progress-indicator">
+            <div class="progress-content">
+                <div class="progress-spinner"></div>
+                <h3 id="loading-status-text">Cargando...</h3>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+                <div id="loading-steps" class="loading-steps">
+                    <div class="loading-step" data-step="impact">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Impacto</span>
+                        <span class="step-status">...</span>
+                    </div>
+                    <div class="loading-step" data-step="population">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Población</span>
+                        <span class="step-status">...</span>
+                    </div>
+                    <div class="loading-step" data-step="flora-fauna">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Especies</span>
+                        <span class="step-status">...</span>
+                    </div>
+                    <div class="loading-step" data-step="complete">
+                        <span class="step-icon">⏳</span>
+                        <span class="step-text">Finalizando</span>
+                        <span class="step-status">...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 
     <!-- Results Modal -->
@@ -680,6 +711,12 @@
 
     <!-- Scripts -->
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    
+    <!-- Three.js para animación 3D de carga -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <script src="{{ url_for('static', filename='js/loading-3d.js') }}"></script>
+    
     <script src="{{ url_for('static', filename='js/i18n.js') }}"></script>
     <script src="{{ url_for('static', filename='js/main.js') }}"></script>
 </body>

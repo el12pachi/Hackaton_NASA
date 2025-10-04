@@ -838,6 +838,10 @@ function useAsteroidFromList(index) {
     const asteroid = currentAsteroidData.asteroids[index];
     const avgDiameter = (asteroid.diameter_min_m + asteroid.diameter_max_m) / 2;
     
+    // Guardar índice y datos completos del asteroide seleccionado
+    window.selectedAsteroidIndex = index;
+    window.selectedAsteroidData = asteroid;
+    
     // Cargar datos en los controles
     document.getElementById('diameter').value = Math.round(avgDiameter);
     document.getElementById('velocity').value = asteroid.velocity_km_s;
@@ -1250,10 +1254,23 @@ function updateCurrentLocationDisplay(locationInfo) {
 }
 
 function updateMapTheme(theme) {
-    if (!impactMap || !currentTileLayer) return;
+    if (!impactMap) return;
     
-    // Remove current tile layer
+    // No actualizar si el usuario está viendo una capa satélite
+    // Verificar si la capa actual es satélite comprobando su URL
+    const isSatelliteView = currentTileLayer && 
+        (currentTileLayer._url?.includes('World_Imagery') || 
+         currentTileLayer instanceof L.LayerGroup);
+    
+    if (isSatelliteView) {
+        // Si está en vista satélite, no cambiar la capa
+        return;
+    }
+    
+    // Solo cambiar si está en vista normal
+    if (currentTileLayer) {
     impactMap.removeLayer(currentTileLayer);
+    }
     
     // Add new tile layer based on theme
     if (theme === 'dark') {
@@ -1261,14 +1278,16 @@ function updateMapTheme(theme) {
             attribution: '© OpenStreetMap © CARTO',
             subdomains: 'abcd',
             maxZoom: 19,
-            minZoom: 1
+            minZoom: 2,
+            noWrap: true  // Evita que el mapa se repita horizontalmente
         });
     } else {
         currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap © CARTO',
             subdomains: 'abcd',
             maxZoom: 19,
-            minZoom: 1
+            minZoom: 2,
+            noWrap: true  // Evita que el mapa se repita horizontalmente
         });
     }
     
@@ -1583,7 +1602,21 @@ async function loadNEOData() {
 // Función populateAsteroidSelector eliminada - ya no se usa el selector, se usa el explorador de asteroides
 
 async function runImpactSimulation() {
-    showLoading(true);
+    // Obtener datos del asteroide seleccionado
+    let asteroidData = window.selectedAsteroidData || null;
+    
+    // Log para debug
+    if (asteroidData) {
+        console.log('🪨 Asteroide seleccionado para animación 3D:', {
+            nombre: asteroidData.name,
+            diametro_min: asteroidData.diameter_min_m,
+            diametro_max: asteroidData.diameter_max_m,
+            velocidad: asteroidData.velocity_km_s
+        });
+    }
+    
+    // Mostrar pantalla de carga con animación 3D
+    showLoading(true, asteroidData);
     
     try {
         const params = {
@@ -1605,7 +1638,100 @@ async function runImpactSimulation() {
         const result = await response.json();
         
         if (result.success) {
-            // Show Bento Dashboard with simulation results
+            console.log('✅ Datos de API recibidos - PROCESANDO todos los datos...');
+            console.log('🔄 Asteroide sigue orbitando mientras se procesan los datos...');
+            
+            // PRIMERO: Procesar TODOS los datos mientras el asteroide orbita
+            await processAllSimulationData(result, params);
+            
+            console.log('✅ TODOS los datos procesados - activando secuencia de impacto...');
+            
+            // SEGUNDO: Ahora que TODO está listo, activar el impacto
+            if (typeof triggerImpact3D === 'function') {
+                // Configurar callback para mostrar resultados después del impacto
+                window.onImpactComplete3D = function() {
+                    console.log('💥 Impacto completado - mostrando resultados...');
+                    displayProcessedResults();
+                    window.onImpactComplete3D = null;
+                };
+                
+                triggerImpact3D();
+            } else {
+                // Si no hay animación 3D, mostrar resultados inmediatamente
+                displayProcessedResults();
+            }
+        } else {
+            alert('Error en la simulación: ' + result.error);
+            // En caso de error, ocultar el loading manualmente
+            showLoading(false);
+        }
+    } catch (error) {
+        console.error('Simulation error:', error);
+        alert('Error al ejecutar la simulación');
+        // En caso de error, ocultar el loading manualmente
+        showLoading(false);
+    }
+    // No hay finally porque el loading se oculta automáticamente después del impacto
+}
+
+// Variable global para almacenar resultados procesados
+let processedSimulationData = null;
+
+// ============================================
+// SISTEMA DE PROGRESO DE CARGA
+// ============================================
+function updateLoadingProgress(progress, step, statusText = null) {
+    const progressBar = document.getElementById('progress-bar');
+    const statusTextEl = document.getElementById('loading-status-text');
+    const stepElement = document.querySelector(`.loading-step[data-step="${step}"]`);
+    
+    // Actualizar barra de progreso
+    if (progressBar) {
+        progressBar.style.width = `${progress}%`;
+    }
+    
+    // Actualizar texto de estado
+    if (statusText && statusTextEl) {
+        statusTextEl.textContent = statusText;
+    }
+    
+    // Actualizar paso actual
+    if (stepElement) {
+        // Marcar paso anterior como completado
+        document.querySelectorAll('.loading-step').forEach(s => {
+            if (s !== stepElement && s.classList.contains('active')) {
+                s.classList.remove('active');
+                s.classList.add('completed');
+                s.querySelector('.step-icon').textContent = '✅';
+                s.querySelector('.step-status').textContent = 'Completado';
+            }
+        });
+        
+        // Activar paso actual
+        stepElement.classList.add('active');
+        stepElement.querySelector('.step-icon').textContent = '⏳';
+        stepElement.querySelector('.step-status').textContent = 'En progreso...';
+    }
+    
+    console.log(`📊 Progreso: ${progress}% - ${step} - ${statusText || ''}`);
+}
+
+function completeLoadingStep(step) {
+    const stepElement = document.querySelector(`.loading-step[data-step="${step}"]`);
+    if (stepElement) {
+        stepElement.classList.remove('active');
+        stepElement.classList.add('completed');
+        stepElement.querySelector('.step-icon').textContent = '✅';
+        stepElement.querySelector('.step-status').textContent = 'Completado';
+    }
+}
+
+// Nueva función para procesar TODOS los datos (sin mostrarlos aún)
+async function processAllSimulationData(result, params) {
+            // Iniciar progreso - Paso 1: Cálculos básicos
+            updateLoadingProgress(25, 'impact', 'Calculando impacto...');
+            
+            console.log('📊 Procesando todos los datos de la simulación...');
             console.log('Full Simulation Result:', result);
             console.log(' Calculations Object:', result.calculations);
             console.log(' Population Data:', result.population_affected);
@@ -1790,23 +1916,45 @@ async function runImpactSimulation() {
                     'calculations.destruction_radius',
                     'destruction_radius'
                 ]) * 1000,
-                tsunamiRisk: getValue([
-                    'calculations.destruction_radius_km',
-                    'destruction_radius_km',
-                    'calculations.destruction_radius',
-                    'destruction_radius'
-                ]) > 10 ? 'Alto' : 'Bajo',
+                tsunamiRisk: (() => {
+                    // Get real tsunami risk from backend calculations
+                    const tsunamiData = getValue(['calculations.tsunami', 'tsunami']);
+                    if (tsunamiData && typeof tsunamiData === 'object') {
+                        return tsunamiData.risk || 'Bajo';
+                    }
+                    
+                    // Check if impact is oceanic
+                    if (result.usgs_context && result.usgs_context.elevation) {
+                        const isOceanic = result.usgs_context.elevation.is_oceanic;
+                        const coastalDistance = result.usgs_context.coastal_distance_km || 999;
+                        
+                        if (isOceanic) {
+                            return 'Extremo';
+                        } else if (coastalDistance < 50) {
+                            return 'Alto';
+                        } else if (coastalDistance < 200) {
+                            return 'Medio';
+                        }
+                    }
+                    
+                    return 'Bajo';
+                })(),
                 seismicMagnitude: getValue([
                     'calculations.seismic_magnitude',
                     'seismic_magnitude',
                     'calculations.magnitude',
                     'magnitude'
                 ]),
-                mostAffectedFauna: 'Aves migratorias',
-                mostAffectedFlora: 'Bosques de coníferas'
+                mostAffectedFauna: 'Cargando...',
+                mostAffectedFlora: 'Cargando...'
             };
             
+            //Completar cálculos básicos
+            completeLoadingStep('impact');
+            
             // Get population data BEFORE showing dashboard
+            updateLoadingProgress(50, 'population', 'Analizando población...');
+            
             const destructionRadius = result.calculations.destruction_radius_km;
             const damageRadius = result.calculations.damage_radius_km;
             const airPressureRadius = damageRadius * 1.5;
@@ -1852,20 +2000,97 @@ async function runImpactSimulation() {
                 console.warn('❌ Error details:', error.message);
             }
             
-            // Update simulation data with population
-            simulationData.affectedPopulation = populationData.totalPopulation || 0;
+            // Analyze terrain type FIRST to determine population calculation method
+            const isOceanic = result.usgs_context?.elevation?.is_oceanic || false;
+            const terrainType = result.usgs_context?.elevation?.terrain_type || 'unknown';
+            const coastalDistance = result.usgs_context?.coastal_distance_km || 999;
             
-            // Fallback: Estimate population based on impact energy if no data from Overpass
-            if (simulationData.affectedPopulation === 0 && simulationData.impactEnergy > 0) {
-                // Rough estimation: 1 person per 0.1 MT of energy in the affected area
-                const estimatedPopulation = Math.round(simulationData.impactEnergy * 1000); // Convert MT to people
-                simulationData.affectedPopulation = Math.min(estimatedPopulation, 10000000); // Cap at 10M
-                console.log(`🔧 Using estimated population: ${simulationData.affectedPopulation} people (based on ${simulationData.impactEnergy} MT)`);
+            console.log('🔍 Análisis de ubicación para población:');
+            console.log(`   Oceánico: ${isOceanic}`);
+            console.log(`   Tipo terreno: ${terrainType}`);
+            console.log(`   Distancia costa: ${coastalDistance.toFixed(1)} km`);
+            
+            // For oceanic impacts, ALWAYS use minimal population (ships/platforms)
+            if (isOceanic) {
+                // Ocean impact: very low population (only ships, platforms)
+                // Usar SOLO el radio de DESTRUCCIÓN DIRECTA, no el de daño
+                const destructionAreaKm2 = Math.PI * Math.pow(destructionRadius, 2);
+                
+                // Densidad de barcos según características del océano
+                // En océano abierto hay MUY pocos barcos
+                let shipDensity = 0.001; // 1 barco cada 1000 km² en océano abierto
+                
+                // Si está cerca de rutas comerciales (cerca de costa)
+                if (coastalDistance < 50) {
+                    shipDensity = 0.01; // 1 barco cada 100 km² en rutas costeras
+                } else if (coastalDistance < 200) {
+                    shipDensity = 0.005; // 1 barco cada 200 km² en rutas medias
+                }
+                
+                const estimatedShips = Math.round(destructionAreaKm2 * shipDensity);
+                const peoplePerShip = 20; // average crew
+                
+                // Población mínima: casi siempre 0 en océano abierto
+                simulationData.affectedPopulation = Math.max(0, estimatedShips * peoplePerShip);
+                
+                console.log('🌊 Impacto oceánico detectado');
+                console.log(`   Área de destrucción directa: ${destructionAreaKm2.toFixed(1)} km²`);
+                console.log(`   Distancia a costa: ${coastalDistance.toFixed(1)} km`);
+                console.log(`   Densidad de barcos: ${shipDensity} barcos/km²`);
+                console.log(`   Barcos estimados en área: ${estimatedShips}`);
+                console.log(`   Población estimada: ${simulationData.affectedPopulation} personas`);
+            }
+            // For land impacts, use Overpass data if available
+            else if (populationData.totalPopulation && populationData.totalPopulation > 0) {
+                simulationData.affectedPopulation = populationData.totalPopulation;
+                console.log(`✅ Población obtenida de Overpass: ${simulationData.affectedPopulation.toLocaleString()} personas`);
+            }
+            // Fallback: Estimate based on terrain type
+            else {
+                let populationDensityFactor = 1.0; // Default multiplier
+                
+                if (terrainType === 'desert') {
+                    populationDensityFactor = 0.01; // 1% of normal - desiertos casi vacíos
+                    console.log('🏜️ Impacto en desierto - densidad muy baja');
+                } else if (terrainType === 'mountain_high') {
+                    populationDensityFactor = 0.05; // 5% of normal - montañas muy despobladas
+                    console.log('⛰️ Impacto en montañas - densidad muy baja');
+                } else if (terrainType === 'forest' || terrainType === 'vegetation') {
+                    populationDensityFactor = 0.1; // 10% of normal - bosques poco poblados
+                    console.log('🌲 Impacto en zona forestal - densidad baja');
+                } else if (coastalDistance < 50) {
+                    populationDensityFactor = 3.0; // 300% of normal - costas muy pobladas
+                    console.log('🏖️ Impacto cerca de costa - densidad alta');
+                } else if (coastalDistance < 200) {
+                    populationDensityFactor = 1.5; // 150% of normal
+                    console.log('🏞️ Impacto cercano a costa - densidad media-alta');
+                } else {
+                    populationDensityFactor = 0.5; // 50% of normal - interior continental
+                    console.log('🏞️ Impacto en zona terrestre interior - densidad media');
+                }
+                
+                // USAR SOLO ÁREA DE DESTRUCCIÓN DIRECTA, NO ZONA DE DAÑO
+                // El damageRadius es demasiado grande y sobrestima la población
+                const destructionAreaKm2 = Math.PI * Math.pow(destructionRadius, 2);
+                
+                // Densidad típica rural: 50 personas/km² (más realista)
+                const typicalDensity = 50; // persons per km² (rural average)
+                const estimatedPopulation = Math.round(destructionAreaKm2 * typicalDensity * populationDensityFactor);
+                
+                // Cap más bajo: 1M personas máximo en estimación
+                simulationData.affectedPopulation = Math.min(estimatedPopulation, 1000000);
+                console.log(`🔧 Población estimada por terreno: ${simulationData.affectedPopulation.toLocaleString()} personas`);
+                console.log(`   Área de DESTRUCCIÓN: ${destructionAreaKm2.toFixed(1)} km²`);
+                console.log(`   Densidad base: ${typicalDensity} personas/km²`);
+                console.log(`   Factor de terreno: ${populationDensityFactor}x`);
+                console.log(`   Densidad final: ${(typicalDensity * populationDensityFactor).toFixed(1)} personas/km²`);
             }
             
-            console.log(' Processed Dashboard Data:', simulationData);
-            console.log(' About to call showBentoDashboard...');
-            showBentoDashboard(simulationData);
+            console.log(' Processed Dashboard Data (initial):', simulationData);
+            
+            // Completar población
+            completeLoadingStep('population');
+            updateLoadingProgress(75, 'flora-fauna', 'Identificando especies...');
             
         if (result.usgs_context) {
             // logUSGSData(result.usgs_context);  // Comentado temporalmente
@@ -1940,32 +2165,218 @@ async function runImpactSimulation() {
                         console.log(' Análisis de flora y fauna obtenido de GBIF');
                         console.log(` ${floraFaunaData.flora_species.length} especies de flora encontradas`);
                         console.log(` ${floraFaunaData.fauna_species.length} especies de fauna encontradas`);
+                        
+                        // Actualizar dashboard con datos reales de fauna y flora - MEJORADO
+                        const floraSpecies = floraFaunaData.flora_species || [];
+                        const faunaSpecies = floraFaunaData.fauna_species || [];
+                        
+                        console.log('🔍 Procesando especies para mostrar más relevantes:');
+                        console.log(`   Total fauna: ${faunaSpecies.length}`);
+                        console.log(`   Total flora: ${floraSpecies.length}`);
+                        
+                        // Función para seleccionar la especie más representativa
+                        const selectMostRelevantSpecies = (species, type) => {
+                            if (!species || species.length === 0) return null;
+                            
+                            // Prioridad 1: Especies con nombre vernáculo (común) en español o inglés
+                            const withVernacular = species.filter(s => s.vernacularName && s.vernacularName.trim() !== '');
+                            
+                            // Prioridad 2: Especies endémicas (si están marcadas)
+                            const endemic = withVernacular.filter(s => s.endemic || (s.status && s.status.includes('endemic')));
+                            
+                            // Prioridad 3: Especies de interés (aves, mamíferos para fauna; árboles para flora)
+                            let preferred = [];
+                            if (type === 'fauna') {
+                                // Preferir vertebrados grandes (mamíferos, aves, reptiles grandes)
+                                preferred = withVernacular.filter(s => {
+                                    const name = (s.vernacularName + ' ' + (s.scientificName || '')).toLowerCase();
+                                    return name.includes('ave') || name.includes('bird') || 
+                                           name.includes('mamífero') || name.includes('mammal') ||
+                                           name.includes('lobo') || name.includes('wolf') ||
+                                           name.includes('oso') || name.includes('bear') ||
+                                           name.includes('águila') || name.includes('eagle') ||
+                                           name.includes('león') || name.includes('lion') ||
+                                           name.includes('puma') || name.includes('deer') ||
+                                           name.includes('ciervo') || name.includes('fox') ||
+                                           name.includes('zorro');
+                                });
+                            } else {
+                                // Preferir árboles y plantas dominantes
+                                preferred = withVernacular.filter(s => {
+                                    const name = (s.vernacularName + ' ' + (s.scientificName || '')).toLowerCase();
+                                    return name.includes('árbol') || name.includes('tree') ||
+                                           name.includes('pino') || name.includes('pine') ||
+                                           name.includes('roble') || name.includes('oak') ||
+                                           name.includes('abeto') || name.includes('fir') ||
+                                           name.includes('eucalipto') || name.includes('eucalyptus') ||
+                                           name.includes('bosque') || name.includes('forest');
+                                });
+                            }
+                            
+                            // Seleccionar en orden de prioridad
+                            const candidates = endemic.length > 0 ? endemic : 
+                                             preferred.length > 0 ? preferred :
+                                             withVernacular.length > 0 ? withVernacular :
+                                             species;
+                            
+                            // Tomar la primera del grupo más prioritario
+                            const selected = candidates[0];
+                            
+                            // Formatear nombre
+                            if (selected.vernacularName) {
+                                const vn = selected.vernacularName;
+                                const sn = selected.scientificName || '';
+                                return sn ? `${vn} (${sn})` : vn;
+                            } else if (selected.scientificName) {
+                                return selected.scientificName;
+                            } else {
+                                return selected.species || (type === 'fauna' ? 'Fauna local' : 'Flora local');
+                            }
+                        };
+                        
+                        let mostAffectedFauna = selectMostRelevantSpecies(faunaSpecies, 'fauna');
+                        let mostAffectedFlora = selectMostRelevantSpecies(floraSpecies, 'flora');
+                        
+                        console.log(`   Fauna seleccionada: ${mostAffectedFauna || 'ninguna'}`);
+                        console.log(`   Flora seleccionada: ${mostAffectedFlora || 'ninguna'}`);
+                        
+                        // Si no hay especies detectadas, inferir por tipo de terreno
+                        if (!mostAffectedFauna || mostAffectedFauna === 'No detectada') {
+                            if (result.usgs_context && result.usgs_context.elevation) {
+                                const terrainType = result.usgs_context.elevation.terrain_type;
+                                const isOceanic = result.usgs_context.elevation.is_oceanic;
+                                const elevation = result.usgs_context.elevation.elevation_m || 0;
+                                
+                                if (isOceanic) {
+                                    mostAffectedFauna = 'Fauna marina (peces, cetáceos, aves marinas)';
+                                } else if (terrainType === 'desert') {
+                                    mostAffectedFauna = 'Reptiles y roedores del desierto';
+                                } else if (terrainType === 'mountain_high' || elevation > 2000) {
+                                    mostAffectedFauna = 'Aves rapaces y fauna alpina';
+                                } else if (terrainType === 'forest') {
+                                    mostAffectedFauna = 'Mamíferos y aves forestales';
+                                } else {
+                                    mostAffectedFauna = 'Fauna local variada';
+                                }
+                            } else {
+                                mostAffectedFauna = 'Fauna local variada';
+                            }
+                            console.log(`   ⚠️ Fauna inferida por terreno: ${mostAffectedFauna}`);
+                        }
+                        
+                        if (!mostAffectedFlora || mostAffectedFlora === 'No detectada') {
+                            if (result.usgs_context && result.usgs_context.elevation) {
+                                const terrainType = result.usgs_context.elevation.terrain_type;
+                                const isOceanic = result.usgs_context.elevation.is_oceanic;
+                                const elevation = result.usgs_context.elevation.elevation_m || 0;
+                                
+                                if (isOceanic) {
+                                    mostAffectedFlora = 'Algas, fitoplancton y vegetación marina';
+                                } else if (terrainType === 'desert') {
+                                    mostAffectedFlora = 'Cactáceas y vegetación xerófila';
+                                } else if (terrainType === 'mountain_high' || elevation > 2000) {
+                                    mostAffectedFlora = 'Vegetación alpina y de alta montaña';
+                                } else if (terrainType === 'forest') {
+                                    mostAffectedFlora = 'Bosques de coníferas y caducifolios';
+                                } else {
+                                    mostAffectedFlora = 'Vegetación local variada';
+                                }
+                            } else {
+                                mostAffectedFlora = 'Vegetación local variada';
+                            }
+                            console.log(`   ⚠️ Flora inferida por terreno: ${mostAffectedFlora}`);
+                        }
+                        
+                        // Actualizar datos de simulación con valores reales
+                        simulationData.mostAffectedFauna = mostAffectedFauna;
+                        simulationData.mostAffectedFlora = mostAffectedFlora;
+                        
+                        console.log('✅ Datos de flora y fauna obtenidos');
+                        console.log(` Fauna más afectada: ${mostAffectedFauna}`);
+                        console.log(` Flora más afectada: ${mostAffectedFlora}`);
                     }
                 }
             } catch (error) {
                 console.warn(' No se pudo obtener análisis de flora y fauna de GBIF:', error);
+                
+                // Usar inferencia basada en ubicación como fallback
+                if (result.usgs_context && result.usgs_context.elevation) {
+                    const terrainType = result.usgs_context.elevation.terrain_type;
+                    const isOceanic = result.usgs_context.elevation.is_oceanic;
+                    
+                    let fallbackFauna = 'Fauna local';
+                    let fallbackFlora = 'Flora local';
+                    
+                    if (isOceanic) {
+                        fallbackFauna = 'Fauna marina (peces, mamíferos marinos)';
+                        fallbackFlora = 'Algas y fitoplancton';
+                    } else if (terrainType === 'desert') {
+                        fallbackFauna = 'Fauna desértica (reptiles, roedores)';
+                        fallbackFlora = 'Vegetación desértica (cactáceas)';
+                    } else if (terrainType === 'mountain_high') {
+                        fallbackFauna = 'Fauna de montaña (aves rapaces)';
+                        fallbackFlora = 'Vegetación alpina';
+                    } else if (terrainType === 'forest') {
+                        fallbackFauna = 'Fauna forestal (mamíferos, aves)';
+                        fallbackFlora = 'Bosques de coníferas o caducifolios';
+                    }
+                    
+                    simulationData.mostAffectedFauna = fallbackFauna;
+                    simulationData.mostAffectedFlora = fallbackFlora;
+                    
+                    console.log('⚠️ Usando inferencia de terreno para flora y fauna');
+                }
             }
             
-            displayImpactResults(result);
-            await updateImpactMap(result);
+            // Completar flora y fauna
+            completeLoadingStep('flora-fauna');
+            updateLoadingProgress(95, 'complete', 'Finalizando...');
             
-            // Registrar simulación en el sistema de recompensas
-            const energy = result.impact_energy_mt || result.energy?.megatons || 0;
-            const location = result.population_affected;
-            const hasTsunami = result.secondary_effects?.some(effect => effect.type === 'tsunami');
-            const hasMitigation = false; // Se puede mejorar para detectar si se usó mitigación
+            // Mostrar dashboard ahora que tenemos todos los datos
+            console.log(' Mostrando dashboard con todos los datos completos');
+            console.log(' Datos finales:', simulationData);
+            showBentoDashboard(simulationData);
             
-            recordSimulation(energy, location, hasTsunami, hasMitigation);
+            // Completar todo
+            completeLoadingStep('complete');
+            updateLoadingProgress(100, 'complete', 'Listo');
             
-        } else {
-            alert('Error en la simulación: ' + result.error);
-        }
-    } catch (error) {
-        console.error('Simulation error:', error);
-        alert('Error al ejecutar la simulación');
-    } finally {
-        showLoading(false);
+            // Guardar todos los datos procesados para mostrarlos después del impacto
+            processedSimulationData = {
+                result: result,
+                params: params
+            };
+            
+            console.log('✅ Todos los datos procesados y listos para mostrar');
+}
+
+// Función para mostrar los resultados ya procesados
+async function displayProcessedResults() {
+    if (!processedSimulationData) {
+        console.error('❌ No hay datos procesados para mostrar');
+        return;
     }
+    
+    const { result, params } = processedSimulationData;
+    
+    console.log('📊 Mostrando resultados procesados...');
+    
+    // Mostrar en la interfaz
+    displayImpactResults(result);
+    await updateImpactMap(result);
+    
+    // Registrar simulación en el sistema de recompensas
+    const energy = result.impact_energy_mt || result.energy?.megatons || 0;
+    const location = result.population_affected;
+    const hasTsunami = result.secondary_effects?.some(effect => effect.type === 'tsunami');
+    const hasMitigation = false;
+    
+    recordSimulation(energy, location, hasTsunami, hasMitigation);
+    
+    // Limpiar datos procesados
+    processedSimulationData = null;
+    
+    console.log('✅ Resultados mostrados correctamente');
 }
 
 function displayImpactResults(result) {
@@ -2687,35 +3098,133 @@ function initializeImpactMap() {
         }
         
         // Crear el mapa con configuración explícita
+        // Calcular el zoom mínimo basándose en el área visible (sin sidebar)
+        const sidebar = document.getElementById('sidebar');
+        
+        let visibleWidth = window.innerWidth;
+        if (sidebar && window.innerWidth > 768) {
+            // Restar el ancho del sidebar para obtener el ancho visible real
+            visibleWidth = window.innerWidth - sidebar.offsetWidth;
+        }
+        
+        // Calcular zoom para que el mundo llene el ancho visible
+        // A zoom Z, el mundo tiene 256 * 2^Z píxeles
+        // Queremos: 256 * 2^Z >= visibleWidth
+        // Entonces: Z >= log2(visibleWidth / 256)
+        // Añadir +1 para compensar el centrado y asegurar que no haya espacios
+        const calculatedMinZoom = Math.max(Math.ceil(Math.log2(visibleWidth / 256)) + 1, 3);
+        
         impactMap = L.map('map-container', {
             center: [20, 0],
-            zoom: 2,
+            zoom: Math.max(calculatedMinZoom + 1, 2),  // Iniciar con un zoom cómodo
+            minZoom: calculatedMinZoom,  // Zoom mínimo calculado
+            maxZoom: 19,
             zoomControl: true,
             attributionControl: true,
             preferCanvas: false,
-            renderer: L.canvas()
+            renderer: L.canvas(),
+            worldCopyJump: true,  // Salta automáticamente a la copia principal del mundo
+            maxBoundsViscosity: 0  // Permite movimiento libre
         });
         
         
-        // Add theme-appropriate tile layer
+        // Definir las capas base
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
-        if (currentTheme === 'dark') {
-            currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
+        
+        // Capas de mapa normal (tema oscuro y claro)
+        const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap © CARTO',
             subdomains: 'abcd',
             maxZoom: 19,
-            minZoom: 1
+            minZoom: 2,
+            noWrap: true
             });
-        } else {
-            currentTileLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
+        
+        const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
                 attribution: '© OpenStreetMap © CARTO',
                 subdomains: 'abcd',
                 maxZoom: 19,
-                minZoom: 1
-            });
+                minZoom: 2,
+            noWrap: true
+        });
+        
+        // Capas de vista satélite
+        const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+            attribution: '© Esri © DigitalGlobe © GeoEye',
+            maxZoom: 19,
+            minZoom: 2,
+            noWrap: true
+        });
+        
+        const satelliteHybridLayer = L.layerGroup([
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
+                attribution: '© Esri © DigitalGlobe © GeoEye',
+                maxZoom: 19,
+                minZoom: 2,
+                noWrap: true
+            }),
+            L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
+                maxZoom: 19,
+                minZoom: 2,
+                noWrap: true
+            })
+        ]);
+        
+        // Agregar la capa apropiada según el tema
+        if (currentTheme === 'dark') {
+            currentTileLayer = darkLayer;
+        } else {
+            currentTileLayer = lightLayer;
         }
         
         currentTileLayer.addTo(impactMap);
+        
+        // Crear control de capas
+        const baseMaps = {
+            "Vista Normal": currentTheme === 'dark' ? darkLayer : lightLayer,
+            "Satélite": satelliteLayer,
+            "Satélite + Etiquetas": satelliteHybridLayer
+        };
+        
+        // Agregar control de capas al mapa
+        const layerControl = L.control.layers(baseMaps, null, {
+            position: 'topright',
+            collapsed: false
+        }).addTo(impactMap);
+        
+        // Actualizar la capa actual cuando cambie
+        impactMap.on('baselayerchange', function(e) {
+            currentTileLayer = e.layer;
+        });
+        
+        // Actualizar minZoom cuando cambie el tamaño de la ventana
+        let resizeTimeout;
+        window.addEventListener('resize', function() {
+            if (!impactMap) return;
+            
+            clearTimeout(resizeTimeout);
+            resizeTimeout = setTimeout(function() {
+                const sidebar = document.getElementById('sidebar');
+                
+                let visibleWidth = window.innerWidth;
+                if (sidebar && window.innerWidth > 768) {
+                    visibleWidth = window.innerWidth - sidebar.offsetWidth;
+                }
+                
+                const newMinZoom = Math.max(Math.ceil(Math.log2(visibleWidth / 256)) + 1, 3);
+                
+                // Actualizar el minZoom del mapa
+                impactMap.setMinZoom(newMinZoom);
+                
+                // Si el zoom actual es menor que el nuevo mínimo, ajustar
+                if (impactMap.getZoom() < newMinZoom) {
+                    impactMap.setZoom(newMinZoom);
+                }
+                
+                // Invalidar el tamaño del mapa para que se redibuje correctamente
+                impactMap.invalidateSize();
+            }, 250);
+        });
         
         // Click to select impact point
         impactMap.on('click', (e) => {
@@ -3098,7 +3607,10 @@ function handleStrategyChange(e) {
 }
 
 async function runDeflectionSimulation() {
-    showLoading(true);
+    // Obtener datos del asteroide seleccionado
+    let asteroidData = window.selectedAsteroidData || null;
+    
+    showLoading(true, asteroidData);
     
     try {
         // Use parameters from the previous simulation
@@ -3120,15 +3632,38 @@ async function runDeflectionSimulation() {
         const data = await response.json();
         
         if (data.success) {
-            displayDeflectionResults(data);
+            console.log('✅ Datos de deflexión recibidos - procesando...');
+            console.log('🔄 Asteroide sigue orbitando mientras se procesan los datos...');
             
+            // Guardar datos procesados
+            processedSimulationData = { deflectionData: data };
+            
+            console.log('✅ Datos de deflexión procesados - activando secuencia de impacto...');
+            
+            // Activar secuencia de impacto
+            if (typeof triggerImpact3D === 'function') {
+                // Configurar callback para mostrar resultados después del impacto
+                window.onImpactComplete3D = function() {
+                    console.log('💥 Impacto completado - mostrando resultados de deflexión...');
+                    if (processedSimulationData && processedSimulationData.deflectionData) {
+                        displayDeflectionResults(processedSimulationData.deflectionData);
+                        processedSimulationData = null;
+                    }
+                    window.onImpactComplete3D = null;
+                };
+                
+                triggerImpact3D();
+            } else {
+                // Si no hay animación 3D, mostrar resultados inmediatamente
+                displayDeflectionResults(data);
+            }
         } else {
             alert('Error: ' + data.error);
+            showLoading(false);
         }
     } catch (error) {
         console.error('Deflection simulation error:', error);
         alert('Error al ejecutar la simulación de deflexión');
-    } finally {
         showLoading(false);
     }
 }
@@ -3222,9 +3757,25 @@ function getDeflectionRecommendations(result) {
 // UTILITY FUNCTIONS
 // ============================================
 
-function showLoading(show) {
-    const overlay = document.getElementById('loading-overlay');
-    overlay.style.display = show ? 'flex' : 'none';
+function showLoading(show, asteroidData = null) {
+    if (show) {
+        // Mostrar con animación 3D
+        if (typeof show3DLoading === 'function') {
+            show3DLoading(asteroidData);
+        } else {
+            // Fallback si la animación 3D no está cargada
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.display = 'flex';
+        }
+    } else {
+        // Ocultar
+        if (typeof hide3DLoading === 'function') {
+            hide3DLoading();
+        } else {
+            const overlay = document.getElementById('loading-overlay');
+            overlay.style.display = 'none';
+        }
+    }
 }
 
 // ============================================

@@ -483,11 +483,77 @@ class AsteroidSimulator:
         return megatons
     
     @staticmethod
-    def calculate_crater_diameter(energy, angle=45):
-        C = 1.8
-        D = C * ((energy / (GROUND_DENSITY * GRAVITY)) ** 0.22)
+    def calculate_crater_diameter(energy, angle=45, terrain_type='continental', is_oceanic=False, elevation_m=0):
+        """
+        Calcula el diámetro del cráter considerando el tipo de terreno
+        
+        Args:
+            energy: Energía del impacto en Joules
+            angle: Ángulo de impacto en grados
+            terrain_type: Tipo de terreno (mountain_high, desert, forest, etc.)
+            is_oceanic: Si el impacto es en océano
+            elevation_m: Elevación del terreno (negativa para océano)
+        """
+        
+        # CASO ESPECIAL: Impacto oceánico
+        if is_oceanic:
+            # En océano no hay cráter tradicional, solo desplazamiento de agua
+            # El "cráter" es temporal y mucho menor
+            water_depth = abs(elevation_m) if elevation_m < 0 else 100
+            
+            # Cráter temporal en fondo oceánico (si llega)
+            # Depende de profundidad: en océano profundo, mucha energía se disipa
+            if water_depth > 2000:
+                crater_efficiency = 0.3  # Solo 30% de energía llega al fondo
+            elif water_depth > 500:
+                crater_efficiency = 0.5  # 50% llega al fondo
+            else:
+                crater_efficiency = 0.7  # 70% llega al fondo
+            
+            # Densidad del agua y sedimentos oceánicos
+            oceanic_density = 1500  # kg/m³ (agua + sedimentos)
+            C = 1.8 * crater_efficiency
+            D = C * ((energy / (oceanic_density * GRAVITY)) ** 0.22)
+            angle_factor = math.sin(math.radians(angle))
+            return D * angle_factor
+        
+        # CASO TERRESTRE: Densidad varía según tipo de suelo
+        if terrain_type == 'mountain_high':
+            # Roca granítica dura
+            ground_density = 2700  # kg/m³
+            crater_modifier = 0.85  # Roca dura = cráter más pequeño
+            
+        elif terrain_type == 'desert':
+            if elevation_m > 1000:
+                # Meseta rocosa
+                ground_density = 2500
+                crater_modifier = 0.9
+            else:
+                # Desierto con sedimentos/arena
+                ground_density = 1800
+                crater_modifier = 1.15  # Arena = cráter más grande
+                
+        elif terrain_type == 'forest' or terrain_type == 'vegetation':
+            # Suelo continental normal
+            ground_density = 2200
+            crater_modifier = 1.0
+            
+        elif terrain_type == 'urban':
+            # Típicamente en cuencas sedimentarias
+            ground_density = 2000
+            crater_modifier = 1.1
+            
+        else:
+            # Por defecto: suelo continental
+            ground_density = 2200
+            crater_modifier = 1.0
+        
+        # Fórmula de Schmidt-Holsapple para cráteres de impacto
+        C = 1.8 * crater_modifier
+        D = C * ((energy / (ground_density * GRAVITY)) ** 0.22)
         angle_factor = math.sin(math.radians(angle))
         D_adjusted = D * angle_factor
+        
         return D_adjusted
     
     @staticmethod
@@ -498,18 +564,54 @@ class AsteroidSimulator:
         return max(0, magnitude)
     
     @staticmethod
-    def calculate_tsunami_risk(energy, distance_to_coast_km):
+    def calculate_tsunami_risk(energy, distance_to_coast_km, is_oceanic=False):
         """
         Evalúa riesgo de tsunami basado en modelos científicos de la NASA
         Usa parámetros realistas basados en estudios de impacto de asteroides
+        
+        Args:
+            energy: Energía del impacto en Joules
+            distance_to_coast_km: Distancia a la costa en kilómetros
+            is_oceanic: True si el impacto es directamente en el océano
         """
+        # Si es impacto oceánico, el riesgo es MUCHO mayor
+        if is_oceanic:
+            # Convertir energía a megatones
+            megatons = energy / 4.184e15
+            
+            # Impacto oceánico directo - Modelo de Ward & Asphaug (2000)
+            if megatons < 1:
+                initial_wave_height = math.sqrt(megatons) * 10
+                penetration_km = math.sqrt(megatons) * 20
+                risk = "medium"
+            elif megatons < 10:
+                initial_wave_height = math.sqrt(megatons) * 20
+                penetration_km = math.sqrt(megatons) * 40
+                risk = "high"
+            elif megatons < 100:
+                initial_wave_height = math.sqrt(megatons) * 30
+                penetration_km = math.sqrt(megatons) * 60
+                risk = "extreme"
+            else:  # > 100 MT
+                initial_wave_height = math.sqrt(megatons) * 50
+                penetration_km = math.sqrt(megatons) * 100
+                risk = "extreme"
+            
+            return {
+                "risk": risk,
+                "wave_height": round(initial_wave_height, 2),
+                "penetration_km": round(penetration_km, 2),
+                "description": f"Impacto oceánico directo: tsunami catastrófico esperado con olas de {initial_wave_height:.1f}m"
+            }
+        
+        # Impacto terrestre - evaluar por distancia a costa
         if distance_to_coast_km > 200:
-            return {"risk": "minimal", "wave_height": 0, "penetration_km": 0}
+            return {"risk": "minimal", "wave_height": 0, "penetration_km": 0, "description": "Demasiado lejos de la costa para tsunami"}
         
         # Energía mínima para tsunami significativo (basado en estudios de la NASA)
         min_energy = 4.184e15  # 1 MT TNT
         if energy < min_energy:
-            return {"risk": "minimal", "wave_height": 0, "penetration_km": 0}
+            return {"risk": "minimal", "wave_height": 0, "penetration_km": 0, "description": "Energía insuficiente para tsunami"}
         
         # Convertir energía a megatones
         megatons = energy / 4.184e15
@@ -663,14 +765,29 @@ def simulate_impact():
         usgs_context = get_usgs_geographic_context(lat, lon)
         
         sim = AsteroidSimulator()
-        mass = sim.calculate_mass(diameter, composition)  # NUEVO: pasar composición
+        mass = sim.calculate_mass(diameter, composition)
         energy = sim.calculate_impact_energy(mass, velocity)
         tnt_megatons = sim.energy_to_tnt(energy)
-        crater_diameter = sim.calculate_crater_diameter(energy, angle)
+        
+        # Obtener información del terreno para cálculos contextualizados
+        elevation_data = usgs_context.get('elevation', {})
+        is_oceanic = elevation_data.get('is_oceanic', False)
+        terrain_type = elevation_data.get('terrain_type', 'continental')
+        elevation_m = elevation_data.get('elevation_m', 0)
+        
+        # Calcular cráter considerando el tipo de terreno
+        crater_diameter = sim.calculate_crater_diameter(
+            energy, 
+            angle, 
+            terrain_type=terrain_type,
+            is_oceanic=is_oceanic,
+            elevation_m=elevation_m
+        )
+        
         magnitude = sim.calculate_seismic_magnitude(energy)
         
         distance_to_coast = usgs_context['coastal_distance_km']
-        tsunami = sim.calculate_tsunami_risk(energy, distance_to_coast)
+        tsunami = sim.calculate_tsunami_risk(energy, distance_to_coast, is_oceanic)
         
         destruction_radius_km = crater_diameter / 2000
         damage_radius_km = destruction_radius_km * 5
@@ -688,6 +805,14 @@ def simulate_impact():
             usgs_context
         )
         
+        # IMPORTANTE: Extraer la magnitud sísmica AJUSTADA por ubicación desde secondary_effects
+        adjusted_magnitude = magnitude  # Valor por defecto
+        for effect in secondary_effects:
+            if effect.get('type') == 'seismic_extended' and 'magnitude' in effect:
+                adjusted_magnitude = effect['magnitude']
+                print(f"🌍 Magnitud sísmica ajustada por ubicación: M{adjusted_magnitude:.1f}")
+                break
+        
         result = {
             'success': True,
             'input': {
@@ -702,7 +827,7 @@ def simulate_impact():
                 'energy_joules': energy,
                 'energy_megatons_tnt': round(tnt_megatons, 4),
                 'crater_diameter_m': round(crater_diameter, 2),
-                'seismic_magnitude': round(magnitude, 2),
+                'seismic_magnitude': round(adjusted_magnitude, 2),  # USAR MAGNITUD AJUSTADA
                 'destruction_radius_km': round(destruction_radius_km, 2),
                 'damage_radius_km': round(damage_radius_km, 2),
                 'tsunami': tsunami
@@ -850,10 +975,34 @@ def get_cities():
         ovrpress_data = response.json()
         
         places = []
+        total_population = 0
+        
         for element in ovrpress_data.get("elements", []):
             name = element.get("tags", {}).get("name")
             place_type = element.get("tags", {}).get("place")
-            population = element.get("tags", {}).get("population")
+            population_str = element.get("tags", {}).get("population")
+            
+            # Convertir población a número
+            population = 0
+            if population_str:
+                try:
+                    population = int(population_str)
+                except (ValueError, TypeError):
+                    # Si no se puede convertir, estimar por tipo de lugar
+                    if place_type == "city":
+                        population = 100000
+                    elif place_type == "town":
+                        population = 10000
+                    elif place_type == "village":
+                        population = 1000
+            else:
+                # Si no hay datos de población, estimar por tipo
+                if place_type == "city":
+                    population = 100000
+                elif place_type == "town":
+                    population = 10000
+                elif place_type == "village":
+                    population = 1000
             
             city_lat = element.get("lat")
             city_lon = element.get("lon")
@@ -872,18 +1021,28 @@ def get_cities():
                     "lon": city_lon,
                     "distancia_km": round(distance_km, 2)
                 })
+                
+                # Sumar población total
+                total_population += population
+        
+        print(f"🔍 API /api/cities: Encontradas {len(places)} lugares")
+        print(f"👥 Población total calculada: {total_population:,} personas")
         
         return jsonify({
             'success': True,
             'cities': places,
-            'total_found': len(places)
+            'total_found': len(places),
+            'totalPopulation': total_population
         })
         
     except Exception as e:
+        print(f"❌ Error en API /api/cities: {str(e)}")
         return jsonify({
-            'success': True,
+            'success': False,
             'cities': [],
-            'total_found': 0
+            'total_found': 0,
+            'totalPopulation': 0,
+            'error': str(e)
         })
 
 
@@ -2008,24 +2167,159 @@ def calculate_secondary_effects(energy_megatons, diameter, velocity, angle, lat,
             'radius_km': emp_radius_km
         })
     
-    # 7. SÍSMICO EXTENDIDO
+    # 7. SÍSMICO EXTENDIDO - BASADO EN UBICACIÓN Y GEOLOGÍA
     if effective_energy > 1:
         seismic_radius_km = 50 * (effective_energy ** 0.5)
+        
+        # Calcular magnitud BASE del impacto
+        energy_joules = energy_megatons * 4.184e15
+        base_magnitude = (2/3) * math.log10(energy_joules) - 2.9
+        
+        # AJUSTAR MAGNITUD SEGÚN UBICACIÓN Y GEOLOGÍA
+        magnitude_modifier = 0.0
+        location_notes = []
+        
+        # Inicializar variables sísmicas
+        seismic_context = {}
+        has_seismic_history = False
+        max_historical_mag = 0
+        
+        if usgs_context:
+            elevation_data = usgs_context.get('elevation', {})
+            is_oceanic = elevation_data.get('is_oceanic', False)
+            terrain_type = elevation_data.get('terrain_type', 'unknown')
+            elevation_m = elevation_data.get('elevation_m', 0)
+            
+            # Obtener historial sísmico
+            seismic_context = usgs_context.get('seismic_history', {})
+            has_seismic_history = seismic_context.get('count', 0) > 0
+            max_historical_mag = seismic_context.get('max_magnitude', 0)
+            
+            # 1. IMPACTO OCEÁNICO
+            if is_oceanic:
+                # Océano profundo: mucha energía se disipa en agua
+                if elevation_m < -2000:  # Océano profundo
+                    magnitude_modifier = -0.8
+                    location_notes.append('Océano profundo: energía disipada en columna de agua')
+                elif elevation_m < -200:  # Océano medio
+                    magnitude_modifier = -0.5
+                    location_notes.append('Océano: parte de energía absorbida por agua')
+                else:  # Océano poco profundo
+                    magnitude_modifier = -0.3
+                    location_notes.append('Océano poco profundo: impacto más directo en corteza')
+            
+            # 2. IMPACTO TERRESTRE - Tipo de suelo
+            else:
+                if terrain_type == 'mountain_high':
+                    # Roca sólida, corteza gruesa
+                    magnitude_modifier = +0.2
+                    location_notes.append('Roca montañosa sólida: transmisión eficiente de ondas')
+                    
+                elif terrain_type == 'desert':
+                    # Depende: puede ser roca o sedimentos
+                    if elevation_m > 500:
+                        magnitude_modifier = +0.1
+                        location_notes.append('Meseta desértica rocosa: buena transmisión')
+                    else:
+                        magnitude_modifier = -0.2
+                        location_notes.append('Cuenca sedimentaria: absorción parcial de energía')
+                        
+                elif terrain_type == 'forest' or terrain_type == 'vegetation':
+                    # Suelo normal, ni muy duro ni muy blando
+                    magnitude_modifier = 0.0
+                    location_notes.append('Suelo continental estándar')
+                    
+                elif terrain_type == 'urban':
+                    # Típicamente en cuencas sedimentarias
+                    magnitude_modifier = -0.1
+                    location_notes.append('Zona urbana en cuenca sedimentaria')
+                    
+                else:
+                    magnitude_modifier = 0.0
+            
+            # 3. AMPLIFICACIÓN POR FALLAS ACTIVAS
+            seismic_context = usgs_context.get('seismic_history', {})
+            has_seismic_history = seismic_context.get('count', 0) > 0
+            
+            if has_seismic_history:
+                # Zona con fallas activas: ligera amplificación
+                magnitude_modifier += 0.15
+                location_notes.append('Fallas activas: amplificación sísmica adicional')
+        
+        # Aplicar modificador (con límites razonables)
+        impact_magnitude = base_magnitude + magnitude_modifier
+        impact_magnitude = max(0, min(impact_magnitude, 15))  # Límites físicos
+        
+        # Determinar severidad basada en magnitud del impacto
+        if impact_magnitude >= 9.0:
+            severity = 'CATASTRÓFICA'
+            color = '#8B0000'
+        elif impact_magnitude >= 7.5:
+            severity = 'CRÍTICA'
+            color = '#FF0000'
+        elif impact_magnitude >= 6.0:
+            severity = 'ALTA'
+            color = '#FF6F00'
+        else:
+            severity = 'MODERADA'
+            color = '#FFA500'
+        
+        # Construir efectos contextuales
+        seismic_effects = [
+            f'Magnitud estimada: M {impact_magnitude:.1f}',
+            f'Magnitud base: M {base_magnitude:.1f} ({"+" if magnitude_modifier >= 0 else ""}{magnitude_modifier:.2f} por geología)',
+            f'Radio de afectación: {seismic_radius_km:.0f} km',
+            f'Réplicas esperadas durante {"meses" if impact_magnitude > 7.0 else "semanas"}'
+        ]
+        
+        # Añadir notas sobre la ubicación
+        if location_notes:
+            seismic_effects.append('')  # Línea en blanco
+            seismic_effects.extend(location_notes)
+        
+        # Añadir efectos específicos según ubicación
+        if has_seismic_history:
+            if max_historical_mag > 0:
+                comparison = "superior" if impact_magnitude > max_historical_mag else "comparable"
+                seismic_effects.append(f'Impacto {comparison} al sismo histórico máximo (M{max_historical_mag:.1f})')
+            
+            seismic_effects.append('⚠️ Zona con fallas activas - alto riesgo de activación')
+            seismic_effects.append('Probable activación de fallas dormidas')
+        else:
+            seismic_effects.append('Zona sin historial sísmico significativo')
+            seismic_effects.append('Primera actividad sísmica mayor registrada en el área')
+        
+        # Efectos adicionales por magnitud
+        if impact_magnitude >= 8.0:
+            seismic_effects.extend([
+                'Deslizamientos masivos en áreas montañosas',
+                'Licuefacción del suelo en zonas costeras',
+                'Posible activación de volcanes cercanos',
+                'Cambios permanentes en el terreno'
+            ])
+        elif impact_magnitude >= 6.5:
+            seismic_effects.extend([
+                'Deslizamientos en zonas elevadas',
+                'Agrietamiento extenso del terreno',
+                'Daño estructural severo'
+            ])
+        else:
+            seismic_effects.extend([
+                'Agrietamiento menor del suelo',
+                'Vibraciones perceptibles a gran distancia'
+            ])
+        
         effects.append({
             'type': 'seismic_extended',
-            'name': 'Actividad Sísmica Secundaria',
-            'icon': '🌊',
-            'severity': 'ALTA',
-            'color': '#FF6F00',
-            'description': f'Terremotos hasta {seismic_radius_km:.0f} km.',
-            'effects': [
-                'Activación de fallas',
-                'Réplicas durante semanas',
-                'Posible activación volcánica',
-                'Deslizamientos masivos',
-                'Licuefacción del suelo'
-            ],
-            'radius_km': seismic_radius_km
+            'name': 'Actividad Sísmica',
+            'icon': '🌍',
+            'severity': severity,
+            'color': color,
+            'description': f'Terremotos de magnitud M{impact_magnitude:.1f} hasta {seismic_radius_km:.0f} km.',
+            'effects': seismic_effects,
+            'radius_km': seismic_radius_km,
+            'magnitude': impact_magnitude,
+            'has_fault_lines': has_seismic_history
         })
     
     # 8. OCEÁNICO

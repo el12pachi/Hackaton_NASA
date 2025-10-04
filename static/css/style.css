@@ -1522,25 +1522,35 @@ body {
     background: #4A4A4A;
 }
 
-/* ========== LOADING OVERLAY ========== */
+/* ========== LOADING OVERLAY CON ANIMACIÓN 3D ========== */
 .loading-overlay {
     position: fixed;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
-    background: rgba(0, 0, 0, 0.95);
+    background: rgba(0, 0, 0, 0.98);
     display: flex;
     flex-direction: column;
     justify-content: center;
     align-items: center;
     z-index: 99999;
+    overflow: hidden;
 }
 
-.loading-overlay p {
-    margin-top: var(--spacing-md);
-    color: var(--text-medium);
-    font-size: 0.875rem;
+.loading-3d-container {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    z-index: 1;
+}
+
+.loading-3d-container canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
 }
 
 .loader {
@@ -1555,6 +1565,137 @@ body {
 @keyframes spin {
     to {
         transform: rotate(360deg);
+    }
+}
+
+/* ========== LOADING PROGRESS INDICATOR ========== */
+.loading-progress-indicator {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    z-index: 2;
+    background: rgba(26, 26, 26, 0.85);
+    border: 1px solid rgba(0, 168, 232, 0.3);
+    border-radius: 12px;
+    padding: 16px 20px;
+    min-width: 280px;
+    max-width: 320px;
+    box-shadow: 0 4px 16px rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(8px);
+}
+
+.progress-content {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 10px;
+}
+
+.progress-spinner {
+    width: 24px;
+    height: 24px;
+    border: 2px solid rgba(0, 168, 232, 0.2);
+    border-top: 2px solid var(--primary-blue);
+    border-radius: 50%;
+    animation: spin 0.6s linear infinite;
+    margin: 0 auto;
+}
+
+#loading-status-text {
+    color: var(--text-light);
+    font-size: 14px;
+    font-weight: 500;
+    margin: 0;
+    text-align: left;
+}
+
+.progress-bar-container {
+    width: 100%;
+    height: 4px;
+    background: rgba(0, 168, 232, 0.2);
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.progress-bar {
+    height: 100%;
+    background: var(--primary-blue);
+    border-radius: 2px;
+    transition: width 0.2s ease;
+    width: 0%;
+}
+
+.loading-steps {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    margin-top: 4px;
+}
+
+.loading-step {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 4px 8px;
+    background: rgba(0, 168, 232, 0.03);
+    border-radius: 6px;
+    transition: all 0.2s ease;
+    border-left: 2px solid transparent;
+}
+
+.loading-step.active {
+    background: rgba(0, 168, 232, 0.1);
+    border-left-color: var(--primary-blue);
+}
+
+.loading-step.completed {
+    background: rgba(0, 230, 118, 0.05);
+    border-left-color: var(--success);
+}
+
+.loading-step .step-icon {
+    font-size: 14px;
+    min-width: 16px;
+    text-align: center;
+}
+
+.loading-step .step-text {
+    flex: 1;
+    color: var(--text-dim);
+    font-size: 12px;
+}
+
+.loading-step.active .step-text {
+    color: var(--text-light);
+    font-weight: 400;
+}
+
+.loading-step.completed .step-text {
+    color: var(--text-medium);
+}
+
+.loading-step .step-status {
+    display: none; /* Ocultar para hacerlo más compacto */
+}
+
+/* Responsive */
+@media (max-width: 600px) {
+    .loading-progress-indicator {
+        top: 10px;
+        right: 10px;
+        left: 10px;
+        min-width: auto;
+        max-width: none;
+        padding: 12px 16px;
+    }
+    
+    #loading-status-text {
+        font-size: 13px;
+    }
+    
+    .loading-step .step-text {
+        font-size: 11px;
     }
 }
 
@@ -2273,4 +2414,105 @@ html {
 
 .section-content[style*="display: none"] {
     opacity: 0;
+}
+
+/* ========== LEAFLET LAYERS CONTROL ========== */
+.leaflet-control-layers {
+    background: var(--sidebar-bg) !important;
+    border: 1px solid var(--sidebar-border) !important;
+    border-radius: 8px !important;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4) !important;
+    padding: 10px !important;
+    min-width: 200px !important;
+}
+
+.leaflet-control-layers-expanded {
+    padding: 12px !important;
+}
+
+.leaflet-control-layers-toggle {
+    background-image: none !important;
+    background-color: var(--sidebar-bg) !important;
+    border: 1px solid var(--sidebar-border) !important;
+    border-radius: 6px !important;
+    width: 36px !important;
+    height: 36px !important;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.leaflet-control-layers-toggle::before {
+    content: '🗺️';
+    font-size: 20px;
+}
+
+.leaflet-control-layers-base {
+    margin-bottom: 0 !important;
+}
+
+.leaflet-control-layers label {
+    display: flex !important;
+    align-items: center !important;
+    padding: 8px 4px !important;
+    margin: 4px 0 !important;
+    color: var(--text-light) !important;
+    font-size: 14px !important;
+    cursor: pointer !important;
+    border-radius: 4px !important;
+    transition: all 0.2s ease !important;
+}
+
+.leaflet-control-layers label:hover {
+    background: var(--input-bg) !important;
+    color: var(--primary-blue) !important;
+}
+
+.leaflet-control-layers-separator {
+    border-top: 1px solid var(--sidebar-border) !important;
+    margin: 8px 0 !important;
+}
+
+.leaflet-control-layers input[type="radio"] {
+    margin-right: 8px !important;
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: var(--primary-blue) !important;
+}
+
+.leaflet-control-layers input[type="checkbox"] {
+    margin-right: 8px !important;
+    cursor: pointer !important;
+    width: 16px !important;
+    height: 16px !important;
+    accent-color: var(--primary-blue) !important;
+}
+
+/* Posición del control de capas */
+.leaflet-top.leaflet-right {
+    top: 20px !important;
+    right: 20px !important;
+}
+
+/* Estilo cuando está colapsado */
+.leaflet-control-layers.leaflet-control {
+    margin-top: 10px !important;
+    margin-right: 10px !important;
+}
+
+/* Animación al expandir */
+.leaflet-control-layers-expanded {
+    animation: fadeIn 0.2s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
 }

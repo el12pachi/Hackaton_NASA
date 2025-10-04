@@ -1,0 +1,57 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Simulación 3D - Tierra y Asteroides Reales</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="header">
+        <h1>🌍 Simulación 3D: Tierra y Asteroides Reales</h1>
+        <p class="subtitle">Datos de asteroides cercanos a la Tierra (NASA NEO API)</p>
+    </div>
+    
+    <div class="control-panel">
+        <h3>Selecciona un Asteroide</h3>
+        
+        <div class="section">
+            <select id="asteroidSelect">
+                <option value="">Cargando asteroides...</option>
+            </select>
+        </div>
+        
+        <div class="section info-section" id="asteroidInfo">
+            <h4>📊 Información del Asteroide</h4>
+            <p><strong>Nombre:</strong> <span id="infoName">-</span></p>
+            <p><strong>Diámetro:</strong> <span id="infoDiameter">-</span></p>
+            <p><strong>Distancia:</strong> <span id="infoDistance">-</span></p>
+            <p><strong>Velocidad:</strong> <span id="infoVelocity">-</span></p>
+            <p><strong>Fecha cercana:</strong> <span id="infoDate">-</span></p>
+            <p><strong>Peligroso:</strong> <span id="infoDangerous">-</span></p>
+        </div>
+        
+        <button id="startSimulation" disabled>🚀 Iniciar Simulación</button>
+        <button id="resetSimulation">🔄 Reiniciar</button>
+        
+        <div class="status" id="status">
+            Listo para comenzar
+        </div>
+    </div>
+    
+    <div id="loading" class="loading">
+        <div class="spinner"></div>
+        <p>Cargando texturas y datos...</p>
+    </div>
+    
+    <!-- Carga de Three.js desde CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    
+    <!-- Carga de OrbitControls -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    
+    <!-- Script principal -->
+    <script src="script.js"></script>
+</body>
+</html>
+
