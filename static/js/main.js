@@ -971,6 +971,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
 function initializeApp() {
     
+    // Asegurar que todos los modales estén ocultos al inicio
+    const modals = document.querySelectorAll('.results-modal');
+    modals.forEach(modal => {
+        if (modal) {
+            modal.style.display = 'none';
+        }
+    });
+    
     // Aplicar traducciones iniciales (español por defecto)
     if (window.i18n) {
         window.i18n.setLanguage('es');
