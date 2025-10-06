@@ -32,6 +32,15 @@ function init3DLoading() {
         return;
     }
 
+    init3DScene(container);
+}
+
+function init3DScene(container) {
+    if (!container) {
+        console.error('Container no encontrado');
+        return;
+    }
+
     // Crear escena
     scene3d = new THREE.Scene();
     scene3d.background = new THREE.Color(0x000011);
@@ -43,7 +52,7 @@ function init3DLoading() {
         0.1,
         1000
     );
-    camera3d.position.set(0, 5, 15);
+    camera3d.position.set(0, 0, 12);
     camera3d.lookAt(0, 0, 0);
 
     // Configurar renderizador
@@ -92,7 +101,7 @@ function init3DLoading() {
     // Iniciar animación
     animate3D();
 
-    console.log('✅ Animación 3D de carga inicializada');
+    console.log('✅ Animación 3D inicializada en contenedor');
 }
 
 // ============================================
@@ -317,7 +326,7 @@ function animate3D() {
                 return;
             }
             
-            // FASE 1: Órbita estable (6 segundos)
+            // FASE 1: Órbita estable (1 segundo)
             if (timeElapsed < ORBIT_STABLE_DURATION_3D) {
                 orbitPhase3d = 'stable';
                 
@@ -335,8 +344,12 @@ function animate3D() {
                 
                 asteroide3d.rotation.x += 0.02;
                 asteroide3d.rotation.y += 0.015;
+                
+                // Actualizar progreso
+                const progress = Math.min(25, (timeElapsed / ORBIT_STABLE_DURATION_3D) * 25);
+                updateProgressBar(progress, 'Asteroide en órbita estable...');
             }
-            // FASE 2: Aproximación con espiral decadente (4 segundos)
+            // FASE 2: Aproximación con espiral decadente (1 segundo)
             else if (timeElapsed < ORBIT_STABLE_DURATION_3D + APPROACH_DURATION_3D) {
                 if (orbitPhase3d === 'stable') {
                     orbitPhase3d = 'approaching';
@@ -366,6 +379,10 @@ function animate3D() {
                 
                 asteroide3d.rotation.x += 0.03 * (1 + approachProgress);
                 asteroide3d.rotation.y += 0.025 * (1 + approachProgress);
+                
+                // Actualizar progreso
+                const progress = 25 + (approachProgress * 35);
+                updateProgressBar(progress, 'Asteroide aproximándose a la Tierra...');
             }
             // FASE 3: Caída final con física realista
             else {
@@ -400,6 +417,10 @@ function animate3D() {
                 const fallSpeed = asteroidVelocity3d.length();
                 asteroide3d.rotation.x += fallSpeed * 15;
                 asteroide3d.rotation.y += fallSpeed * 12;
+                
+                // Actualizar progreso
+                const fallProgress = Math.min(80, 60 + ((distanceToEarth - EARTH_RADIUS_3D) / (orbitRadius3d - EARTH_RADIUS_3D)) * 20);
+                updateProgressBar(fallProgress, 'Caída final hacia la Tierra...');
             }
         }
     }
@@ -511,6 +532,10 @@ function updateExplosion3D() {
         if (explosionParticles3d.secondaryLight) {
             explosionParticles3d.secondaryLight.intensity = 40 * (1 - progress * 0.7);
         }
+        
+        // Actualizar progreso durante explosión
+        const explosionProgress = 80 + (progress * 20);
+        updateProgressBar(explosionProgress, 'Impacto y explosión...');
     } else {
         // Limpiar explosión
         explosionParticles3d.forEach(particle => {
@@ -522,16 +547,22 @@ function updateExplosion3D() {
         
         explosionParticles3d = [];
         
-        console.log('✅ Impacto completado - cerrando pantalla de carga');
+        console.log('✅ Impacto completado - mostrando áreas afectadas...');
         orbitPhase3d = 'completed';
         
-        if (window.onImpactComplete3D) {
-            window.onImpactComplete3D();
-        }
+        // Actualizar progreso al 100%
+        updateProgressBar(100, 'Impacto completado - Mostrando áreas afectadas...');
         
+        // Esperar un momento para mostrar las áreas afectadas
         setTimeout(() => {
-            hide3DLoading();
-        }, 300);
+            // Determinar si estamos en el mapa o en el overlay
+            const mapAnimation = document.getElementById('map-3d-animation');
+            if (mapAnimation) {
+                hide3DInMap();
+            } else {
+                hide3DLoading();
+            }
+        }, 1000); // Esperar 1 segundo para que el usuario vea que terminó
     }
 }
 
@@ -540,8 +571,12 @@ function easeInQuad(t) {
 }
 
 function onWindowResize3D() {
-    const container = document.getElementById('loading-3d-container');
-    if (!container || !camera3d || !renderer3d) return;
+    // Buscar el contenedor actual del renderer
+    if (!camera3d || !renderer3d) return;
+    
+    const canvas = renderer3d.domElement;
+    const container = canvas.parentElement;
+    if (!container) return;
 
     camera3d.aspect = container.clientWidth / container.clientHeight;
     camera3d.updateProjectionMatrix();
@@ -563,6 +598,123 @@ function show3DLoading(asteroidData = null) {
             startAsteroidSimulation3D(asteroidData);
         });
     }
+}
+
+function show3DInMap(asteroidData = null) {
+    const mapContainer = document.getElementById('map-container');
+    if (!mapContainer) {
+        console.error('Map container no encontrado');
+        return;
+    }
+    
+    // Guardar la leyenda del mapa antes de limpiar
+    const existingLegend = document.querySelector('.map-legend');
+    let legendElement = null;
+    
+    if (existingLegend) {
+        legendElement = existingLegend.cloneNode(true);
+    }
+    
+    // Limpiar el contenido del mapa
+    mapContainer.innerHTML = '';
+    mapContainer.style.position = 'relative';
+    mapContainer.style.overflow = 'hidden';
+    mapContainer.style.display = 'flex';
+    mapContainer.style.flexDirection = 'column';
+    
+    // Crear contenedor para la animación 3D
+    const animationContainer = document.createElement('div');
+    animationContainer.id = 'map-3d-animation';
+    animationContainer.style.width = '100%';
+    animationContainer.style.flex = '1';
+    animationContainer.style.position = 'relative';
+    animationContainer.style.backgroundColor = '#000011';
+    
+    // Crear barra de progreso
+    const progressContainer = document.createElement('div');
+    progressContainer.id = 'simulation-progress';
+    progressContainer.style.width = '100%';
+    progressContainer.style.height = '40px';
+    progressContainer.style.backgroundColor = 'transparent';
+    progressContainer.style.position = 'relative';
+    progressContainer.style.display = 'flex';
+    progressContainer.style.alignItems = 'center';
+    progressContainer.style.justifyContent = 'center';
+    
+    // Contenedor interno para la barra (mitad del ancho, centrado)
+    const progressInnerContainer = document.createElement('div');
+    progressInnerContainer.style.width = '50%';
+    progressInnerContainer.style.height = '20px';
+    progressInnerContainer.style.backgroundColor = '#1a1a1a';
+    progressInnerContainer.style.border = '1px solid #333';
+    progressInnerContainer.style.borderRadius = '10px';
+    progressInnerContainer.style.position = 'relative';
+    progressInnerContainer.style.overflow = 'hidden';
+    
+    const progressBar = document.createElement('div');
+    progressBar.id = 'progress-bar-fill';
+    progressBar.style.width = '0%';
+    progressBar.style.height = '100%';
+    progressBar.style.background = '#00A8E8'; // Azul de la página
+    progressBar.style.transition = 'width 0.5s ease-in-out';
+    progressBar.style.position = 'absolute';
+    progressBar.style.top = '0';
+    progressBar.style.left = '0';
+    progressBar.style.zIndex = '1';
+    progressBar.style.borderRadius = '9px';
+    progressBar.style.boxShadow = '0 0 8px rgba(0, 168, 232, 0.3)';
+    
+    const progressText = document.createElement('div');
+    progressText.id = 'progress-text';
+    progressText.style.position = 'absolute';
+    progressText.style.top = '50%';
+    progressText.style.left = '50%';
+    progressText.style.transform = 'translate(-50%, -50%)';
+    progressText.style.color = '#fff';
+    progressText.style.fontSize = '11px';
+    progressText.style.fontWeight = 'bold';
+    progressText.style.zIndex = '10';
+    progressText.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
+    progressText.style.letterSpacing = '0.3px';
+    progressText.textContent = 'Iniciando simulación...';
+    
+    // Texto del porcentaje
+    const progressPercentage = document.createElement('div');
+    progressPercentage.id = 'progress-percentage';
+    progressPercentage.style.position = 'absolute';
+    progressPercentage.style.top = '-25px';
+    progressPercentage.style.right = '0';
+    progressPercentage.style.color = '#00A8E8';
+    progressPercentage.style.fontSize = '12px';
+    progressPercentage.style.fontWeight = 'bold';
+    progressPercentage.style.textShadow = '1px 1px 2px rgba(0,0,0,0.8)';
+    progressPercentage.textContent = '0%';
+    
+    progressInnerContainer.appendChild(progressBar);
+    progressInnerContainer.appendChild(progressText);
+    progressInnerContainer.appendChild(progressPercentage);
+    progressContainer.appendChild(progressInnerContainer);
+    
+    mapContainer.appendChild(animationContainer);
+    mapContainer.appendChild(progressContainer);
+    
+    // Restaurar la leyenda del mapa si existía
+    if (legendElement) {
+        legendElement.style.position = 'absolute';
+        legendElement.style.bottom = '10px';
+        legendElement.style.right = '10px';
+        legendElement.style.zIndex = '1000';
+        legendElement.style.backgroundColor = 'rgba(255, 255, 255, 0.9)';
+        legendElement.style.borderRadius = '5px';
+        legendElement.style.padding = '10px';
+        legendElement.style.boxShadow = '0 2px 10px rgba(0,0,0,0.3)';
+        mapContainer.appendChild(legendElement);
+    }
+    
+    requestAnimationFrame(() => {
+        init3DScene(animationContainer);
+        startAsteroidSimulation3D(asteroidData);
+    });
 }
 
 function hide3DLoading() {
@@ -602,7 +754,170 @@ function hide3DLoading() {
     console.log('✅ Animación 3D limpiada correctamente');
 }
 
+function hide3DInMap() {
+    
+    // Limpiar todas las variables de animación
+    if (animationFrame3d) {
+        cancelAnimationFrame(animationFrame3d);
+        animationFrame3d = null;
+    }
+    
+    // Limpiar la escena 3D si existe
+    if (scene3d && renderer3d) {
+        // Limpiar todos los objetos de la escena
+        while(scene3d.children.length > 0) {
+            scene3d.remove(scene3d.children[0]);
+        }
+        
+        // Limpiar el renderer
+        if (renderer3d.domElement && renderer3d.domElement.parentElement) {
+            renderer3d.domElement.parentElement.removeChild(renderer3d.domElement);
+        }
+        
+        // Limpiar referencias
+        scene3d = null;
+        camera3d = null;
+        renderer3d = null;
+        controls3d = null;
+        tierra3d = null;
+        asteroide3d = null;
+        sunLight3d = null;
+    }
+    
+    // Limpiar partículas de explosión
+    explosionParticles3d.forEach(p => {
+        if (p.geometry) {
+            p.geometry.dispose();
+        }
+        if (p.material) {
+            p.material.dispose();
+        }
+    });
+    explosionParticles3d = [];
+    
+    // Resetear variables de estado
+    orbitPhase3d = 'orbiting';
+    impactOccurred3d = false;
+    simulationStartTime3d = null;
+    approachStartTime3d = null;
+    impactStartTime3d = null;
+    orbitRadius3d = 8;
+    asteroidVelocity3d = new THREE.Vector3();
+    
+    const mapContainer = document.getElementById('map-container');
+    if (mapContainer) {
+        // Limpiar completamente el contenedor
+        mapContainer.innerHTML = '';
+        mapContainer.style.display = '';
+        mapContainer.style.flexDirection = '';
+        
+        // Restaurar el mapa original con un delay para asegurar limpieza completa
+        setTimeout(() => {
+            if (typeof initializeImpactMap === 'function') {
+                initializeImpactMap();
+                
+                // Mostrar los resultados con zonas de impacto después de que el mapa esté listo
+                setTimeout(() => {
+                    if (typeof displayProcessedResults === 'function') {
+                        displayProcessedResults();
+                        
+                        // Hacer zoom automático a la zona de impacto después de mostrar los resultados
+                        setTimeout(() => {
+                            if (typeof zoomToImpactZone === 'function') {
+                                zoomToImpactZone();
+                            } else {
+                                console.error('❌ Función zoomToImpactZone no encontrada');
+                            }
+                        }, 1500); // Esperar más tiempo para que el mapa esté completamente listo
+                    }
+                }, 800); // Esperar más tiempo para asegurar que todo esté listo
+            }
+        }, 200);
+    }
+}
+
+// ============================================
+// FUNCIONES DE BARRA DE PROGRESO
+// ============================================
+function updateProgressBar(progress, text) {
+    const progressBar = document.getElementById('progress-bar-fill');
+    const progressText = document.getElementById('progress-text');
+    const progressPercentage = document.getElementById('progress-percentage');
+    
+    if (progressBar) {
+        // Asegurar que el progreso esté entre 0 y 100
+        const clampedProgress = Math.max(0, Math.min(100, progress));
+        
+        // Actualizar la barra con animación
+        progressBar.style.width = clampedProgress + '%';
+        
+        // Mantener el azul de la página
+        progressBar.style.background = '#00A8E8';
+    } else {
+        console.error('❌ No se encontró la barra de progreso');
+    }
+    
+    if (progressText && text) {
+        progressText.textContent = text;
+    } else {
+        console.error('❌ No se encontró el texto de progreso');
+    }
+    
+    if (progressPercentage) {
+        const clampedProgress = Math.max(0, Math.min(100, progress));
+        progressPercentage.textContent = Math.round(clampedProgress) + '%';
+    } else {
+        console.error('❌ No se encontró el elemento de porcentaje');
+    }
+}
+
+// Función de emergencia para limpiar completamente la animación
+function emergencyCleanup3D() {
+    
+    // Cancelar cualquier animación en curso
+    if (animationFrame3d) {
+        cancelAnimationFrame(animationFrame3d);
+        animationFrame3d = null;
+    }
+    
+    // Limpiar contenedores
+    const mapContainer = document.getElementById('map-container');
+    const loadingOverlay = document.getElementById('loading-overlay');
+    
+    if (mapContainer) {
+        mapContainer.innerHTML = '';
+        mapContainer.style.display = '';
+        mapContainer.style.flexDirection = '';
+    }
+    
+    if (loadingOverlay) {
+        loadingOverlay.style.display = 'none';
+    }
+    
+    // Resetear todas las variables globales
+    scene3d = null;
+    camera3d = null;
+    renderer3d = null;
+    controls3d = null;
+    tierra3d = null;
+    asteroide3d = null;
+    sunLight3d = null;
+    explosionParticles3d = [];
+    orbitPhase3d = 'orbiting';
+    impactOccurred3d = false;
+    simulationStartTime3d = null;
+    approachStartTime3d = null;
+    impactStartTime3d = null;
+    orbitRadius3d = 8;
+    asteroidVelocity3d = new THREE.Vector3();
+    
+}
+
 // Exponer funciones globales
 window.show3DLoading = show3DLoading;
 window.hide3DLoading = hide3DLoading;
+window.show3DInMap = show3DInMap;
+window.hide3DInMap = hide3DInMap;
 window.triggerImpact3D = triggerImpact3D;
+window.updateProgressBar = updateProgressBar;
+window.emergencyCleanup3D = emergencyCleanup3D;

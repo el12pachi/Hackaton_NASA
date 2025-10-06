@@ -880,6 +880,7 @@ def simulate_deflection():
         time_before_impact_days = float(data.get('time_before_impact', 365))
         impactor_mass = float(data.get('impactor_mass', 1000))
         impactor_velocity = float(data.get('impactor_velocity', 10000))
+        composition = data.get('composition', 'rocky')
         
         sim = AsteroidSimulator()
         asteroid_mass = sim.calculate_mass(asteroid_diameter)
@@ -920,17 +921,25 @@ def simulate_deflection():
         
         # NUEVO: Obtener estrategias avanzadas
         advanced_strategies = get_advanced_mitigation_strategy(
+            result, {}, {}, time_before_impact_days / 365
+        )
+        
+        # Analizar todas las estrategias de mitigación
+        all_strategies = analyze_all_mitigation_strategies(
             asteroid_diameter,
-            asteroid_velocity,
-            time_before_impact_days,
-            energy_megatons
+            asteroid_velocity / 1000,  # Convert to km/s
+            asteroid_mass,
+            time_before_impact_days / 365,  # Convert to years
+            energy_megatons,
+            composition
         )
         
         return jsonify({
             'success': True,
             'result': result,
             'recommendation': get_deflection_recommendation(result),
-            'advanced_strategies': advanced_strategies  # NUEVO
+            'advanced_strategies': advanced_strategies,  # NUEVO
+            'all_strategies': all_strategies
         })
     
     except Exception as e:
@@ -1004,6 +1013,16 @@ def get_cities():
         total_population = 0
         seen_places = set()  # Para evitar duplicados
         
+        # Definir radios de impacto (en km)
+        destruction_radius_km = 5.0   # Zona de destrucción total
+        damage_radius_km = 10.0       # Zona de daños severos
+        affected_radius_km = 20.0     # Zona afectada
+        
+        # Contadores por zona
+        destruction_zone = []
+        damage_zone = []
+        affected_zone = []
+        
         for element in ovrpress_data.get("elements", []):
             tags = element.get("tags", {})
             name = tags.get("name")
@@ -1071,23 +1090,71 @@ def get_cities():
                 lat, lon
             )
             
-            places.append({
-                "nombre": name, 
-                "tipo": place_type,
-                "poblacion": population,
-                "lat": city_lat,
-                "lon": city_lon,
-                "distancia_km": round(distance_km, 2)
-            })
-            
-            # Sumar población total
-            total_population += population
+            if name and city_lat and city_lon:
+                # Determinar zona de impacto
+                if distance_km <= destruction_radius_km:
+                    impact_zone = "destruction"
+                    zone_name = "Destrucción Total"
+                    victims_percentage = 0.95
+                elif distance_km <= damage_radius_km:
+                    impact_zone = "damage"
+                    zone_name = "Daño Severo"
+                    victims_percentage = 0.15
+                else:
+                    impact_zone = "affected"
+                    zone_name = "Área Afectada"
+                    victims_percentage = 0.05
+                
+                # Calcular víctimas estimadas
+                estimated_victims = int(population * victims_percentage)
+                
+                place_data = {
+                    "nombre": name, 
+                    "tipo": place_type,
+                    "poblacion": population,
+                    "victimas_estimadas": estimated_victims,
+                    "lat": city_lat,
+                    "lon": city_lon,
+                    "distancia_km": round(distance_km, 2),
+                    "impact_zone": impact_zone,
+                    "zone_name": zone_name,
+                    "victims_percentage": victims_percentage
+                }
+                
+                places.append(place_data)
+                
+                # Clasificar por zona
+                if impact_zone == "destruction":
+                    destruction_zone.append(place_data)
+                elif impact_zone == "damage":
+                    damage_zone.append(place_data)
+                else:
+                    affected_zone.append(place_data)
+                
+                # Sumar población total
+                total_population += population
         
         # Ordenar lugares por población (mayor a menor) para priorizar ciudades importantes
         places.sort(key=lambda x: x['poblacion'], reverse=True)
         
+        # Calcular totales por zona
+        destruction_population = sum(place['poblacion'] for place in destruction_zone)
+        destruction_victims = sum(place['victimas_estimadas'] for place in destruction_zone)
+        
+        damage_population = sum(place['poblacion'] for place in damage_zone)
+        damage_victims = sum(place['victimas_estimadas'] for place in damage_zone)
+        
+        affected_population = sum(place['poblacion'] for place in affected_zone)
+        affected_victims = sum(place['victimas_estimadas'] for place in affected_zone)
+        
+        total_victims = destruction_victims + damage_victims + affected_victims
+        
         print(f"🔍 API /api/cities: Encontradas {len(places)} lugares")
         print(f"👥 Población total calculada: {total_population:,} personas")
+        print(f"💀 Víctimas totales estimadas: {total_victims:,}")
+        print(f"🔥 Zona Destrucción: {len(destruction_zone)} lugares, {destruction_victims:,} víctimas")
+        print(f"⚠️ Zona Daño: {len(damage_zone)} lugares, {damage_victims:,} víctimas")
+        print(f"🌪️ Zona Afectada: {len(affected_zone)} lugares, {affected_victims:,} víctimas")
         
         # Mostrar las 5 ciudades más grandes encontradas
         if places:
@@ -1099,7 +1166,37 @@ def get_cities():
             'success': True,
             'cities': places,
             'total_found': len(places),
-            'totalPopulation': total_population
+            'totalPopulation': total_population,
+            'totalVictims': total_victims,
+            'zones': {
+                'destruction': {
+                    'name': 'Destrucción Total',
+                    'radius_km': destruction_radius_km,
+                    'places': destruction_zone,
+                    'places_count': len(destruction_zone),
+                    'total_population': destruction_population,
+                    'total_victims': destruction_victims,
+                    'victims_percentage': 0.95
+                },
+                'damage': {
+                    'name': 'Daño Severo',
+                    'radius_km': damage_radius_km,
+                    'places': damage_zone,
+                    'places_count': len(damage_zone),
+                    'total_population': damage_population,
+                    'total_victims': damage_victims,
+                    'victims_percentage': 0.15
+                },
+                'affected': {
+                    'name': 'Área Afectada',
+                    'radius_km': affected_radius_km,
+                    'places': affected_zone,
+                    'places_count': len(affected_zone),
+                    'total_population': affected_population,
+                    'total_victims': affected_victims,
+                    'victims_percentage': 0.05
+                }
+            }
         })
         
     except Exception as e:
@@ -1109,6 +1206,12 @@ def get_cities():
             'cities': [],
             'total_found': 0,
             'totalPopulation': 0,
+            'totalVictims': 0,
+            'zones': {
+                'destruction': {'places_count': 0, 'total_population': 0, 'total_victims': 0},
+                'damage': {'places_count': 0, 'total_population': 0, 'total_victims': 0},
+                'affected': {'places_count': 0, 'total_population': 0, 'total_victims': 0}
+            },
             'error': str(e)
         })
 
@@ -3280,6 +3383,182 @@ def estimate_total_organisms_affected(flora_species, fauna_species, radius_km):
             'total_organisms': 0,
             'area_km2': 0
         }
+
+
+def analyze_all_mitigation_strategies(diameter, velocity, mass, time_years, energy_mt, composition):
+    """Analiza todas las estrategias de mitigación con datos técnicos reales"""
+    comp_data = ASTEROID_COMPOSITIONS[composition]
+    strategies = []
+    
+    # 1. Impactador Cinético
+    kinetic_dv = (diameter * 10 * 10000) / mass  # Simplified delta-v
+    strategies.append({
+        'name': 'Impactador Cinético',
+        'icon': '🚀',
+        'effectiveness': min(95, 60 + (time_years * 5)),
+        'cost_billions': round(diameter * 0.1, 2),
+        'time_required_years': max(2, 5),
+        'success_rate': min(90, 50 + (time_years * 8)),
+        'launch_windows': int(time_years * 2),
+        'spacecraft_mass_kg': int(diameter * 10),
+        'impact_velocity_km_s': 10,
+        'delta_v_m_s': round(kinetic_dv, 3),
+        'deflection_km': round((kinetic_dv * time_years * 3.15e7) / 1000, 1),
+        'technology_readiness': 'TRL 8-9',
+        'reference_mission': 'NASA DART (2022)',
+        'pros': [
+            'Tecnología probada en misión DART',
+            'Implementación relativamente rápida',
+            'Alta precisión de impacto',
+            f'Efectivo contra {composition}'
+        ],
+        'cons': [
+            f'Riesgo fragmentación: {int((1-comp_data["fragmentation_resistance"])*100)}%',
+            'Requiere impacto directo',
+            'Una sola oportunidad',
+            'No reversible'
+        ],
+        'best_for': f'Asteroides {composition} de 50-500m con 5+ años de aviso',
+        'agencies': ['NASA', 'ESA', 'JAXA'],
+        'estimated_launches': 1 if diameter < 200 else 2
+    })
+    
+    # 2. Tractor Gravitacional
+    if time_years >= 10:
+        grav_dv = (G * 20000 * time_years * 3.15e7) / (100**2)
+        strategies.append({
+            'name': 'Tractor Gravitacional',
+            'icon': '🛰️',
+            'effectiveness': min(85, 30 + (time_years * 3)),
+            'cost_billions': round(diameter * 0.3, 2),
+            'time_required_years': max(10, 15),
+            'success_rate': min(80, 40 + (time_years * 4)),
+            'spacecraft_mass_kg': 20000,
+            'station_keeping_years': round(time_years * 0.8, 1),
+            'delta_v_m_s': round(grav_dv, 6),
+            'deflection_km': round((grav_dv * time_years * 3.15e7) / 1000, 1),
+            'technology_readiness': 'TRL 4-5',
+            'reference_mission': 'Concepto ESA',
+            'pros': [
+                'Sin riesgo de fragmentación',
+                'Control trayectoria preciso',
+                'Proceso reversible',
+                'Funciona con cualquier composición'
+            ],
+            'cons': [
+                'Requiere MUCHO tiempo (10+ años)',
+                'Muy costoso',
+                'Tecnología no probada',
+                'Mantenimiento complejo'
+            ],
+            'best_for': 'Asteroides pequeños (<200m) detectados con 15+ años de aviso',
+            'agencies': ['ESA', 'NASA'],
+            'fuel_required_tons': round(time_years * 0.5, 1)
+        })
+    
+    # 3. Explosión Nuclear
+    if energy_mt >= 10:
+        nuclear_dv = (energy_mt * 1e6) / (mass * 0.01)  # Rough estimate
+        strategies.append({
+            'name': 'Deflector Nuclear',
+            'icon': '☢️',
+            'effectiveness': min(98, 75 + (diameter * 0.05)),
+            'cost_billions': round(diameter * 0.05, 2),
+            'time_required_years': 3,
+            'success_rate': min(95, 70 + (diameter * 0.1)),
+            'warhead_yield_mt': round(energy_mt * 0.01, 2),
+            'standoff_distance_km': diameter * 5,
+            'delta_v_m_s': round(nuclear_dv, 2),
+            'deflection_km': round((nuclear_dv * time_years * 3.15e7) / 1000, 1),
+            'technology_readiness': 'TRL 9',
+            'reference_mission': 'Hypervelocity Asteroid Mitigation Mission (HAMMER)',
+            'pros': [
+                'Máxima energía disponible',
+                'Efectivo incluso con poco tiempo',
+                'Tecnología nuclear madura',
+                f'Vaporiza {composition} efectivamente'
+            ],
+            'cons': [
+                'Riesgo político internacional',
+                'Posible fragmentación radioactiva',
+                'Tratado del Espacio Exterior',
+                'Fallout radioactivo'
+            ],
+            'best_for': 'Asteroides grandes (>500m) o emergencias (<2 años aviso)',
+            'agencies': ['NASA', 'DoD'],
+            'political_approval_required': True
+        })
+    
+    # 4. Laser Ablation
+    if diameter <= 100 and time_years >= 5:
+        laser_dv = (diameter * 0.1 * time_years * 3.15e7) / mass
+        strategies.append({
+            'name': 'Ablación Láser',
+            'icon': '🔴',
+            'effectiveness': min(70, 20 + (time_years * 4)),
+            'cost_billions': round(diameter * 0.8, 2),
+            'time_required_years': max(5, 8),
+            'success_rate': min(75, 30 + (time_years * 5)),
+            'laser_power_mw': diameter * 0.1,
+            'station_distance_km': 1000,
+            'delta_v_m_s': round(laser_dv, 6),
+            'deflection_km': round((laser_dv * time_years * 3.15e7) / 1000, 1),
+            'technology_readiness': 'TRL 3-4',
+            'reference_mission': 'Concepto DE-STAR',
+            'pros': [
+                'Control preciso y continuo',
+                'Sin contacto físico',
+                'Proceso reversible',
+                'Efectivo en asteroides pequeños'
+            ],
+            'cons': [
+                'Tecnología experimental',
+                'Requiere estación espacial',
+                'Consumo energético masivo',
+                'Solo efectivo en distancias cortas'
+            ],
+            'best_for': 'Asteroides pequeños (<100m) con 8+ años de aviso',
+            'agencies': ['NASA', 'ESA'],
+            'power_station_mass_kg': diameter * 1000
+        })
+    
+    # 5. Solar Sail
+    if diameter <= 50 and time_years >= 20:
+        sail_dv = (diameter * 0.01 * time_years * 3.15e7) / mass
+        strategies.append({
+            'name': 'Vela Solar',
+            'icon': '⛵',
+            'effectiveness': min(60, 10 + (time_years * 2)),
+            'cost_billions': round(diameter * 0.05, 2),
+            'time_required_years': max(20, 25),
+            'success_rate': min(65, 20 + (time_years * 2)),
+            'sail_area_m2': diameter * 10000,
+            'deployment_complexity': 'Alta',
+            'delta_v_m_s': round(sail_dv, 8),
+            'deflection_km': round((sail_dv * time_years * 3.15e7) / 1000, 1),
+            'technology_readiness': 'TRL 5-6',
+            'reference_mission': 'IKAROS (JAXA 2010)',
+            'pros': [
+                'Sin combustible necesario',
+                'Operación continua',
+                'Bajo costo de operación',
+                'Tecnología verde'
+            ],
+            'cons': [
+                'Requiere MUCHÍSIMO tiempo',
+                'Solo efectivo en asteroides muy pequeños',
+                'Dependiente del viento solar',
+                'Complejidad de despliegue'
+            ],
+            'best_for': 'Asteroides muy pequeños (<50m) con 25+ años de aviso',
+            'agencies': ['JAXA', 'NASA'],
+            'sail_thickness_microns': 7.5
+        })
+    
+    # Ordenar por efectividad
+    strategies.sort(key=lambda x: x['effectiveness'], reverse=True)
+    
+    return strategies
 
 
 def get_advanced_mitigation_strategy(result, asteroid_data, impact_data, time_available_years):

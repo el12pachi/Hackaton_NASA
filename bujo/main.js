@@ -791,9 +791,9 @@ function openAsteroidsBrowser() {
                         "
                         onmouseover="this.style.transform='scale(1.05)'"
                         onmouseout="this.style.transform='scale(1)'"
-                        title="Selecionar"
+                        title="Usar en simulación"
                     >
-                        Selecionar
+                        Usar en Simulación
                     </button>
                     <button 
                         onclick="showAsteroidDetail(${index}); event.stopPropagation();"
@@ -811,7 +811,7 @@ function openAsteroidsBrowser() {
                         onmouseout="this.style.background='transparent'; this.style.color='var(--primary-color)';"
                         title="Ver información completa"
                     >
-                        Mas información
+                        Ver más
                     </button>
                 </div>
             </div>
@@ -1021,10 +1021,6 @@ function initializeApp() {
     
     // Setup location search
     setupLocationSearch();
-    
-    // Setup map location search
-    setupMapLocationSearch();
-    
 }
 
 // ============================================
@@ -1247,143 +1243,6 @@ function selectLocation(lat, lon, displayName, index) {
     console.log(`Ubicación seleccionada: ${displayName} (${lat}, ${lon})`);
 }
 
-// ============================================
-// MAP LOCATION SEARCH (Control en el mapa)
-// ============================================
-
-function setupMapLocationSearch() {
-    const searchInput = document.getElementById('map-location-search');
-    const searchBtn = document.getElementById('map-search-location-btn');
-    const resultsDiv = document.getElementById('map-location-search-results');
-    
-    if (!searchInput || !searchBtn) return;
-    
-    // Buscar al hacer clic en el botón
-    searchBtn.addEventListener('click', () => {
-        const query = searchInput.value.trim();
-        if (query) {
-            searchMapLocation(query);
-        }
-    });
-    
-    // Buscar al presionar Enter
-    searchInput.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') {
-            const query = searchInput.value.trim();
-            if (query) {
-                searchMapLocation(query);
-            }
-        }
-    });
-    
-    // Ocultar resultados al hacer clic fuera
-    document.addEventListener('click', (e) => {
-        if (!e.target.closest('.map-search-container')) {
-            resultsDiv.style.display = 'none';
-        }
-    });
-}
-
-async function searchMapLocation(query) {
-    const resultsDiv = document.getElementById('map-location-search-results');
-    const searchBtn = document.getElementById('map-search-location-btn');
-    
-    try {
-        // Cambiar botón a estado de carga
-        const originalText = searchBtn.textContent;
-        searchBtn.textContent = 'Buscando...';
-        searchBtn.disabled = true;
-        
-        console.log(`Buscando ubicación: ${query}`);
-        
-        // Usar Nominatim API para búsqueda de ubicaciones
-        const response = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${encodeURIComponent(query)}&limit=5&addressdetails=1`);
-        
-        if (!response.ok) {
-            throw new Error(`Error HTTP: ${response.status}`);
-        }
-        
-        const results = await response.json();
-        
-        if (results.length === 0) {
-            resultsDiv.innerHTML = `
-                <div class="search-result-item" style="padding: 1rem; text-align: center; color: var(--text-secondary);">
-                    No se encontraron resultados para "${query}"
-                </div>
-            `;
-        } else {
-            displayMapSearchResults(results);
-        }
-        
-        resultsDiv.style.display = 'block';
-        
-    } catch (error) {
-        console.error('Error buscando ubicación:', error);
-        resultsDiv.innerHTML = `
-            <div class="search-result-item" style="padding: 1rem; text-align: center; color: var(--danger-color);">
-                Error al buscar. Intenta de nuevo.
-            </div>
-        `;
-        resultsDiv.style.display = 'block';
-    } finally {
-        // Restaurar botón
-        searchBtn.textContent = originalText;
-        searchBtn.disabled = false;
-    }
-}
-
-function displayMapSearchResults(results) {
-    const resultsDiv = document.getElementById('map-location-search-results');
-    
-    resultsDiv.innerHTML = results.map((result, index) => {
-        const displayName = result.display_name;
-        const lat = parseFloat(result.lat);
-        const lon = parseFloat(result.lon);
-        
-        // Extraer información relevante
-        const city = result.address?.city || result.address?.town || result.address?.village || '';
-        const state = result.address?.state || result.address?.county || '';
-        const country = result.address?.country || '';
-        
-        let locationDetails = '';
-        if (city) locationDetails += city;
-        if (state && state !== city) locationDetails += (locationDetails ? ', ' : '') + state;
-        if (country && country !== state) locationDetails += (locationDetails ? ', ' : '') + country;
-        
-        return `
-            <div class="search-result-item" onclick="selectMapLocation(${lat}, ${lon}, '${displayName.replace(/'/g, "\\'")}', ${index})">
-                <div class="search-result-name">${displayName}</div>
-                <div class="search-result-details">${locationDetails}</div>
-            </div>
-        `;
-    }).join('');
-}
-
-function selectMapLocation(lat, lon, displayName, index) {
-    const resultsDiv = document.getElementById('map-location-search-results');
-    const searchInput = document.getElementById('map-location-search');
-    
-    // Ocultar resultados
-    resultsDiv.style.display = 'none';
-    
-    // Actualizar el input con el nombre seleccionado
-    searchInput.value = displayName;
-    
-    // Actualizar los campos de coordenadas
-    document.getElementById('latitude').value = lat.toFixed(4);
-    document.getElementById('longitude').value = lon.toFixed(4);
-    
-    // Animar el mapa hacia la ubicación
-    if (impactMap) {
-        impactMap.flyTo([lat, lon], 12, {
-            duration: 2,
-            easeLinearity: 0.25
-        });
-    }
-    
-    console.log(`Ubicación seleccionada: ${displayName} (${lat}, ${lon})`);
-}
-
 function updateCurrentLocationDisplay(locationInfo) {
     const currentLocationText = document.getElementById('current-location-text');
     if (currentLocationText && locationInfo) {
@@ -1476,8 +1335,6 @@ function setupModeSwitching() {
                     simulationControls.style.pointerEvents = 'auto';
                     console.log('Mostrando controles de simulación');
                 }
-                // Limpiar el mapa cuando se entra al modo simulación
-                clearImpactMap();
             } else if (mode === 'mitigation') {
                 const mitigationControls = document.getElementById('mitigation-controls');
                 if (mitigationControls) {
@@ -1488,8 +1345,6 @@ function setupModeSwitching() {
                     mitigationControls.style.pointerEvents = 'auto';
                     console.log('Mostrando controles de mitigación');
                 }
-                // Limpiar el mapa cuando se entra al modo mitigación
-                clearImpactMap();
             }
         });
     });
@@ -1504,31 +1359,6 @@ let currentMarker = null;
 let currentCircles = [];
 let currentFullResults = null;
 let currentTileLayer = null;
-
-// Función para limpiar el mapa completamente
-function clearImpactMap() {
-    if (!impactMap) {
-        console.log('⚠️ Mapa no inicializado');
-        return;
-    }
-    
-    // Eliminar marcador
-    if (currentMarker) {
-        impactMap.removeLayer(currentMarker);
-        currentMarker = null;
-    }
-    
-    // Eliminar círculos
-    currentCircles.forEach(circle => {
-        impactMap.removeLayer(circle);
-    });
-    currentCircles = [];
-    
-    console.log('🗺️ Mapa limpiado completamente');
-}
-
-// Exponer la función globalmente para el botón
-window.clearImpactMap = clearImpactMap;
 
 function setupSimulationMode() {
     // Range inputs
@@ -1772,18 +1602,6 @@ async function loadNEOData() {
 // Función populateAsteroidSelector eliminada - ya no se usa el selector, se usa el explorador de asteroides
 
 async function runImpactSimulation() {
-    // Limpiar estado anterior antes de empezar nueva simulación
-    processedSimulationData = null;
-    currentFullResults = null;
-    
-    // Limpiar callback anterior si existe
-    if (window.onImpactComplete3D) {
-        window.onImpactComplete3D = null;
-    }
-    
-    // Limpiar marcadores y círculos del mapa usando la función dedicada
-    clearImpactMap();
-    
     // Obtener datos del asteroide seleccionado
     let asteroidData = window.selectedAsteroidData || null;
     
@@ -1811,32 +1629,17 @@ async function runImpactSimulation() {
         };
         
         
-        // Actualizar progreso: Enviando datos al servidor
-        if (typeof updateProgressBar === 'function') {
-            updateProgressBar(10, 'Enviando datos al servidor...');
-        }
-        
         const response = await fetch('/api/simulate/impact', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(params)
         });
         
-        // Actualizar progreso: Procesando datos del servidor
-        if (typeof updateProgressBar === 'function') {
-            updateProgressBar(30, 'Procesando datos del servidor...');
-        }
-        
         const result = await response.json();
         
         if (result.success) {
             console.log('✅ Datos de API recibidos - PROCESANDO todos los datos...');
             console.log('🔄 Asteroide sigue orbitando mientras se procesan los datos...');
-            
-            // Actualizar progreso: Datos recibidos
-            if (typeof updateProgressBar === 'function') {
-                updateProgressBar(50, 'Datos recibidos - Preparando simulación...');
-            }
             
             // PRIMERO: Procesar TODOS los datos mientras el asteroide orbita
             await processAllSimulationData(result, params);
@@ -1928,6 +1731,35 @@ async function processAllSimulationData(result, params) {
             // Iniciar progreso - Paso 1: Cálculos básicos
             updateLoadingProgress(25, 'impact', 'Calculando impacto...');
             
+            console.log('📊 Procesando todos los datos de la simulación...');
+            console.log('Full Simulation Result:', result);
+            console.log(' Calculations Object:', result.calculations);
+            console.log(' Population Data:', result.population_affected);
+            console.log(' All result keys:', Object.keys(result));
+            console.log(' Calculations keys:', result.calculations ? Object.keys(result.calculations) : 'No calculations object');
+            console.log(' Direct result keys for energy:', {
+                impact_energy_mt: result.impact_energy_mt,
+                energy: result.energy,
+                impact_energy: result.impact_energy
+            });
+            console.log(' Severity object:', result.severity);
+            console.log(' Secondary effects:', result.secondary_effects);
+            console.log(' Secondary effects details:', result.secondary_effects.map(effect => ({
+                type: effect.type,
+                population_affected: effect.population_affected,
+                affected_population: effect.affected_population,
+                keys: Object.keys(effect)
+            })));
+            console.log(' Input object:', result.input);
+            console.log(' Input keys:', result.input ? Object.keys(result.input) : 'No input object');
+            if (result.input) {
+                console.log(' Input details:', JSON.stringify(result.input, null, 2));
+            }
+            console.log(' USGS Context:', result.usgs_context);
+            console.log(' USGS Context keys:', result.usgs_context ? Object.keys(result.usgs_context) : 'No USGS context');
+            if (result.usgs_context) {
+                console.log(' USGS Context details:', JSON.stringify(result.usgs_context, null, 2));
+            }
             
             // Extract data from the result object - more robust mapping
             const getValue = (paths, defaultValue = 0) => {
@@ -2122,17 +1954,19 @@ async function processAllSimulationData(result, params) {
             
             // Get population data BEFORE showing dashboard
             updateLoadingProgress(50, 'population', 'Analizando población...');
-            if (typeof updateProgressBar === 'function') {
-                updateProgressBar(60, 'Analizando población afectada...');
-            }
             
             const destructionRadius = result.calculations.destruction_radius_km;
             const damageRadius = result.calculations.damage_radius_km;
             const airPressureRadius = damageRadius * 1.5;
             const maxRadius = Math.max(destructionRadius, damageRadius, airPressureRadius);
             
-            let populationData = { cities: [], totalPopulation: 0 };
+            let populationData = { totalPopulation: 0 };
             try {
+                console.log(' Calling Overpass API with params:', {
+                    latitude: params.latitude,
+                    longitude: params.longitude,
+                    radius: maxRadius * 1000
+                });
                 
                 const citiesResponse = await fetch('/api/cities', {
                     method: 'POST',
@@ -2144,30 +1978,26 @@ async function processAllSimulationData(result, params) {
                     })
                 });
                 
-                console.log('📡 Overpass API Response status:', citiesResponse.status);
+                console.log(' Overpass API Response status:', citiesResponse.status);
                 const citiesData = await citiesResponse.json();
+                console.log(' Overpass API Response:', citiesData);
+                console.log(' Cities found:', citiesData.cities ? citiesData.cities.length : 0);
+                console.log(' Total population:', citiesData.totalPopulation);
+                console.log(' Population in destruction zone:', citiesData.populationInDestructionZone);
+                console.log(' Population in damage zone:', citiesData.populationInDamageZone);
+                console.log(' Success status:', citiesData.success);
                 
-                if (!citiesResponse.ok) {
-                    throw new Error(`HTTP ${citiesResponse.status}`);
-                }
-                
-                const citiesData = await citiesResponse.json();
-                console.log('📦 Overpass API Response data:', citiesData);
-                console.log(`🏙️ Ciudades encontradas: ${citiesData.cities ? citiesData.cities.length : 0}`);
-                
-                if (citiesData.success && citiesData.cities && citiesData.cities.length > 0) {
+                if (citiesData.success && citiesData.totalPopulation) {
                     populationData = citiesData;
-                    console.log(`✅ Datos de población obtenidos: ${citiesData.cities.length} lugares`);
-                    console.log(`🏙️ Primeras 3 ciudades:`, citiesData.cities.slice(0, 3));
+                    console.log(` Population data obtained: ${citiesData.totalPopulation} people`);
                 } else {
-                    console.warn('⚠️ Overpass API no devolvió ciudades');
-                    console.warn('⚠️ Success:', citiesData.success);
-                    console.warn('⚠️ Cities array:', citiesData.cities);
+                    console.log('❌ No population data in Overpass response');
+                    console.log('❌ Response success:', citiesData.success);
+                    console.log('❌ Total population value:', citiesData.totalPopulation);
                 }
             } catch (error) {
-                console.error('❌ Error obteniendo población de Overpass API:', error);
-                console.error('❌ Error message:', error.message);
-                console.error('❌ Error stack:', error.stack);
+                console.warn('❌ Error obteniendo población:', error);
+                console.warn('❌ Error details:', error.message);
             }
             
             // Analyze terrain type FIRST to determine population calculation method
@@ -2210,51 +2040,13 @@ async function processAllSimulationData(result, params) {
                 console.log(`   Barcos estimados en área: ${estimatedShips}`);
                 console.log(`   Población estimada: ${simulationData.affectedPopulation} personas`);
             }
-            // For land impacts, use Overpass data (ciudades + áreas administrativas)
-            else if (!isOceanic && populationData.cities && populationData.cities.length > 0) {
-                let totalPopInDestructionZone = 0;
-                let totalPopInDamageZone = 0;
-                let totalPopInAirPressureZone = 0;
-                
-                console.log(`📊 Analizando ${populationData.cities.length} lugares encontrados...`);
-                
-                populationData.cities.forEach(city => {
-                    const distance = city.distancia_km || 999;
-                    const population = parseInt(city.poblacion) || 0;
-                    
-                    if (population > 0) {
-                        if (distance <= destructionRadius) {
-                            totalPopInDestructionZone += population;
-                            console.log(`  🔴 ${city.nombre}: ${population.toLocaleString()} hab. a ${distance.toFixed(1)} km (DESTRUCCIÓN)`);
-                        } else if (distance <= damageRadius) {
-                            totalPopInDamageZone += population;
-                            console.log(`  🟠 ${city.nombre}: ${population.toLocaleString()} hab. a ${distance.toFixed(1)} km (DAÑO)`);
-                        } else if (distance <= airPressureRadius) {
-                            totalPopInAirPressureZone += population;
-                            console.log(`  🔵 ${city.nombre}: ${population.toLocaleString()} hab. a ${distance.toFixed(1)} km (PRESIÓN)`);
-                        }
-                    }
-                });
-                
-                simulationData.affectedPopulation = totalPopInDestructionZone + totalPopInDamageZone + totalPopInAirPressureZone;
-                
-                // Guardar ciudades y radios para el desglose de víctimas (EN KILÓMETROS)
-                simulationData.cities = populationData.cities || [];
-                simulationData.damageRadiusKm = damageRadius;  // Ya está en km
-                simulationData.destructionRadiusKm = destructionRadius; // Ya está en km
-                simulationData.latitude = params.latitude;
-                simulationData.longitude = params.longitude;
-                
-                console.log(`✅ Población obtenida de Overpass API (ciudades + áreas administrativas):`);
-                console.log(`   🔴 Zona de destrucción (0-${destructionRadius.toFixed(1)} km): ${totalPopInDestructionZone.toLocaleString()} personas`);
-                console.log(`   🟠 Zona de daño (${destructionRadius.toFixed(1)}-${damageRadius.toFixed(1)} km): ${totalPopInDamageZone.toLocaleString()} personas`);
-                console.log(`   🔵 Zona de presión (${damageRadius.toFixed(1)}-${airPressureRadius.toFixed(1)} km): ${totalPopInAirPressureZone.toLocaleString()} personas`);
-                console.log(`   📊 TOTAL AFECTADO: ${simulationData.affectedPopulation.toLocaleString()} personas`);
+            // For land impacts, use Overpass data if available
+            else if (populationData.totalPopulation && populationData.totalPopulation > 0) {
+                simulationData.affectedPopulation = populationData.totalPopulation;
+                console.log(`✅ Población obtenida de Overpass: ${simulationData.affectedPopulation.toLocaleString()} personas`);
             }
             // Fallback: Estimate based on terrain type
             else {
-                console.log('⚠️ Sin datos de ciudades, usando estimación por terreno');
-                
                 let populationDensityFactor = 1.0; // Default multiplier
                 
                 if (terrainType === 'desert') {
@@ -2278,10 +2070,11 @@ async function processAllSimulationData(result, params) {
                 }
                 
                 // USAR SOLO ÁREA DE DESTRUCCIÓN DIRECTA, NO ZONA DE DAÑO
+                // El damageRadius es demasiado grande y sobrestima la población
                 const destructionAreaKm2 = Math.PI * Math.pow(destructionRadius, 2);
                 
                 // Densidad típica rural: 50 personas/km² (más realista)
-                const typicalDensity = 50;
+                const typicalDensity = 50; // persons per km² (rural average)
                 const estimatedPopulation = Math.round(destructionAreaKm2 * typicalDensity * populationDensityFactor);
                 
                 // Cap más bajo: 1M personas máximo en estimación
@@ -2295,24 +2088,9 @@ async function processAllSimulationData(result, params) {
             
             console.log(' Processed Dashboard Data (initial):', simulationData);
             
-            // IMPORTANTE: Actualizar el dashboard con la población calculada
-            console.log(`📊 ACTUALIZANDO POBLACIÓN EN DASHBOARD: ${simulationData.affectedPopulation.toLocaleString()} personas`);
-            
-            // Actualizar el elemento del dashboard inmediatamente
-            const popElement = document.getElementById('affected-population');
-            if (popElement) {
-                popElement.textContent = formatNumber(simulationData.affectedPopulation);
-                console.log(' Población actualizada en dashboard');
-            } else {
-                console.warn('⚠️ Elemento affected-population no encontrado');
-            }
-            
             // Completar población
             completeLoadingStep('population');
             updateLoadingProgress(75, 'flora-fauna', 'Identificando especies...');
-            if (typeof updateProgressBar === 'function') {
-                updateProgressBar(75, 'Identificando especies afectadas...');
-            }
             
         if (result.usgs_context) {
             // logUSGSData(result.usgs_context);  // Comentado temporalmente
@@ -2462,27 +2240,8 @@ async function processAllSimulationData(result, params) {
                         console.log(`   Fauna seleccionada: ${mostAffectedFauna || 'ninguna'}`);
                         console.log(`   Flora seleccionada: ${mostAffectedFlora || 'ninguna'}`);
                         
-                        // IMPORTANTE: Si hay especies de GBIF, usarlas con más detalle
-                        if (faunaSpecies && faunaSpecies.length > 0) {
-                            // Obtener las 3 especies más comunes de fauna
-                            const top3Fauna = faunaSpecies.slice(0, 3).map(s => s.species || s.name).filter(Boolean);
-                            if (top3Fauna.length > 0) {
-                                mostAffectedFauna = top3Fauna.join(', ');
-                                console.log(`   🔬 USANDO DATOS REALES DE GBIF - Fauna: ${mostAffectedFauna}`);
-                            }
-                        }
-                        
-                        if (floraSpecies && floraSpecies.length > 0) {
-                            // Obtener las 3 especies más comunes de flora
-                            const top3Flora = floraSpecies.slice(0, 3).map(s => s.species || s.name).filter(Boolean);
-                            if (top3Flora.length > 0) {
-                                mostAffectedFlora = top3Flora.join(', ');
-                                console.log(`   🔬 USANDO DATOS REALES DE GBIF - Flora: ${mostAffectedFlora}`);
-                            }
-                        }
-                        
                         // Si no hay especies detectadas, inferir por tipo de terreno
-                        if (!mostAffectedFauna || mostAffectedFauna === 'No detectada' || (!faunaSpecies || faunaSpecies.length === 0)) {
+                        if (!mostAffectedFauna || mostAffectedFauna === 'No detectada') {
                             if (result.usgs_context && result.usgs_context.elevation) {
                                 const terrainType = result.usgs_context.elevation.terrain_type;
                                 const isOceanic = result.usgs_context.elevation.is_oceanic;
@@ -2505,7 +2264,7 @@ async function processAllSimulationData(result, params) {
                             console.log(`   ⚠️ Fauna inferida por terreno: ${mostAffectedFauna}`);
                         }
                         
-                        if (!mostAffectedFlora || mostAffectedFlora === 'No detectada' || (!floraSpecies || floraSpecies.length === 0)) {
+                        if (!mostAffectedFlora || mostAffectedFlora === 'No detectada') {
                             if (result.usgs_context && result.usgs_context.elevation) {
                                 const terrainType = result.usgs_context.elevation.terrain_type;
                                 const isOceanic = result.usgs_context.elevation.is_oceanic;
@@ -2581,9 +2340,6 @@ async function processAllSimulationData(result, params) {
             // Completar todo
             completeLoadingStep('complete');
             updateLoadingProgress(100, 'complete', 'Listo');
-            if (typeof updateProgressBar === 'function') {
-                updateProgressBar(90, 'Datos procesados - Listo para simulación...');
-            }
             
             // Guardar todos los datos procesados para mostrarlos después del impacto
             processedSimulationData = {
@@ -2599,12 +2355,6 @@ async function displayProcessedResults() {
     if (!processedSimulationData) {
         console.error('❌ No hay datos procesados para mostrar');
         return;
-    }
-
-    // Asegurar que la leyenda del mapa esté visible cuando termine la simulación
-    const mapLegend = document.querySelector('.map-legend');
-    if (mapLegend) {
-        mapLegend.style.display = 'block';
     }
     
     const { result, params } = processedSimulationData;
@@ -2632,118 +2382,6 @@ async function displayProcessedResults() {
 function displayImpactResults(result) {
     // Guardar resultados completos para el modal
     currentFullResults = result;
-    
-    // Guardar automáticamente los datos para generación rápida de PDF
-    try {
-        console.log('💾 Guardando automáticamente datos de impacto...');
-        
-        // Crear objeto de datos compatible con saveImpacto
-        const impactData = {
-            // Datos básicos
-            diameter: result.input?.asteroid_diameter_m || 0,
-            velocity: result.input?.velocity_km_s * 1000 || 0, // Convertir a m/s
-            angle: result.input?.angle_degrees || 45,
-            composition: result.input?.composition || 'rocky',
-            latitude: result.input?.impact_location?.lat || 0,
-            longitude: result.input?.impact_location?.lon || 0,
-            
-            // Cálculos
-            impactEnergy: result.calculations?.energy_megatons_tnt || 0,
-            craterDiameter: result.calculations?.crater_diameter_m || 0,
-            destructionRadius: result.calculations?.destruction_radius_km * 1000 || 0, // Convertir a metros
-            calculations: {
-                impactEnergy: result.calculations?.energy_megatons_tnt || 0,
-                craterDiameter: result.calculations?.crater_diameter_m || 0,
-                destructionRadius: result.calculations?.destruction_radius_km * 1000 || 0,
-                damageRadius: result.calculations?.damage_radius_km * 1000 || 0,
-                airPressureRadius: (result.calculations?.damage_radius_km * 1.5) * 1000 || 0,
-                seismicMagnitude: result.calculations?.seismic_magnitude || 0,
-                tsunamiRisk: result.calculations?.tsunami?.risk || 'Bajo',
-                tsunamiHeight: result.calculations?.tsunami?.height_m || 0,
-                tsunamiRadius: result.calculations?.tsunami?.radius_km * 1000 || 0,
-                thermalRadius: result.calculations?.thermal_radius_km * 1000 || 0,
-                ejectaRadius: result.calculations?.ejecta_radius_km * 1000 || 0
-            },
-            
-            // Población
-            affectedPopulation: result.population_affected || 0,
-            population: {
-                totalAffected: result.population_affected || 0,
-                destructionZone: 0, // Se calculará dinámicamente
-                damageZone: 0, // Se calculará dinámicamente
-                affectedZone: result.population_affected || 0,
-                cities: [],
-                countries: result.locationInfo?.address?.country ? [result.locationInfo.address.country] : [],
-                continents: result.locationInfo?.address?.continent ? [result.locationInfo.address.continent] : [],
-                // Datos dinámicos de ciudades
-                citiesDetailed: result.locationInfo?.populationData?.citiesDetailed || [],
-                totalCitiesFound: result.locationInfo?.populationData?.totalCitiesFound || 0,
-                totalPopulationFromCities: result.locationInfo?.populationData?.totalPopulationFromCities || 0,
-                citiesByType: result.locationInfo?.populationData?.citiesByType || {},
-                citiesByDistance: result.locationInfo?.populationData?.citiesByDistance || [],
-                citiesInDestructionZone: result.locationInfo?.populationData?.citiesInDestructionZone || [],
-                citiesInDamageZone: result.locationInfo?.populationData?.citiesInDamageZone || [],
-                citiesInAffectedZone: result.locationInfo?.populationData?.citiesInAffectedZone || []
-            },
-            
-            // Ambiente
-            mostAffectedFauna: result.flora_fauna_analysis?.most_affected_fauna || 'No detectada',
-            mostAffectedFlora: result.flora_fauna_analysis?.most_affected_flora || 'No detectada',
-            environment: {
-                mostAffectedFauna: result.flora_fauna_analysis?.most_affected_fauna || 'No detectada',
-                mostAffectedFlora: result.flora_fauna_analysis?.most_affected_flora || 'No detectada',
-                ecosystemDamage: 'Moderado',
-                biodiversityLoss: 'Bajo',
-                climateEffects: 'Mínimo',
-                atmosphericChanges: 'Temporal',
-                waterContamination: 'Bajo',
-                soilContamination: 'Moderado'
-            },
-            
-            // Ubicación
-            location: {
-                latitude: result.input?.impact_location?.lat || 0,
-                longitude: result.input?.impact_location?.lon || 0,
-                city: result.locationInfo?.address?.city || 'Ubicación desconocida',
-                country: result.locationInfo?.address?.country || 'País desconocido',
-                continent: result.locationInfo?.address?.continent || 'Continente desconocido',
-                elevation: result.usgs_context?.elevation?.elevation_m || 0,
-                terrainType: result.usgs_context?.elevation?.terrain_type || 'unknown',
-                isOceanic: result.usgs_context?.elevation?.is_oceanic || false,
-                coastalDistance: result.usgs_context?.coastal_distance_km || 0
-            },
-            
-            // Asteroide
-            asteroid: {
-                diameter: result.input?.asteroid_diameter_m || 0,
-                velocity: result.input?.velocity_km_s * 1000 || 0,
-                angle: result.input?.angle_degrees || 45,
-                composition: result.input?.composition || 'rocky',
-                mass: 0, // Se calculará si es necesario
-                density: 3000
-            },
-            
-            // Metadata
-            metadata: {
-                calculationTime: Date.now() - (result.metadata?.startTime || Date.now()),
-                apiCalls: 5, // Aproximado
-                confidence: 0.85
-            }
-        };
-        
-        // Guardar los datos (asíncrono)
-        saveImpacto(impactData).then(savedData => {
-            if (savedData) {
-                console.log('✅ Datos de impacto guardados exitosamente');
-            }
-        }).catch(error => {
-            console.error('⚠️ Error al guardar datos de impacto:', error);
-        });
-        
-    } catch (error) {
-        console.error('⚠️ Error al guardar automáticamente datos de impacto:', error);
-        // No mostrar notificación de error para no interrumpir el flujo normal
-    }
     
     const container = document.getElementById('results-content');
     
@@ -2826,9 +2464,9 @@ async function getLocationInfo(lat, lon, destructionRadiusKm, damageRadiusKm) {
         
         console.log('Ubicación identificada:', displayName);
         
-        // 2. Obtener población REAL de la zona usando Overpass API
-        console.log('Consultando Overpass API para datos de población...');
-        const populationData = await getPopulationFromOverpass(lat, lon, destructionRadiusKm, damageRadiusKm, airPressureRadiusKm);
+        // 2. Obtener población REAL de la zona usando GeoNames API
+        console.log('Consultando APIs de población...');
+        const populationData = await getPopulationFromGeoNames(lat, lon, destructionRadiusKm, damageRadiusKm);
         
         console.log('Datos de población obtenidos:', populationData);
         
@@ -2851,226 +2489,118 @@ async function getLocationInfo(lat, lon, destructionRadiusKm, damageRadiusKm) {
     }
 }
 
-async function getPopulationFromOverpass(lat, lon, destructionRadiusKm, damageRadiusKm, airPressureRadiusKm) {
-    console.log('🔍 DEBUG getPopulationFromOverpass:');
-    console.log('Parámetros:', { lat, lon, destructionRadiusKm, damageRadiusKm, airPressureRadiusKm });
+async function getPopulationFromGeoNames(lat, lon, destructionRadiusKm, damageRadiusKm) {
+    console.log(' Intentando GeoNames API como primera opción...');
     
     try {
-        // Convertir km a metros para Overpass API
-        const destructionRadiusM = Math.round(destructionRadiusKm * 1000);
-        const damageRadiusM = Math.round(damageRadiusKm * 1000);
-        const airPressureRadiusM = Math.round(airPressureRadiusKm * 1000);
+        // Usar la API de GeoNames para buscar todos los asentamientos humanos
+        // Username gratuito de GeoNames (reemplazar con uno propio para producción)
+        const username = 'demo'; // Usar 'demo' para pruebas
         
-        console.log('Radios en metros:', { destructionRadiusM, damageRadiusM, airPressureRadiusM });
+        // Buscar en un radio más amplio para asegurar detección
+        const maxRadius = Math.max(destructionRadiusKm, damageRadiusKm, 25); // Mínimo 25km para mejor cobertura
         
-        // Consulta Overpass mejorada para obtener más datos de población
-        const query = `
-[out:json];
-(
-  node["place"~"city|town|village|hamlet|suburb"]["population"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  way["place"~"city|town|village|hamlet|suburb"]["population"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  relation["place"~"city|town|village|hamlet|suburb"]["population"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  node["place"~"city|town|village|hamlet|suburb"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  way["place"~"city|town|village|hamlet|suburb"](around:${airPressureRadiusM}, ${lat}, ${lon});
-  relation["place"~"city|town|village|hamlet|suburb"](around:${airPressureRadiusM}, ${lat}, ${lon});
-);
-out center tags;
-`;
+        console.log(`📡 Radio de búsqueda GeoNames: ${maxRadius}km`);
         
-        console.log('Query Overpass:', query);
+        // Hacer múltiples consultas para obtener todos los tipos de asentamientos
+        const queries = [
+            // Ciudades, pueblos y aldeas (featureClass=P)
+            `https://secure.geonames.org/findNearbyPlaceNameJSON?lat=${lat}&lng=${lon}&radius=${maxRadius}&maxRows=500&username=${username}&style=FULL&featureClass=P`,
+            // Divisiones administrativas con población (featureClass=A)
+            `https://secure.geonames.org/findNearbyPlaceNameJSON?lat=${lat}&lng=${lon}&radius=${maxRadius}&maxRows=200&username=${username}&style=FULL&featureClass=A`
+        ];
         
-        const url = "http://overpass-api.de/api/interpreter";
-        const response = await fetch(url, {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
-            },
-            body: `data=${encodeURIComponent(query)}`
-        });
+        const allPlaces = [];
         
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+        for (let i = 0; i < queries.length; i++) {
+            try {
+                console.log(` Consultando GeoNames query ${i + 1}/${queries.length}...`);
+                const response = await fetch(queries[i]);
+                if (response.ok) {
+        const data = await response.json();
+                    if (data.geonames && data.geonames.length > 0) {
+                        console.log(` GeoNames query ${i + 1}: ${data.geonames.length} lugares encontrados`);
+                        allPlaces.push(...data.geonames);
+                    } else {
+                        console.log(`GeoNames query ${i + 1}: Sin lugares encontrados`);
+                    }
+                }
+                // Esperar un poco entre consultas para no saturar la API
+                await new Promise(resolve => setTimeout(resolve, 100));
+            } catch (error) {
+                console.warn(`❌ Error in GeoNames query ${i + 1}:`, error);
+            }
         }
         
-        const data = await response.json();
-        console.log('Respuesta Overpass:', data);
+        // Combinar y eliminar duplicados
+        const uniquePlaces = [];
+        const seenNames = new Set();
         
-        if (!data.elements || data.elements.length === 0) {
-            console.log('❌ No se encontraron lugares en Overpass');
+        for (const place of allPlaces) {
+            const key = `${place.name}-${place.lat}-${place.lng}`;
+            if (!seenNames.has(key) && place.population && parseInt(place.population) > 0) {
+                seenNames.add(key);
+                uniquePlaces.push(place);
+            }
+        }
+        
+        if (uniquePlaces.length === 0) {
             return {
                 totalPopulation: 0,
-                total_population: 0,
-                destruction_zone_population: 0,
-                damage_zone_population: 0,
-                air_pressure_zone_population: 0,
-                citiesInDestructionZone: [],
-                citiesInDamageZone: [],
-                citiesInAirPressureZone: [],
+                nearestCity: null,
+                citiesInRange: [],
                 message: 'Área deshabitada o sin datos de población disponibles'
             };
         }
         
-        // Procesar resultados y calcular población estimada
-        const places = [];
-        
-        data.elements.forEach(element => {
-            const tags = element.tags || {};
-            const name = tags.name;
-            const placeType = tags.place;
-            
-            if (name && placeType) {
-                // Obtener coordenadas
-                let placeLat, placeLon;
-                if (element.type === 'node') {
-                    placeLat = element.lat;
-                    placeLon = element.lon;
-                } else if (element.center) {
-                    placeLat = element.center.lat;
-                    placeLon = element.center.lon;
-                } else {
-                    return; // Skip si no hay coordenadas
-                }
-                
-                // Calcular distancia desde el punto de impacto
-                const distance = calculateDistance(lat, lon, placeLat, placeLon);
-                
-                // Usar población real de la API si está disponible, sino estimar
-                let population = 0;
-                
-                // Buscar población en diferentes campos de la API
-                if (tags.population) {
-                    population = parseInt(tags.population) || 0;
-                } else if (tags['population:date']) {
-                    population = parseInt(tags['population:date']) || 0;
-                } else if (tags['addr:population']) {
-                    population = parseInt(tags['addr:population']) || 0;
-                } else if (tags['census:population']) {
-                    population = parseInt(tags['census:population']) || 0;
-                }
-                
-                // Si no hay datos reales de población, estimar basado en el tipo
-                if (population === 0) {
-                    switch (placeType) {
-                        case 'city':
-                            population = Math.floor(Math.random() * 500000) + 100000; // 100k-600k
-                            break;
-                        case 'town':
-                            population = Math.floor(Math.random() * 50000) + 5000; // 5k-55k
-                            break;
-                        case 'village':
-                            population = Math.floor(Math.random() * 2000) + 100; // 100-2.1k
-                            break;
-                        default:
-                            population = Math.floor(Math.random() * 1000) + 50; // 50-1k
-                    }
-                }
-                
-                places.push({
-                    name: name,
-                    type: placeType,
-                    population: population,
-                    distance: distance,
-                    lat: placeLat,
-                    lon: placeLon,
-                    isRealData: population > 0 && (tags.population || tags['population:date'] || tags['addr:population'] || tags['census:population'])
-                });
-            }
-        });
-        
-        console.log('Lugares encontrados:', places);
-        
-        // Estadísticas de datos reales vs estimados
-        const realDataCount = places.filter(p => p.isRealData).length;
-        const estimatedDataCount = places.filter(p => !p.isRealData).length;
-        const totalRealPopulation = places.filter(p => p.isRealData).reduce((sum, p) => sum + p.population, 0);
-        const totalEstimatedPopulation = places.filter(p => !p.isRealData).reduce((sum, p) => sum + p.population, 0);
-        
-        console.log('📊 ESTADÍSTICAS DE POBLACIÓN:');
-        console.log(`Datos reales: ${realDataCount} lugares, ${totalRealPopulation.toLocaleString()} habitantes`);
-        console.log(`Datos estimados: ${estimatedDataCount} lugares, ${totalEstimatedPopulation.toLocaleString()} habitantes`);
-        console.log(`Total población: ${(totalRealPopulation + totalEstimatedPopulation).toLocaleString()} habitantes`);
-        
-        // Mostrar lugares con datos reales
-        const realDataPlaces = places.filter(p => p.isRealData);
-        if (realDataPlaces.length > 0) {
-            console.log('🏙️ LUGARES CON DATOS REALES DE POBLACIÓN:');
-            realDataPlaces.forEach(place => {
-                console.log(`  ${place.name} (${place.type}): ${place.population.toLocaleString()} habitantes`);
-            });
-        }
-        
-        // Clasificar por zonas
+        // Calcular población en cada zona
         const citiesInDestructionZone = [];
         const citiesInDamageZone = [];
-        const citiesInAirPressureZone = [];
-        
         let totalPopInDestruction = 0;
         let totalPopInDamage = 0;
-        let totalPopInAirPressure = 0;
         
-        places.forEach(place => {
-            const { name, type, population, distance } = place;
+        uniquePlaces.forEach(place => {
+            // Calcular distancia desde el punto de impacto
+            const placeLat = parseFloat(place.lat);
+            const placeLng = parseFloat(place.lng);
+            const distance = calculateDistance(lat, lon, placeLat, placeLng);
+            const population = parseInt(place.population) || 0;
+            
+            if (population > 0) {
+            const cityInfo = {
+                name: place.name,
+                population: population,
+                distance: distance,
+                    countryName: place.countryName || place.adminName1,
+                    featureCode: place.fcode || 'unknown'
+            };
             
             if (distance <= destructionRadiusKm) {
-                citiesInDestructionZone.push({
-                    name: name,
-                    population: population,
-                    distance: distance,
-                    type: type,
-                    mortalityRate: 0.95 // 95% mortalidad en zona de destrucción total
-                });
+                citiesInDestructionZone.push(cityInfo);
                 totalPopInDestruction += population;
             } else if (distance <= damageRadiusKm) {
-                citiesInDamageZone.push({
-                    name: name,
-                    population: population,
-                    distance: distance,
-                    type: type,
-                    mortalityRate: 0.15 // 15% mortalidad en zona de daño severo
-                });
+                citiesInDamageZone.push(cityInfo);
                 totalPopInDamage += population;
-            } else if (distance <= airPressureRadiusKm) {
-                citiesInAirPressureZone.push({
-                    name: name,
-                    population: population,
-                    distance: distance,
-                    type: type,
-                    mortalityRate: 0.05 // 5% mortalidad en zona de presión de aire
-                });
-                totalPopInAirPressure += population;
+                }
             }
         });
         
         // Ordenar por población (mayor a menor)
         citiesInDestructionZone.sort((a, b) => b.population - a.population);
         citiesInDamageZone.sort((a, b) => b.population - a.population);
-        citiesInAirPressureZone.sort((a, b) => b.population - a.population);
         
-        const totalPopulation = totalPopInDestruction + totalPopInDamage + totalPopInAirPressure;
-        
-        const result = {
-            totalPopulation: totalPopulation,
-            total_population: totalPopulation,
-            destruction_zone_population: totalPopInDestruction,
-            damage_zone_population: totalPopInDamage,
-            air_pressure_zone_population: totalPopInAirPressure,
+        return {
+            totalPopulation: totalPopInDestruction + totalPopInDamage,
+            populationInDestructionZone: totalPopInDestruction,
+            populationInDamageZone: totalPopInDamage,
+            nearestCity: uniquePlaces[0] || null,
             citiesInDestructionZone: citiesInDestructionZone,
             citiesInDamageZone: citiesInDamageZone,
-            citiesInAirPressureZone: citiesInAirPressureZone,
             message: null
         };
         
-        console.log('✅ Overpass: Datos de población encontrados:');
-        console.log('Total población:', result.totalPopulation);
-        console.log('Ciudades en zona destrucción:', citiesInDestructionZone.length);
-        console.log('Ciudades en zona daño:', citiesInDamageZone.length);
-        console.log('Ciudades en zona presión aire:', citiesInAirPressureZone.length);
-        console.log('Resultado completo:', result);
-        
-        return result;
-        
     } catch (error) {
-        console.error('Error fetching population from Overpass:', error);
+        console.error('Error fetching population from GeoNames:', error);
         return await getPopulationAlternative(lat, lon, destructionRadiusKm, damageRadiusKm);
     }
 }
@@ -3444,48 +2974,6 @@ function getCountryPopulation(countryName) {
 // MAP FUNCTIONALITY
 // ============================================
 
-// Variable global para almacenar la ubicación del usuario
-let userLocationData = null;
-
-// Función para centrar el mapa en la ubicación del usuario
-function centerMapOnUserLocation() {
-    if (!userLocationData) {
-        // Si no tenemos ubicación guardada, intentar obtenerla
-        getUserLocation().then(userLocation => {
-            userLocationData = userLocation;
-            centerMapOnUserLocation();
-        }).catch(error => {
-            console.log('No se pudo obtener la ubicación del usuario');
-            alert('No se pudo obtener tu ubicación. Asegúrate de permitir el acceso a la ubicación.');
-        });
-        return;
-    }
-    
-    if (impactMap) {
-        // Determinar el nivel de zoom según el método de detección
-        let zoomLevel;
-        if (userLocationData.method === 'ip') {
-            zoomLevel = 10;
-        } else if (userLocationData.method === 'gps') {
-            zoomLevel = 12;
-        } else {
-            zoomLevel = 8;
-        }
-        
-        // Hacer zoom animado a la ubicación del usuario
-        impactMap.flyTo([userLocationData.lat, userLocationData.lon], zoomLevel, {
-            duration: 2,
-            easeLinearity: 0.25
-        });
-        
-        // Actualizar los campos de entrada
-        document.getElementById('latitude').value = userLocationData.lat.toFixed(4);
-        document.getElementById('longitude').value = userLocationData.lon.toFixed(4);
-        
-        console.log('Mapa centrado en tu ubicación actual');
-    }
-}
-
 // Obtener ubicación aproximada del usuario usando su IP (sin permisos)
 async function getUserLocationByIP() {
     try {
@@ -3594,13 +3082,11 @@ function getUserLocation() {
 }
 
 function initializeImpactMap() {
-    // Esperar a que el DOM y Leaflet estén listos
     const mapContainer = document.getElementById('map-container');
     if (!mapContainer) {
         console.error('Map container not found!');
         return;
     }
-    
     
     try {
         // Eliminar mapa anterior si existe
@@ -3609,89 +3095,69 @@ function initializeImpactMap() {
             impactMap = null;
         }
         
-        // Crear el mapa con configuración explícita
-        // Calcular el zoom mínimo basándose en el área visible (sin sidebar)
+        // Crear el mapa
         const sidebar = document.getElementById('sidebar');
-        
         let visibleWidth = window.innerWidth;
         if (sidebar && window.innerWidth > 768) {
-            // Restar el ancho del sidebar para obtener el ancho visible real
             visibleWidth = window.innerWidth - sidebar.offsetWidth;
         }
         
-        // Calcular zoom para que el mundo llene el ancho visible
-        // A zoom Z, el mundo tiene 256 * 2^Z píxeles
-        // Queremos: 256 * 2^Z >= visibleWidth
-        // Entonces: Z >= log2(visibleWidth / 256)
-        // Añadir +1 para compensar el centrado y asegurar que no haya espacios
         const calculatedMinZoom = Math.max(Math.ceil(Math.log2(visibleWidth / 256)) + 1, 3);
         
         impactMap = L.map('map-container', {
             center: [20, 0],
-            zoom: Math.max(calculatedMinZoom + 1, 2),  // Iniciar con un zoom cómodo
-            minZoom: calculatedMinZoom,  // Zoom mínimo calculado
+            zoom: Math.max(calculatedMinZoom + 1, 2),
+            minZoom: calculatedMinZoom,
             maxZoom: 19,
             zoomControl: true,
             attributionControl: true,
             preferCanvas: false,
             renderer: L.canvas(),
-            worldCopyJump: true,  // Salta automáticamente a la copia principal del mundo
-            maxBoundsViscosity: 0  // Permite movimiento libre
+            worldCopyJump: true,
+            maxBoundsViscosity: 0
         });
-        
         
         // Definir las capas base
         const currentTheme = document.documentElement.getAttribute('data-theme') || 'dark';
         
-        // Capas de mapa normal (tema oscuro y claro)
         const darkLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}{r}.png', {
             attribution: '© OpenStreetMap © CARTO',
             subdomains: 'abcd',
             maxZoom: 19,
             minZoom: 2,
             noWrap: true
-            });
+        });
         
         const lightLayer = L.tileLayer('https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png', {
-                attribution: '© OpenStreetMap © CARTO',
-                subdomains: 'abcd',
-                maxZoom: 19,
-                minZoom: 2,
+            attribution: '© OpenStreetMap © CARTO',
+            subdomains: 'abcd',
+            maxZoom: 19,
+            minZoom: 2,
             noWrap: true
         });
         
-        // Capas de vista satélite
         const satelliteLayer = L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-            attribution: '© Esri © DigitalGlobe © GeoEye',
+            attribution: '© Esri',
             maxZoom: 19,
             minZoom: 2,
-            noWrap: true,
-            errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'  // Imagen transparente 1x1
+            noWrap: true
         });
         
         const satelliteHybridLayer = L.layerGroup([
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer/tile/{z}/{y}/{x}', {
-                attribution: '© Esri © DigitalGlobe © GeoEye',
                 maxZoom: 19,
                 minZoom: 2,
-                noWrap: true,
-                errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'  // Imagen transparente 1x1
+                noWrap: true
             }),
             L.tileLayer('https://server.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer/tile/{z}/{y}/{x}', {
                 maxZoom: 19,
                 minZoom: 2,
-                noWrap: true,
-                errorTileUrl: 'data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7'  // Imagen transparente 1x1
+                noWrap: true
             })
         ]);
         
-        // Agregar la capa apropiada según el tema
-        if (currentTheme === 'dark') {
-            currentTileLayer = darkLayer;
-        } else {
-            currentTileLayer = lightLayer;
-        }
-        
+        // Agregar la capa inicial según el tema
+        currentTileLayer = currentTheme === 'dark' ? darkLayer : lightLayer;
         currentTileLayer.addTo(impactMap);
         
         // CREAR CONTROL PERSONALIZADO EN LUGAR DEL ESTÁNDAR
@@ -3701,6 +3167,74 @@ function initializeImpactMap() {
             'hybrid': satelliteHybridLayer
         });
         
+        // Event listener para clicks en el mapa
+        impactMap.on('click', (e) => {
+            const lat = e.latlng.lat.toFixed(4);
+            const lng = e.latlng.lng.toFixed(4);
+            
+            document.getElementById('latitude').value = lat;
+            document.getElementById('longitude').value = lng;
+            
+            if (currentMarker) {
+                impactMap.removeLayer(currentMarker);
+            }
+            
+            currentCircles.forEach(circle => {
+                impactMap.removeLayer(circle);
+            });
+            currentCircles = [];
+            
+            currentMarker = L.marker([e.latlng.lat, e.latlng.lng], {
+                icon: L.divIcon({
+                    className: 'custom-marker',
+                    html: `<div style="background: #FF4444; width: 16px; height: 16px; border-radius: 50%; border: 3px solid white; box-shadow: 0 0 10px rgba(255, 68, 68, 0.8);"></div>`,
+                    iconSize: [22, 22],
+                    iconAnchor: [11, 11]
+                })
+            }).addTo(impactMap);
+            
+            currentMarker.bindPopup(`
+                <div style="background: #1A1A1A; color: #E0E0E0; padding: 8px; border-radius: 4px;">
+                    <strong style="color: #FF4444;">Punto Seleccionado</strong><br>
+                    Latitud: ${lat}<br>
+                    Longitud: ${lng}
+                </div>
+            `).openPopup();
+        });
+        
+        // Forzar resize del mapa
+        setTimeout(() => impactMap && impactMap.invalidateSize(), 100);
+        setTimeout(() => impactMap && impactMap.invalidateSize(), 500);
+        setTimeout(() => impactMap && impactMap.invalidateSize(), 1000);
+        
+        // Obtener ubicación del usuario
+        setTimeout(() => {
+            getUserLocation().then(userLocation => {
+                console.log('Ubicación detectada:', userLocation);
+                
+                const zoomLevel = userLocation.method === 'ip' ? 10 : 12;
+                
+                if (impactMap) {
+                    impactMap.flyTo([userLocation.lat, userLocation.lon], zoomLevel, {
+                        duration: 2,
+                        easeLinearity: 0.25
+                    });
+                }
+                
+                document.getElementById('latitude').value = userLocation.lat.toFixed(4);
+                document.getElementById('longitude').value = userLocation.lon.toFixed(4);
+                
+                updateCurrentLocationDisplay(userLocation);
+            }).catch(error => {
+                console.log('Usando ubicación predeterminada');
+            });
+        }, 1200);
+        
+    } catch (error) {
+        console.error('Error initializing map:', error);
+    }
+}
+
 // NUEVA FUNCIÓN: Control personalizado de capas
 function createCustomLayersControl(layers) {
     // Crear contenedor
@@ -3772,149 +3306,6 @@ function createCustomLayersControl(layers) {
     
     // Añadir al mapa
     document.getElementById('map-container').appendChild(controlDiv);
-}
-        
-        // Actualizar minZoom cuando cambie el tamaño de la ventana
-        let resizeTimeout;
-        window.addEventListener('resize', function() {
-            if (!impactMap) return;
-            
-            clearTimeout(resizeTimeout);
-            resizeTimeout = setTimeout(function() {
-                const sidebar = document.getElementById('sidebar');
-                
-                let visibleWidth = window.innerWidth;
-                if (sidebar && window.innerWidth > 768) {
-                    visibleWidth = window.innerWidth - sidebar.offsetWidth;
-                }
-                
-                const newMinZoom = Math.max(Math.ceil(Math.log2(visibleWidth / 256)) + 1, 3);
-                
-                // Actualizar el minZoom del mapa
-                impactMap.setMinZoom(newMinZoom);
-                
-                // Si el zoom actual es menor que el nuevo mínimo, ajustar
-                if (impactMap.getZoom() < newMinZoom) {
-                    impactMap.setZoom(newMinZoom);
-                }
-                
-                // Invalidar el tamaño del mapa para que se redibuje correctamente
-                impactMap.invalidateSize();
-            }, 250);
-        });
-        
-        // Click to select impact point
-        impactMap.on('click', (e) => {
-            const lat = e.latlng.lat.toFixed(4);
-            const lng = e.latlng.lng.toFixed(4);
-            
-            document.getElementById('latitude').value = lat;
-            document.getElementById('longitude').value = lng;
-            
-            // Clear previous marker
-            if (currentMarker) {
-                impactMap.removeLayer(currentMarker);
-            }
-            
-            // Clear previous circles
-            currentCircles.forEach(circle => {
-                impactMap.removeLayer(circle);
-            });
-            currentCircles = [];
-            
-            // Add new marker with better visibility
-            currentMarker = L.marker([e.latlng.lat, e.latlng.lng], {
-                icon: L.divIcon({
-                    className: 'custom-marker',
-                    html: `<div style="
-                        background: #FF4444; 
-                        width: 16px; 
-                        height: 16px; 
-                        border-radius: 50%; 
-                        border: 3px solid white;
-                        box-shadow: 0 0 10px rgba(255, 68, 68, 0.8), 0 0 20px rgba(255, 68, 68, 0.4);
-                    "></div>`,
-                    iconSize: [22, 22],
-                    iconAnchor: [11, 11]
-                })
-            }).addTo(impactMap);
-            
-            currentMarker.bindPopup(`
-                <div style="background: #1A1A1A; color: #E0E0E0; padding: 8px; border-radius: 4px;">
-                    <strong style="color: #FF4444;">Punto Seleccionado</strong><br>
-                    Latitud: ${lat}<br>
-                    Longitud: ${lng}
-                </div>
-            `).openPopup();
-        });
-        
-        
-        // Force map to resize multiple times to ensure it displays
-        setTimeout(() => {
-            if (impactMap) {
-                impactMap.invalidateSize();
-            }
-        }, 100);
-        
-        setTimeout(() => {
-            if (impactMap) {
-                impactMap.invalidateSize();
-            }
-        }, 500);
-        
-        setTimeout(() => {
-            if (impactMap) {
-                impactMap.invalidateSize();
-            }
-        }, 1000);
-        
-        // Intentar obtener la ubicación del usuario después de que el mapa esté cargado
-        setTimeout(() => {
-            getUserLocation().then(userLocation => {
-                console.log('Ubicación del usuario detectada:', userLocation);
-                
-                // Detectar y cambiar idioma automáticamente según el país
-                if (userLocation.countryCode && window.i18n) {
-                    const detectedLang = window.i18n.autoDetectLanguage(userLocation.countryCode);
-                    console.log(`Idioma detectado: ${detectedLang.toUpperCase()} para país: ${userLocation.country}`);
-                }
-                
-                // NO hacer zoom automático - solo guardar la ubicación para uso posterior
-                console.log(`Ubicación detectada: ${userLocation.city || 'desconocida'}, ${userLocation.country || 'desconocido'}`);
-                console.log('Ubicación guardada para uso manual - usa el botón "Mi Ubicación" para centrar');
-                
-                // Guardar la ubicación del usuario para uso posterior
-                userLocationData = userLocation;
-                
-                // Actualizar los campos de entrada con la ubicación del usuario
-                document.getElementById('latitude').value = userLocation.lat.toFixed(4);
-                document.getElementById('longitude').value = userLocation.lon.toFixed(4);
-                
-                // Actualizar el display de ubicación actual
-                updateCurrentLocationDisplay(userLocation);
-                
-            }).catch(error => {
-                console.log('Usando ubicación predeterminada - No se pudo obtener geolocalización');
-                // Si falla, mantener el centro predeterminado
-            });
-        }, 1200);
-        
-    } catch (error) {
-        console.error('Error initializing map:', error);
-        // Intentar mostrar un mensaje visual si el mapa falla
-        const mapContainer = document.getElementById('map-container');
-        if (mapContainer) {
-            mapContainer.innerHTML = `
-                <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #FF4444; flex-direction: column; padding: 2rem; text-align: center;">
-                    <h2>Error al cargar el mapa</h2>
-                    <p style="margin-top: 1rem; color: #A0A0A0;">Error: ${error.message}</p>
-                    <button onclick="location.reload()" style="margin-top: 1rem; padding: 0.75rem 1.5rem; background: #00A8E8; color: white; border: none; border-radius: 6px; cursor: pointer;">
-                        Recargar Página
-                    </button>
-                </div>
-            `;
-        }
-    }
 }
 
 async function updateImpactMap(result) {
@@ -4221,29 +3612,30 @@ function displayDeflectionResults(data) {
     
     let html = `
         <!-- Resultado principal -->
-        <div style="background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <div style="font-size: 18px; font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">${rec.verdict}</div>
-            <div style="font-size: 14px; color: var(--text-medium);">${rec.message}</div>
+        <div class="severity-badge" style="background: ${rec.color}20; border: 2px solid ${rec.color}; margin-bottom: 1.5rem;">
+            <div style="font-size: 18px; font-weight: bold;">${rec.verdict}</div>
+            <div style="font-size: 14px; margin-top: 0.5rem;">${rec.message}</div>
         </div>
         
         <!-- Estrategia probada -->
-        <div style="background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-            <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">RESULTADO DE LA SIMULACIÓN</div>
+        <div style="background: rgba(0,168,232,0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+            <strong style="font-size: 16px; color: #00A8E8;">📊 RESULTADO DE LA SIMULACIÓN</strong>
+            <hr style="border-color: #3A3A3A; margin: 12px 0;">
             
-            <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Estrategia Probada:</div>
-                <div style="color: var(--text-medium);">${result.strategy === 'kinetic_impactor' ? 'Impactador Cinético' : 'Tractor de Gravedad'}</div>
+            <div class="result-stat" style="background: rgba(0,168,232,0.1); margin-bottom: 0.5rem;">
+                <strong>Estrategia Probada:</strong><br>
+                ${result.strategy === 'kinetic_impactor' ? '🚀 Impactador Cinético' : '🛰️ Tractor de Gravedad'}
             </div>
             
-            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem;">
-                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px;">
-                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Cambio de Velocidad (Δv):</div>
-                    <div style="color: var(--text-medium);">${result.delta_v.toFixed(6)} m/s</div>
+            <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; margin-top: 1rem;">
+                <div class="result-stat">
+                    <strong>Cambio de Velocidad (Δv):</strong><br>
+                    ${result.delta_v.toFixed(6)} m/s
                 </div>
                 
-                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px;">
-                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Distancia Deflectada:</div>
-                    <div style="color: var(--text-medium);">${result.deflection_km.toLocaleString()} km</div>
+                <div class="result-stat">
+                    <strong>Distancia Deflectada:</strong><br>
+                    ${result.deflection_km.toLocaleString()} km
                 </div>
             </div>
         </div>
@@ -4252,92 +3644,76 @@ function displayDeflectionResults(data) {
     // Análisis del asteroide
     if (asteroidAnalysis) {
         html += `
-            <div style="background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
-                <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">ANÁLISIS DEL ASTEROIDE</div>
+            <div style="background: rgba(255,193,7,0.1); padding: 1.5rem; border-radius: 8px; margin-bottom: 1.5rem;">
+                <strong style="color: #FFC107; font-size: 16px;">🎯 ANÁLISIS DEL ASTEROIDE</strong>
+                <hr style="border-color: #3A3A3A; margin: 12px 0;">
                 <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 1rem; font-size: 13px;">
-                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
-                        <div style="font-weight: bold; color: var(--text-light);">Masa:</div>
-                        <div style="color: var(--text-medium);">${formatNumber(asteroidAnalysis.mass_kg)} kg</div>
-                    </div>
-                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
-                        <div style="font-weight: bold; color: var(--text-light);">Energía:</div>
-                        <div style="color: var(--text-medium);">${asteroidAnalysis.energy_mt.toFixed(2)} MT TNT</div>
-                    </div>
-                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
-                        <div style="font-weight: bold; color: var(--text-light);">Composición:</div>
-                        <div style="color: var(--text-medium);">${asteroidAnalysis.composition}</div>
-                    </div>
-                    <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px;">
-                        <div style="font-weight: bold; color: var(--text-light);">Riesgo Fragmentación:</div>
-                        <div style="color: var(--text-medium);">${(asteroidAnalysis.fragmentation_risk * 100).toFixed(0)}%</div>
-                    </div>
+                    <div><strong>Masa:</strong> ${formatNumber(asteroidAnalysis.mass_kg)} kg</div>
+                    <div><strong>Energía:</strong> ${asteroidAnalysis.energy_mt.toFixed(2)} MT TNT</div>
+                    <div><strong>Composición:</strong> ${asteroidAnalysis.composition}</div>
+                    <div><strong>Riesgo Fragmentación:</strong> ${(asteroidAnalysis.fragmentation_risk * 100).toFixed(0)}%</div>
                 </div>
             </div>
         `;
     }
     
-    // TABLA COMPARATIVA
+    // TABLA COMPARATIVA en lugar de 3D
     if (allStrategies.length > 0) {
         html += `
             <div style="margin-top: 1.5rem;">
-                <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">COMPARACIÓN DE ESTRATEGIAS (${allStrategies.length})</div>
+                <strong style="font-size: 16px; color: #00A8E8;">📊 COMPARACIÓN DE TODAS LAS ESTRATEGIAS (${allStrategies.length})</strong>
+                <hr style="border-color: #3A3A3A; margin: 12px 0;">
                 
+                <!-- Gráficos de barras horizontales -->
                 ${allStrategies.map((strat, index) => `
-                    <div style="margin: 1.5rem 0; background: var(--input-bg); border: 1px solid var(--input-border); border-radius: 8px; padding: 1.5rem;">
-                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <div style="margin: 1.5rem 0; padding: 1rem; background: ${index === 0 ? 'rgba(0,230,118,0.1)' : 'rgba(0,168,232,0.05)'}; border-radius: 8px; border-left: 4px solid ${index === 0 ? '#00E676' : '#00A8E8'};">
+                        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                                <div style="font-size: 15px; font-weight: bold; color: var(--text-light);">${strat.name}</div>
-                                ${index === 0 ? '<div style="background: var(--primary-blue); color: white; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 10px; margin-left: 0.5rem;">RECOMENDADO</div>' : ''}
+                                <span style="font-size: 24px;">${strat.icon}</span>
+                                <strong style="font-size: 15px;">${strat.name}</strong>
+                                ${index === 0 ? '<span style="background: #00E676; color: black; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 10px; margin-left: 0.5rem;">RECOMENDADO</span>' : ''}
                             </div>
-                            <div style="font-size: 18px; color: var(--text-light); font-weight: bold;">${strat.effectiveness}%</div>
+                            <span style="font-size: 18px; color: ${getEffectivenessColor(strat.effectiveness)}; font-weight: bold;">${strat.effectiveness}%</span>
                         </div>
                         
                         <!-- Barra de efectividad -->
-                        <div style="background: var(--sidebar-bg); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 1rem;">
-                            <div style="width: ${strat.effectiveness}%; height: 100%; background: var(--primary-blue); transition: width 0.5s ease;"></div>
+                        <div style="background: var(--input-border); height: 8px; border-radius: 4px; overflow: hidden; margin-bottom: 0.8rem;">
+                            <div style="
+                                width: ${strat.effectiveness}%; 
+                                height: 100%; 
+                                background: linear-gradient(90deg, #00A8E8, #00E676);
+                                transition: width 0.5s ease;
+                            "></div>
                         </div>
                         
-                        <div style="font-size: 11px; color: var(--text-medium); margin-bottom: 1rem;">
-                            ${strat.reference_mission ? `${strat.reference_mission} | ` : ''}
+                        <div style="font-size: 11px; color: var(--text-medium); margin-bottom: 0.8rem;">
+                            ${strat.reference_mission ? `📡 ${strat.reference_mission} | ` : ''}
                             ${strat.technology_readiness}
                         </div>
                         
-                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.75rem; font-size: 12px; margin-bottom: 1rem;">
-                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
-                                <div style="font-weight: bold; color: var(--text-light);">Costo:</div>
-                                <div style="color: var(--text-medium);">$${strat.cost_billions}B</div>
-                            </div>
-                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
-                                <div style="font-weight: bold; color: var(--text-light);">Tiempo:</div>
-                                <div style="color: var(--text-medium);">${strat.time_required_years} años</div>
-                            </div>
-                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
-                                <div style="font-weight: bold; color: var(--text-light);">Éxito:</div>
-                                <div style="color: var(--text-medium);">${strat.success_rate}%</div>
-                            </div>
-                            <div style="background: var(--sidebar-bg); padding: 0.5rem; border-radius: 4px;">
-                                <div style="font-weight: bold; color: var(--text-light);">Δv:</div>
-                                <div style="color: var(--text-medium);">${strat.delta_v_m_s} m/s</div>
-                            </div>
+                        <div style="display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; font-size: 11px; margin-bottom: 0.8rem;">
+                            <div><strong>💰 Costo:</strong> $${strat.cost_billions}B</div>
+                            <div><strong>⏱️ Tiempo:</strong> ${strat.time_required_years} años</div>
+                            <div><strong>✅ Éxito:</strong> ${strat.success_rate}%</div>
+                            <div><strong>🚀 Δv:</strong> ${strat.delta_v_m_s} m/s</div>
                         </div>
                         
-                        <div style="font-size: 12px; margin-bottom: 1rem;">
-                            <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Ventajas:</div>
-                            <ul style="margin: 0; padding-left: 1.2rem; color: var(--text-medium);">
-                                ${strat.pros.map(p => `<li style="margin-bottom: 0.25rem;">${p}</li>`).join('')}
+                        <div style="font-size: 11px; margin-bottom: 0.5rem;">
+                            <strong style="color: #00E676;">✓ Ventajas:</strong>
+                            <ul style="margin: 0.2rem 0 0 1.2rem; padding: 0;">
+                                ${strat.pros.map(p => `<li>${p}</li>`).join('')}
                             </ul>
                         </div>
                         
-                        <div style="font-size: 12px; margin-bottom: 1rem;">
-                            <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Desventajas:</div>
-                            <ul style="margin: 0; padding-left: 1.2rem; color: var(--text-medium);">
-                                ${strat.cons.map(c => `<li style="margin-bottom: 0.25rem;">${c}</li>`).join('')}
+                        <div style="font-size: 11px;">
+                            <strong style="color: #FF4444;">✗ Desventajas:</strong>
+                            <ul style="margin: 0.2rem 0 0 1.2rem; padding: 0;">
+                                ${strat.cons.map(c => `<li>${c}</li>`).join('')}
                             </ul>
                         </div>
                         
-                        <div style="background: var(--sidebar-bg); padding: 0.75rem; border-radius: 4px; font-size: 11px;">
-                            <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.25rem;">Mejor para:</div>
-                            <div style="color: var(--text-medium);">${strat.best_for}</div>
+                        <div style="margin-top: 0.5rem; padding: 0.5rem; background: rgba(0,0,0,0.2); border-radius: 4px; font-size: 10px;">
+                            <strong>🎯 Mejor para:</strong> ${strat.best_for}
                         </div>
                     </div>
                 `).join('')}
@@ -4348,32 +3724,27 @@ function displayDeflectionResults(data) {
     // Requisitos técnicos
     if (techReq) {
         html += `
-            <div style="margin-top: 1.5rem; background: var(--input-bg); border: 1px solid var(--input-border); padding: 1.5rem; border-radius: 8px;">
-                <div style="font-size: 16px; font-weight: bold; color: var(--text-light); margin-bottom: 1rem;">REQUISITOS TÉCNICOS DE LA MISIÓN</div>
+            <div style="margin-top: 1.5rem; background: rgba(156,39,176,0.1); padding: 1.5rem; border-radius: 8px;">
+                <strong style="color: #9C27B0; font-size: 16px;">🛠️ REQUISITOS TÉCNICOS DE LA MISIÓN</strong>
+                <hr style="border-color: #3A3A3A; margin: 12px 0;">
                 
-                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Vehículo de Lanzamiento:</div>
-                    <div style="color: var(--text-medium); font-size: 12px;">
-                        ${techReq.launch_vehicle.required} | 
-                        ${techReq.launch_vehicle.launches_needed} lanzamiento(s) | 
-                        $${techReq.launch_vehicle.cost_per_launch_millions}M c/u
-                    </div>
+                <div style="font-size: 12px; margin-bottom: 1rem;">
+                    <strong>Vehículo de Lanzamiento:</strong><br>
+                    ${techReq.launch_vehicle.required} | 
+                    ${techReq.launch_vehicle.launches_needed} lanzamiento(s) | 
+                    $${techReq.launch_vehicle.cost_per_launch_millions}M c/u
                 </div>
                 
-                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px; margin-bottom: 1rem;">
-                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Nave Espacial:</div>
-                    <div style="color: var(--text-medium); font-size: 12px;">
-                        Masa: ${techReq.spacecraft.total_mass_kg.toLocaleString()} kg | 
-                        Potencia: ${techReq.spacecraft.power_requirement_kw} kW
-                    </div>
+                <div style="font-size: 12px; margin-bottom: 1rem;">
+                    <strong>Nave Espacial:</strong><br>
+                    Masa: ${techReq.spacecraft.total_mass_kg.toLocaleString()} kg | 
+                    Potencia: ${techReq.spacecraft.power_requirement_kw} kW
                 </div>
                 
-                <div style="background: var(--sidebar-bg); padding: 1rem; border-radius: 6px;">
-                    <div style="font-weight: bold; color: var(--text-light); margin-bottom: 0.5rem;">Duración de la Misión:</div>
-                    <div style="color: var(--text-medium); font-size: 12px;">
-                        Crucero: ${techReq.mission_duration.cruise_phase_years} años | 
-                        Observación: ${techReq.mission_duration.post_impact_observation_months} meses
-                    </div>
+                <div style="font-size: 12px;">
+                    <strong>Duración de la Misión:</strong><br>
+                    Crucero: ${techReq.mission_duration.cruise_phase_years} años | 
+                    Observación: ${techReq.mission_duration.post_impact_observation_months} meses
                 </div>
             </div>
         `;
@@ -4433,31 +3804,17 @@ function getDeflectionRecommendations(result) {
 
 function showLoading(show, asteroidData = null) {
     if (show) {
-        // Ocultar la leyenda del mapa cuando inicie la simulación 3D
-        const mapLegend = document.querySelector('.map-legend');
-        if (mapLegend) {
-            mapLegend.style.display = 'none';
-        }
-        
-        // Mostrar con animación 3D en el mapa
-        if (typeof show3DInMap === 'function') {
-            show3DInMap(asteroidData);
+        // Mostrar con animación 3D
+        if (typeof show3DLoading === 'function') {
+            show3DLoading(asteroidData);
         } else {
             // Fallback si la animación 3D no está cargada
             const overlay = document.getElementById('loading-overlay');
             overlay.style.display = 'flex';
         }
     } else {
-        // Mostrar la leyenda del mapa cuando termine la simulación 3D
-        const mapLegend = document.querySelector('.map-legend');
-        if (mapLegend) {
-            mapLegend.style.display = 'block';
-        }
-        
         // Ocultar
-        if (typeof hide3DInMap === 'function') {
-            hide3DInMap();
-        } else if (typeof hide3DLoading === 'function') {
+        if (typeof hide3DLoading === 'function') {
             hide3DLoading();
         } else {
             const overlay = document.getElementById('loading-overlay');
@@ -4919,14 +4276,12 @@ function generateCasualtyEstimates(calc, cities) {
         }
     });
     
-    // Calcular estimaciones de víctimas por zona (fallecidos y heridos)
+    // Calcular estimaciones de muertes por zona
     const destructionDeaths = calculateZoneCasualties(citiesInDestructionZone, 'destruction', calc.energy_megatons_tnt);
     const damageDeaths = calculateZoneCasualties(citiesInDamageZone, 'damage', calc.energy_megatons_tnt);
     const airPressureDeaths = calculateZoneCasualties(citiesInAirPressureZone, 'airPressure', calc.energy_megatons_tnt);
     
     const totalDeaths = destructionDeaths.total + damageDeaths.total + airPressureDeaths.total;
-    const totalInjured = destructionDeaths.injured + damageDeaths.injured + airPressureDeaths.injured;
-    const totalAffected = totalDeaths + totalInjured;
     
     return `
         <div class="collapsible-section" data-section="casualties">
@@ -4939,26 +4294,8 @@ function generateCasualtyEstimates(calc, cities) {
             <hr style="border-color: #3A3A3A; margin: 12px 0;">
             
             <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; margin-bottom: 1rem;">
-                <div style="text-align: center; font-size: 20px; color: var(--text-light); font-weight: bold; margin-bottom: 0.8rem;">
-                    ESTIMACIÓN TOTAL DE VÍCTIMAS: ${formatNumber(totalAffected)}
-                </div>
-                <div style="display: flex; justify-content: center; gap: 2rem; margin-bottom: 0.5rem;">
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; color: #FF4444; font-weight: bold;">
-                            ☠️ ${formatNumber(totalDeaths)}
-                        </div>
-                        <div style="font-size: 11px; color: var(--text-secondary);">
-                            Fallecidos
-                        </div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="font-size: 16px; color: #FFB84D; font-weight: bold;">
-                            🏥 ${formatNumber(totalInjured)}
-                        </div>
-                        <div style="font-size: 11px; color: var(--text-secondary);">
-                            Heridos
-                        </div>
-                    </div>
+                <div style="text-align: center; font-size: 20px; color: var(--text-light); font-weight: bold;">
+                    ESTIMACIÓN TOTAL DE VÍCTIMAS: ${formatNumber(totalDeaths)}
                 </div>
                 <div style="text-align: center; font-size: 12px; color: var(--text-secondary); margin-top: 0.5rem;">
                     Basado en modelos de impacto aerolítico y densidad poblacional
@@ -4969,10 +4306,9 @@ function generateCasualtyEstimates(calc, cities) {
                 <!-- Zona de Destrucción Total -->
                 <div class="result-stat" style="background: rgba(255,68,68,0.2); border-left-color: #FF4444;">
                     <strong style="color: #FF4444;">ZONA ROJA (0-${destructionRadius.toFixed(1)} km):</strong><br>
-                    <span style="font-size: 18px; color: #FF4444;">☠️ ${formatNumber(destructionDeaths.total)} fallecidos</span><br>
-                    <span style="font-size: 14px; color: #FFB84D;">🏥 ${formatNumber(destructionDeaths.injured)} heridos</span><br>
+                    <span style="font-size: 18px; color: #FF4444;">${formatNumber(destructionDeaths.total)} víctimas mortales</span><br>
                     <span style="font-size: 12px; color: var(--text-secondary);">
-                        ${destructionDeaths.cities} ciudades • 95% fatalidad
+                        ${destructionDeaths.cities} ciudades • 95-100% fatalidad
                     </span><br><br>
                     <strong style="color: #FF4444; font-size: 13px;">CIUDADES CRÍTICAS:</strong><br>
                     <div style="font-size: 11px; margin-top: 0.3rem;">
@@ -4988,16 +4324,15 @@ function generateCasualtyEstimates(calc, cities) {
                 <!-- Zona de Daño Significativo -->
                 <div class="result-stat" style="background: rgba(255,184,77,0.2); border-left-color: #FFB84D;">
                     <strong style="color: #FFB84D;">ZONA NARANJA (${destructionRadius.toFixed(1)}-${damageRadius.toFixed(1)} km):</strong><br>
-                    <span style="font-size: 18px; color: #FF4444;">☠️ ${formatNumber(damageDeaths.total)} fallecidos</span><br>
-                    <span style="font-size: 14px; color: #FFB84D;">🏥 ${formatNumber(damageDeaths.injured)} heridos</span><br>
+                    <span style="font-size: 18px; color: #FFB84D;">${formatNumber(damageDeaths.total)} víctimas mortales</span><br>
                     <span style="font-size: 12px; color: var(--text-secondary);">
-                        ${damageDeaths.cities} ciudades • 70% fatalidad
+                        ${damageDeaths.cities} ciudades • 60-80% fatalidad
                     </span><br><br>
                     <strong style="color: #FFB84D; font-size: 13px;">CIUDADES AFECTADAS:</strong><br>
                     <div style="font-size: 11px; margin-top: 0.3rem;">
                         ${citiesInDamageZone.length > 0 ? 
                             citiesInDamageZone.slice(0, 3).map(city => 
-                                `<div style="margin: 0.2rem 0;">• ${city.nombre} (${city.poblacion ? formatNumber(city.poblacion) : 'N/A'} hab.)</div>`
+                                `<div style="margin: 0.2rem 0;">• ${city.nombre} (${city.poblacion ? formatNumber(city.poblacion) : 'N/A'} hab.)</div><br>`
                             ).join('')
                             : '<div style="color: var(--text-secondary);">Sin ciudades afectadas</div>'
                         }
@@ -5007,10 +4342,9 @@ function generateCasualtyEstimates(calc, cities) {
                 <!-- Zona de Ondas Atmosféricas -->
                 <div class="result-stat" style="background: rgba(65,105,225,0.2); border-left-color: #4169E1;">
                     <strong style="color: #4169E1;">ZONA AZUL (${damageRadius.toFixed(1)}-${airPressureRadius.toFixed(1)} km):</strong><br>
-                    <span style="font-size: 18px; color: #FF4444;">☠️ ${formatNumber(airPressureDeaths.total)} fallecidos</span><br>
-                    <span style="font-size: 14px; color: #FFB84D;">🏥 ${formatNumber(airPressureDeaths.injured)} heridos</span><br>
+                    <span style="font-size: 18px; color: #4169E1;">${formatNumber(airPressureDeaths.total)} víctimas mortales</span><br>
                     <span style="font-size: 12px; color: var(--text-secondary);">
-                        ${airPressureDeaths.cities} ciudades • 15% fatalidad
+                        ${airPressureDeaths.cities} ciudades • 10-25% fatalidad
                     </span><br><br>
                     <strong style="color: #4169E1; font-size: 13px;">CIUDADES EN RIESGO:</strong><br>
                     <div style="font-size: 11px; margin-top: 0.3rem;">
@@ -5028,10 +4362,9 @@ function generateCasualtyEstimates(calc, cities) {
     `;
 }
 
-// Función para calcular víctimas por zona (fallecidos y heridos)
+// Función para calcular víctimas por zona
 function calculateZoneCasualties(cities, zoneType, energyMegatons) {
     let totalDeaths = 0;
-    let totalInjured = 0;
     let totalCities = cities.length;
     
     cities.forEach(city => {
@@ -5039,37 +4372,25 @@ function calculateZoneCasualties(cities, zoneType, energyMegatons) {
         
         if (population > 0) {
             let fatalityRate;
-            let injuryRate;
-            
             switch (zoneType) {
                 case 'destruction':
-                    fatalityRate = 0.95; // 95% fallecidos en zona roja
-                    injuryRate = 0.04;   // 4% heridos (los pocos que sobreviven)
+                    fatalityRate = 0.95; // 95% fatalidad en zona roja
                     break;
                 case 'damage':
-                    fatalityRate = 0.70; // 70% fallecidos en zona naranja
-                    injuryRate = 0.25;   // 25% heridos graves
+                    fatalityRate = 0.70; // 70% fatalidad en zona naranja
                     break;
                 case 'airPressure':
-                    fatalityRate = 0.15; // 15% fallecidos en zona azul
-                    injuryRate = 0.40;   // 40% heridos
+                    fatalityRate = 0.15; // 15% fatalidad en zona azul
                     break;
                 default:
                     fatalityRate = 0.20;
-                    injuryRate = 0.30;
             }
             
             totalDeaths += Math.round(population * fatalityRate);
-            totalInjured += Math.round(population * injuryRate);
         }
     });
     
-    return { 
-        total: totalDeaths, 
-        injured: totalInjured,
-        cities: totalCities,
-        totalAffected: totalDeaths + totalInjured
-    };
+    return { total: totalDeaths, cities: totalCities };
 }
 
 // Función para alternar secciones minimizables
@@ -5456,37 +4777,6 @@ function showBentoDashboard(simulationData) {
     
     // Update dashboard with simulation data
     console.log(' About to call updateBentoDashboard...');
-    
-    // Guardar datos para el desglose de víctimas
-    console.log('💾 Almacenando datos de simulación para desglose de víctimas...');
-    
-    // Intentar usar los valores guardados en km, o convertir de metros si no existen
-    let destructionRadiusKm = simulationData.destructionRadiusKm;
-    let damageRadiusKm = simulationData.damageRadiusKm;
-    
-    // Fallback: si no existen en km, convertir desde metros
-    if (!destructionRadiusKm && simulationData.destructionRadius) {
-        destructionRadiusKm = simulationData.destructionRadius / 1000;
-    }
-    if (!damageRadiusKm && simulationData.damageRadius) {
-        damageRadiusKm = simulationData.damageRadius / 1000;
-    }
-    
-    currentSimulationData = {
-        cities: simulationData.cities || [],
-        destructionRadius: destructionRadiusKm || 0,
-        damageRadius: damageRadiusKm || 0,
-        airPressureRadius: (damageRadiusKm || 0) * 1.5,
-        energyMT: simulationData.impactEnergy || 0,
-        latitude: simulationData.latitude || 0,
-        longitude: simulationData.longitude || 0
-    };
-    console.log('✅ Datos almacenados (radios en km):', currentSimulationData);
-    console.log(`   🔴 Radio destrucción: ${(destructionRadiusKm || 0).toFixed(2)} km`);
-    console.log(`   🟠 Radio daño: ${(damageRadiusKm || 0).toFixed(2)} km`);
-    console.log(`   🔵 Radio presión: ${((damageRadiusKm || 0) * 1.5).toFixed(2)} km`);
-    console.log(`   📊 Ciudades a enviar: ${(simulationData.cities || []).length}`);
-    
     updateBentoDashboard(simulationData);
 }
 
@@ -5516,182 +4806,11 @@ function hideBentoDashboard() {
 }
 
 // ============================================
-// MITIGATION STRATEGIES CALCULATION
-// ============================================
-
-function calculateMitigationStrategies(simulationData) {
-    const result = simulationData;
-    const calc = result.calculations;
-    const input = result.input;
-    
-    // Extraer parámetros del asteroide
-    const diameter = input.asteroid_diameter || 100;
-    const velocity = input.asteroid_velocity || 20000;
-    const energy = calc.energy_megatons_tnt || 1;
-    const destructionRadius = calc.destruction_radius_km || 5;
-    const damageRadius = calc.damage_radius_km || 15;
-    const composition = input.composition || 'rocky';
-    
-    // Calcular masa del asteroide
-    const density = composition === 'iron' ? 8000 : composition === 'stony' ? 3500 : 2500;
-    const mass = (4/3) * Math.PI * Math.pow(diameter/2, 3) * density * 1000; // kg
-    
-    // Determinar estrategia principal basada en el tamaño y tiempo disponible
-    let mainStrategy, alternatives, timeCritical, evacuation;
-    
-    if (energy < 0.1) {
-        // Impacto menor - enfoque en evacuación
-        mainStrategy = `IMPACTO MENOR (${energy.toFixed(3)} MT): Evacuación preventiva de población en radio de ${destructionRadius.toFixed(1)} km. El impacto será localizado con daños principalmente estructurales.`;
-        
-        alternatives = [
-            {
-                name: "Monitoreo Continuo",
-                description: "Establecer red de sensores sísmicos para detectar aproximación y activar alertas tempranas."
-            },
-            {
-                name: "Refugios de Emergencia",
-                description: "Preparar refugios subterráneos para población más vulnerable en caso de evacuación tardía."
-            }
-        ];
-        
-        timeCritical = "TIEMPO ÓPTIMO: 24-48 horas antes del impacto. Evacuación preventiva recomendada.";
-        
-        evacuation = [
-            `Evacuación inmediata en radio de ${destructionRadius.toFixed(1)} km (${(Math.PI * destructionRadius * destructionRadius).toFixed(0)} km²)`,
-            "Población de alto riesgo: niños, ancianos y personas con movilidad reducida",
-            "Rutas de evacuación hacia el norte y sur del punto de impacto",
-            "Puntos de reunión cada 20 km de distancia"
-        ];
-        
-    } else if (energy < 1) {
-        // Impacto moderado - deflexión + evacuación
-        mainStrategy = `IMPACTO MODERADO (${energy.toFixed(2)} MT): Combinación de deflexión con impacto cinético y evacuación de emergencia en radio de ${damageRadius.toFixed(1)} km.`;
-        
-        alternatives = [
-            {
-                name: "Impactador Cinético",
-                description: `Envío de nave de ${Math.round(mass * 0.01)} kg a velocidad de 11 km/s para desviar órbita del asteroide. Efectividad: 70-80%.`
-            },
-            {
-                name: "Tractor Gravitacional",
-                description: "Colocación de nave masiva cerca del asteroide para desviación gradual. Requiere 2-5 años de anticipación."
-            },
-            {
-                name: "Explosión Nuclear",
-                description: `Detonación nuclear de ${(energy * 0.5).toFixed(2)} MT en superficie para fragmentación. Último recurso.`
-            }
-        ];
-        
-        timeCritical = "TIEMPO CRÍTICO: 6-12 meses antes del impacto. Deflexión requiere tiempo de desarrollo y viaje.";
-        
-        evacuation = [
-            `Evacuación total en radio de ${damageRadius.toFixed(1)} km (${(Math.PI * damageRadius * damageRadius).toFixed(0)} km²)`,
-            "Evacuación de emergencia en radio de 50 km como zona de seguridad ampliada",
-            "Hospitales y servicios críticos deben ser reubicados fuera del área de riesgo",
-            "Sistemas de alerta temprana con sirenas cada 5 km"
-        ];
-        
-    } else if (energy < 10) {
-        // Impacto severo - múltiples estrategias
-        mainStrategy = `IMPACTO SEVERO (${energy.toFixed(1)} MT): Estrategia múltiple con deflexión nuclear, evacuación masiva y preparación para efectos secundarios en radio de ${(damageRadius * 2).toFixed(1)} km.`;
-        
-        alternatives = [
-            {
-                name: "Deflexión Nuclear",
-                description: `Múltiples detonaciones nucleares de ${(energy * 0.3).toFixed(1)} MT cada una para fragmentación y deflexión. Máxima efectividad.`
-            },
-            {
-                name: "Impactadores Múltiples",
-                description: "Envío de 3-5 naves impactadoras en secuencia para desviación acumulativa del asteroide."
-            },
-            {
-                name: "Laser Ablation",
-                description: "Sistema de láseres espaciales para vaporización de material superficial y propulsión por retroceso."
-            }
-        ];
-        
-        timeCritical = "TIEMPO CRÍTICO: 2-3 años antes del impacto. Desarrollo de tecnología nuclear espacial requerido.";
-        
-        evacuation = [
-            `Evacuación masiva en radio de ${(damageRadius * 2).toFixed(1)} km (${(Math.PI * damageRadius * damageRadius * 4).toFixed(0)} km²)`,
-            "Evacuación de emergencia en radio de 100 km para efectos secundarios",
-            "Relocalización de infraestructura crítica (hospitales, centrales eléctricas, aeropuertos)",
-            "Preparación para invierno nuclear: refugios con suministros para 6 meses"
-        ];
-        
-    } else {
-        // Impacto catastrófico - estrategias extremas
-        mainStrategy = `IMPACTO CATASTRÓFICO (${energy.toFixed(0)} MT): Deflexión nuclear masiva como única opción viable. Evacuación continental requerida. Efectos globales esperados.`;
-        
-        alternatives = [
-            {
-                name: "Deflexión Nuclear Masiva",
-                description: `Múltiples detonaciones nucleares de ${(energy * 0.2).toFixed(0)} MT cada una. Requiere arsenal nuclear completo y coordinación internacional.`
-            },
-            {
-                name: "Fragmentación Completa",
-                description: "Destrucción total del asteroide en fragmentos menores que se quemen en la atmósfera. Riesgo de múltiples impactos."
-            },
-            {
-                name: "Tractor Gravitacional Masivo",
-                description: "Colocación de múltiples naves masivas para desviación orbital completa. Requiere 5-10 años de anticipación."
-            }
-        ];
-        
-        timeCritical = "TIEMPO CRÍTICO: 5-10 años antes del impacto. Cooperación internacional y desarrollo tecnológico masivo requerido.";
-        
-        evacuation = [
-            "Evacuación continental: reubicación de población en hemisferio opuesto",
-            "Evacuación de emergencia en radio de 500 km del punto de impacto",
-            "Relocalización de capitales y centros de gobierno",
-            "Preparación para invierno nuclear global: refugios con suministros para 2 años"
-        ];
-    }
-    
-    // Ajustar estrategias basadas en composición
-    if (composition === 'iron') {
-        mainStrategy += " ASTEROIDE METÁLICO: Mayor resistencia a deflexión. Se requieren estrategias más agresivas.";
-        alternatives.push({
-            name: "Penetradores Nucleares",
-            description: "Penetradores con cabezas nucleares para detonación interna en asteroide metálico."
-        });
-    } else if (composition === 'cometary') {
-        mainStrategy += " ASTEROIDE COMETARIO: Mayor volatilidad. Riesgo de fragmentación incontrolada.";
-        alternatives.push({
-            name: "Calentamiento Gradual",
-            description: "Calentamiento controlado para sublimación de hielos y desviación por retroceso."
-        });
-    }
-    
-    return {
-        mainStrategy,
-        alternatives,
-        timeCritical,
-        evacuation
-    };
-}
-
-// ============================================
 // PDF GENERATION FUNCTIONALITY
 // ============================================
 
 function downloadSimulationPDF() {
-    // Primero intentar usar datos guardados para generación más rápida
-    let dataSource = 'current';
-    let fullResults = currentFullResults;
-    let savedData = null;
-    
-    // Verificar si hay datos guardados disponibles
-    if (hasImpactoData()) {
-        savedData = getImpactoData();
-        if (savedData && savedData.fullResults) {
-            fullResults = savedData.fullResults;
-            dataSource = 'saved';
-            console.log('📖 Usando datos guardados para generación rápida de PDF');
-        }
-    }
-    
-    if (!fullResults) {
+    if (!currentFullResults) {
         showNotification('No hay datos de simulación para exportar', 'warning');
         return;
     }
@@ -5717,21 +4836,12 @@ function downloadSimulationPDF() {
         const contentWidth = pageWidth - (margin * 2);
         
         // Extraer datos de las APIs
-        const usgsContext = fullResults.usgs_context || {};
-        const locationInfo = fullResults.locationInfo || {};
+        const usgsContext = currentFullResults.usgs_context || {};
+        const locationInfo = currentFullResults.locationInfo || {};
         const popData = locationInfo.populationData || {};
-        const floraFaunaAnalysis = fullResults.flora_fauna_analysis || {};
-        const tsunamiAnalysis = fullResults.tsunami_analysis || {};
-        const secondaryEffects = fullResults.secondary_effects || [];
-        
-        // DEBUG: Imprimir datos de población
-        console.log('🔍 DEBUG PDF - Datos de población:');
-        console.log('fullResults:', fullResults);
-        console.log('locationInfo:', locationInfo);
-        console.log('popData:', popData);
-        console.log('popData.total_population:', popData.total_population);
-        console.log('popData.citiesInDestructionZone:', popData.citiesInDestructionZone);
-        console.log('popData.citiesInDamageZone:', popData.citiesInDamageZone);
+        const floraFaunaAnalysis = currentFullResults.flora_fauna_analysis || {};
+        const tsunamiAnalysis = currentFullResults.tsunami_analysis || {};
+        const secondaryEffects = currentFullResults.secondary_effects || [];
         
         // ==========================================
         // PÁGINA 1: PORTADA CIENTÍFICA
@@ -5855,7 +4965,7 @@ function downloadSimulationPDF() {
         const locationData = [
             ['Latitud:', `${latitude}°`],
             ['Longitud:', `${longitude}°`],
-            ['Ubicación:', fullResults.location || 'Coordenadas personalizadas']
+            ['Ubicación:', currentFullResults.location || 'Coordenadas personalizadas']
         ];
         
         locationData.forEach(([label, value]) => {
@@ -5894,7 +5004,7 @@ function downloadSimulationPDF() {
         doc.setFont('helvetica', 'normal');
         
         // Energía de impacto
-        const impactEnergy = fullResults.impact_energy || 
+        const impactEnergy = currentFullResults.impact_energy || 
                             document.getElementById('impact-energy')?.textContent || '0 MT';
         doc.setFont('helvetica', 'bold');
         doc.setTextColor(...textPrimary);
@@ -5922,38 +5032,7 @@ function downloadSimulationPDF() {
         doc.text('Población Afectada:', margin + 5, yPos);
         doc.setFont('helvetica', 'normal');
         doc.setTextColor(...dangerColor);
-        
-        // Intentar obtener población de múltiples fuentes
-        let population = '0';
-        
-        // 1. Intentar desde datos guardados si están disponibles
-        if (savedData && savedData.population && savedData.population.totalAffected > 0) {
-            const totalVictims = savedData.population.totalVictims || 0;
-            population = `${savedData.population.totalAffected.toLocaleString()} personas (${totalVictims.toLocaleString()} víctimas estimadas)`;
-            console.log('📊 PDF: Usando población de datos guardados:', population);
-        }
-        // 2. Intentar desde fullResults
-        else if (fullResults && fullResults.population_affected > 0) {
-            population = fullResults.population_affected.toLocaleString();
-            console.log('📊 PDF: Usando población de fullResults:', population);
-        }
-        // 3. Intentar desde locationInfo/populationData
-        else if (locationInfo && locationInfo.populationData && locationInfo.populationData.totalPopulation > 0) {
-            population = locationInfo.populationData.totalPopulation.toLocaleString();
-            console.log('📊 PDF: Usando población de locationInfo:', population);
-        }
-        // 4. Fallback: intentar desde elemento HTML
-        else {
-            const htmlPopulation = document.getElementById('affected-population')?.textContent;
-            if (htmlPopulation && htmlPopulation !== '0' && htmlPopulation !== '0 personas') {
-                population = htmlPopulation;
-                console.log('📊 PDF: Usando población de HTML:', population);
-            } else {
-                population = 'No hay población significativa en la zona de impacto';
-                console.log('📊 PDF: No se encontró población, usando mensaje por defecto');
-            }
-        }
-        
+        const population = document.getElementById('affected-population')?.textContent || '0';
         doc.text(`${population} personas`, margin + 60, yPos);
         yPos += 6;
         
@@ -6005,73 +5084,32 @@ function downloadSimulationPDF() {
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
         
-        // Análisis detallado de fauna
+        // Fauna afectada
         doc.setFont('helvetica', 'bold');
-        doc.text('FAUNA AFECTADA:', margin + 5, yPos);
+        doc.text('Fauna Más Afectada:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        const fauna = document.getElementById('most-affected-fauna')?.textContent || 'N/A';
+        doc.text(fauna, margin + 60, yPos);
         yPos += 7;
         
-        if (floraFaunaAnalysis && floraFaunaAnalysis.fauna_species && floraFaunaAnalysis.fauna_species.length > 0) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.text(`Total de especies de fauna identificadas: ${floraFaunaAnalysis.fauna_species.length}`, margin + 10, yPos);
-            yPos += 5;
-            
-            // Mostrar las 5 especies más relevantes
-            const topFauna = floraFaunaAnalysis.fauna_species.slice(0, 5);
-            topFauna.forEach((species, index) => {
-                if (yPos > pageHeight - 40) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                doc.text(`• ${species.scientific_name || species.name || 'Especie no identificada'}`, margin + 15, yPos);
-                if (species.common_name) {
-                    doc.text(`  (${species.common_name})`, margin + 20, yPos + 4);
-                    yPos += 4;
-                }
-                yPos += 6;
-            });
-        } else {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.setTextColor(...textSecondary);
-            doc.text('No se encontraron datos específicos de fauna en la zona', margin + 10, yPos);
-            yPos += 5;
-        }
-        
-        yPos += 5;
-        
-        // Análisis detallado de flora
-        doc.setFontSize(11);
-        doc.setTextColor(0, 0, 0);
+        // Flora afectada
         doc.setFont('helvetica', 'bold');
-        doc.text('FLORA AFECTADA:', margin + 5, yPos);
+        doc.text('Flora Más Afectada:', margin + 5, yPos);
+        doc.setFont('helvetica', 'normal');
+        const flora = document.getElementById('most-affected-flora')?.textContent || 'N/A';
+        doc.text(flora, margin + 60, yPos);
         yPos += 7;
         
-        if (floraFaunaAnalysis && floraFaunaAnalysis.flora_species && floraFaunaAnalysis.flora_species.length > 0) {
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.text(`Total de especies de flora identificadas: ${floraFaunaAnalysis.flora_species.length}`, margin + 10, yPos);
+        // Biodiversidad detallada (GBIF API)
+        if (floraFaunaAnalysis && floraFaunaAnalysis.affected_species) {
             yPos += 5;
-            
-            // Mostrar las 5 especies más relevantes
-            const topFlora = floraFaunaAnalysis.flora_species.slice(0, 5);
-            topFlora.forEach((species, index) => {
-                if (yPos > pageHeight - 40) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                doc.text(`• ${species.scientific_name || species.name || 'Especie no identificada'}`, margin + 15, yPos);
-                if (species.common_name) {
-                    doc.text(`  (${species.common_name})`, margin + 20, yPos + 4);
-                    yPos += 4;
-                }
-                yPos += 6;
-            });
-        } else {
+            doc.setFont('helvetica', 'bold');
+            doc.text('Especies en Peligro (GBIF):', margin + 5, yPos);
+            yPos += 7;
             doc.setFont('helvetica', 'normal');
             doc.setFontSize(9);
-            doc.setTextColor(...textSecondary);
-            doc.text('No se encontraron datos específicos de flora en la zona', margin + 10, yPos);
+            const speciesText = `${floraFaunaAnalysis.affected_species.length} especies identificadas en zona de riesgo`;
+            doc.text(speciesText, margin + 10, yPos);
             yPos += 5;
         }
         
@@ -6087,7 +5125,7 @@ function downloadSimulationPDF() {
         doc.setFontSize(16);
         doc.setTextColor(...dangerColor);
         doc.setFont('helvetica', 'bold');
-        doc.text('5. POBLACIÓN AFECTADA', margin, yPos);
+        doc.text('5. POBLACIÓN AFECTADA (GeoNames API)', margin, yPos);
         
         yPos += 10;
         doc.setFontSize(10);
@@ -6095,9 +5133,6 @@ function downloadSimulationPDF() {
         doc.setFont('helvetica', 'normal');
         
         if (popData && popData.total_population > 0) {
-            console.log('✅ PDF: Hay datos de población, mostrando información detallada');
-            console.log('Población total:', popData.total_population);
-            
             // Población total
             doc.setFont('helvetica', 'bold');
             doc.text('Población Total en Zona de Riesgo:', margin + 5, yPos);
@@ -6106,441 +5141,52 @@ function downloadSimulationPDF() {
             doc.text(popData.total_population.toLocaleString() + ' personas', margin + 80, yPos);
             yPos += 10;
             
-            // Resumen por zonas con tasas de mortalidad
+            // Desglose por zonas
             doc.setFontSize(10);
             doc.setTextColor(0, 0, 0);
             doc.setFont('helvetica', 'bold');
-            doc.text('RESUMEN POR ZONAS DE IMPACTO:', margin + 5, yPos);
-            yPos += 7;
-            
-            // Zona de destrucción total (95% mortalidad)
-            if (popData.destruction_zone_population > 0) {
-                const victims = Math.round(popData.destruction_zone_population * 0.95);
-                doc.setTextColor(...dangerColor);
-                doc.setFont('helvetica', 'bold');
-                doc.text('ZONA DE DESTRUCCIÓN TOTAL (95% mortalidad):', margin + 10, yPos);
-                doc.text(`${popData.destruction_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
-                yPos += 6;
-                
-                // Mostrar ciudades específicas en zona de destrucción
-                if (popData.citiesInDestructionZone && popData.citiesInDestructionZone.length > 0) {
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(0, 0, 0);
-                    const topDestructionCities = popData.citiesInDestructionZone.slice(0, 3);
-                    topDestructionCities.forEach((city, index) => {
-                        if (yPos > pageHeight - 40) {
-                            doc.addPage();
-                            yPos = 20;
-                        }
-                        const cityVictims = Math.round(city.population * 0.95);
-                        const dataType = city.isRealData ? '(datos reales)' : '(estimado)';
-                        doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. → ${cityVictims.toLocaleString()} víctimas ${dataType}`, margin + 15, yPos);
-                        yPos += 5;
-                    });
-                    yPos += 3;
-                }
-            }
-            
-            // Zona de daño severo (15% mortalidad)
-            if (popData.damage_zone_population > 0) {
-                const victims = Math.round(popData.damage_zone_population * 0.15);
-                doc.setTextColor(255, 140, 0);
-                doc.setFont('helvetica', 'bold');
-                doc.text('ZONA DE DAÑO SEVERO (15% mortalidad):', margin + 10, yPos);
-                doc.text(`${popData.damage_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
-                yPos += 6;
-                
-                // Mostrar ciudades específicas en zona de daño
-                if (popData.citiesInDamageZone && popData.citiesInDamageZone.length > 0) {
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(0, 0, 0);
-                    const topDamageCities = popData.citiesInDamageZone.slice(0, 3);
-                    topDamageCities.forEach((city, index) => {
-                        if (yPos > pageHeight - 40) {
-                            doc.addPage();
-                            yPos = 20;
-                        }
-                        const cityVictims = Math.round(city.population * 0.15);
-                        const dataType = city.isRealData ? '(datos reales)' : '(estimado)';
-                        doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. → ${cityVictims.toLocaleString()} víctimas ${dataType}`, margin + 15, yPos);
-                        yPos += 5;
-                    });
-                    yPos += 3;
-                }
-            }
-            
-            // Zona de presión de aire (5% mortalidad)
-            if (popData.air_pressure_zone_population > 0) {
-                const victims = Math.round(popData.air_pressure_zone_population * 0.05);
-                doc.setTextColor(255, 193, 7);
-                doc.setFont('helvetica', 'bold');
-                doc.text('ZONA DE PRESIÓN DE AIRE (5% mortalidad):', margin + 10, yPos);
-                doc.text(`${popData.air_pressure_zone_population.toLocaleString()} hab. → ${victims.toLocaleString()} víctimas`, margin + 80, yPos);
-                yPos += 6;
-                
-                // Mostrar ciudades específicas en zona de presión de aire
-                if (popData.citiesInAirPressureZone && popData.citiesInAirPressureZone.length > 0) {
-                    doc.setFontSize(9);
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(0, 0, 0);
-                    const topAirPressureCities = popData.citiesInAirPressureZone.slice(0, 3);
-                    topAirPressureCities.forEach((city, index) => {
-                        if (yPos > pageHeight - 40) {
-                            doc.addPage();
-                            yPos = 20;
-                        }
-                        const cityVictims = Math.round(city.population * 0.05);
-                        const dataType = city.isRealData ? '(datos reales)' : '(estimado)';
-                        doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. → ${cityVictims.toLocaleString()} víctimas ${dataType}`, margin + 15, yPos);
-                        yPos += 5;
-                    });
-                    yPos += 3;
-                }
-            }
-            
-            // Total de víctimas estimadas
-            const totalVictims = Math.round(
-                (popData.destruction_zone_population || 0) * 0.95 + 
-                (popData.damage_zone_population || 0) * 0.15 + 
-                (popData.air_pressure_zone_population || 0) * 0.05
-            );
-            
-            yPos += 5;
-            doc.setFontSize(12);
-            doc.setTextColor(...dangerColor);
-            doc.setFont('helvetica', 'bold');
-            doc.text('TOTAL DE VÍCTIMAS ESTIMADAS:', margin + 5, yPos);
-            doc.setFontSize(14);
-            doc.text(`${totalVictims.toLocaleString()} personas`, margin + 80, yPos);
-            yPos += 10;
-            
-            // Desglose por zonas con ciudades específicas
-            doc.setFontSize(10);
-            doc.setTextColor(0, 0, 0);
-            doc.setFont('helvetica', 'bold');
-            doc.text('Poblaciones Afectadas por Zona:', margin + 5, yPos);
-            yPos += 7;
-            
-            // Zona de destrucción total
-            if (popData.destruction_zone_population && popData.citiesInDestructionZone) {
-                doc.setTextColor(...dangerColor);
-                doc.text('ZONA DE DESTRUCCIÓN TOTAL:', margin + 10, yPos);
-                doc.text(popData.destruction_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
-                yPos += 6;
-                
-                // Mostrar ciudades específicas en zona de destrucción
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                const topDestructionCities = popData.citiesInDestructionZone.slice(0, 5);
-                topDestructionCities.forEach((city, index) => {
-                    if (yPos > pageHeight - 40) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
-                    const victims = Math.round(city.population * 0.95); // 95% mortalidad en zona de destrucción
-                    doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`, margin + 15, yPos);
-                    yPos += 5;
-                });
-                yPos += 3;
-            }
-            
-            // Zona de daño severo
-            if (popData.damage_zone_population && popData.citiesInDamageZone) {
-                doc.setFontSize(10);
-                doc.setFont('helvetica', 'bold');
-                doc.setTextColor(255, 140, 0);
-                doc.text('ZONA DE DAÑO SEVERO:', margin + 10, yPos);
-                doc.text(popData.damage_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
-                yPos += 6;
-                
-                // Mostrar ciudades específicas en zona de daño
-                doc.setFontSize(9);
-                doc.setFont('helvetica', 'normal');
-                const topDamageCities = popData.citiesInDamageZone.slice(0, 5);
-                topDamageCities.forEach((city, index) => {
-                    if (yPos > pageHeight - 40) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
-                    const victims = Math.round(city.population * 0.15); // 15% mortalidad en zona de daño
-                    doc.text(`• ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`, margin + 15, yPos);
-                    yPos += 5;
-                });
-                yPos += 3;
-            }
-            
-            // Todas las ciudades en zona de destrucción (si hay más de 5)
-            if (popData.citiesInDestructionZone && popData.citiesInDestructionZone.length > 5) {
-                yPos += 5;
-                if (yPos > pageHeight - 60) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(...dangerColor);
-                doc.text(`TODAS LAS CIUDADES EN ZONA DE DESTRUCCIÓN (${popData.citiesInDestructionZone.length} ciudades):`, margin + 5, yPos);
-                yPos += 7;
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8);
-                doc.setTextColor(0, 0, 0);
-                
-                popData.citiesInDestructionZone.forEach((city, index) => {
-                    if (yPos > pageHeight - 40) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
-                    
-                    const victims = Math.round(city.population * 0.95);
-                    const cityText = `${index + 1}. ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`;
-                    const splitText = doc.splitTextToSize(cityText, contentWidth - 15);
-                    doc.text(splitText, margin + 10, yPos);
-                    yPos += splitText.length * 3 + 2;
-                });
-            }
-            
-            // Todas las ciudades en zona de daño (si hay más de 5)
-            if (popData.citiesInDamageZone && popData.citiesInDamageZone.length > 5) {
-                yPos += 5;
-                if (yPos > pageHeight - 60) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(255, 140, 0);
-                doc.text(`TODAS LAS CIUDADES EN ZONA DE DAÑO SEVERO (${popData.citiesInDamageZone.length} ciudades):`, margin + 5, yPos);
-                yPos += 7;
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(8);
-                doc.setTextColor(0, 0, 0);
-                
-                popData.citiesInDamageZone.forEach((city, index) => {
-                    if (yPos > pageHeight - 40) {
-                        doc.addPage();
-                        yPos = 20;
-                    }
-                    
-                    const victims = Math.round(city.population * 0.15);
-                    const cityText = `${index + 1}. ${city.name}: ${city.population.toLocaleString()} hab. (${victims.toLocaleString()} víctimas estimadas)`;
-                    const splitText = doc.splitTextToSize(cityText, contentWidth - 15);
-                    doc.text(splitText, margin + 10, yPos);
-                    yPos += splitText.length * 3 + 2;
-                });
-            }
-            
-            // Ciudad más cercana al impacto
-            if (popData.nearestCity) {
-                yPos += 5;
-                if (yPos > pageHeight - 40) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(...primaryColor);
-                doc.text('CIUDAD MÁS CERCANA AL IMPACTO:', margin + 5, yPos);
-                yPos += 7;
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setFontSize(9);
-                doc.setTextColor(0, 0, 0);
-                const nearestText = `• ${popData.nearestCity.name}: ${popData.nearestCity.population.toLocaleString()} habitantes - Distancia: ${popData.nearestCity.distance.toFixed(1)} km`;
-                const splitNearest = doc.splitTextToSize(nearestText, contentWidth - 10);
-                doc.text(splitNearest, margin + 10, yPos);
-                yPos += splitNearest.length * 4 + 3;
-            }
-            
-            // Resumen estadístico
-            yPos += 5;
-            if (yPos > pageHeight - 60) {
-                doc.addPage();
-                yPos = 20;
-            }
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(...textPrimary);
-            doc.text('RESUMEN ESTADÍSTICO:', margin + 5, yPos);
+            doc.text('Desglose por Zonas:', margin + 5, yPos);
             yPos += 7;
             
             doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.setTextColor(...textSecondary);
             
-            const stats = [
-                `Total de ciudades afectadas: ${(popData.citiesInDestructionZone?.length || 0) + (popData.citiesInDamageZone?.length || 0)}`,
-                `Ciudades en zona de destrucción: ${popData.citiesInDestructionZone?.length || 0}`,
-                `Ciudades en zona de daño: ${popData.citiesInDamageZone?.length || 0}`,
-                `Población total afectada: ${popData.total_population.toLocaleString()} personas`,
-                `Víctimas estimadas totales: ${Math.round((popData.destruction_zone_population || 0) * 0.95 + (popData.damage_zone_population || 0) * 0.15).toLocaleString()} personas`
-            ];
-            
-            stats.forEach(stat => {
-                if (yPos > pageHeight - 40) {
-                    doc.addPage();
-                    yPos = 20;
-                }
-                doc.text(`• ${stat}`, margin + 10, yPos);
-                yPos += 5;
-            });
-        } else {
-            // Mostrar zonas de impacto desde datos guardados
-            let hasPopulationData = false;
-            let totalPopulation = 0;
-            let totalVictims = 0;
-            
-            // Verificar si tenemos datos guardados con zonas
-            if (savedData && savedData.population && savedData.population.zones) {
-                hasPopulationData = true;
-                totalPopulation = savedData.population.totalAffected || 0;
-                totalVictims = savedData.population.totalVictims || 0;
-                
-                const zones = savedData.population.zones;
-                
-                // Título de la sección
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(...textPrimary);
-                doc.text('ANÁLISIS POR ZONAS DE IMPACTO:', margin + 5, yPos);
-                yPos += 8;
-                
-                // Zona de Destrucción Total
-                if (zones.destruction && zones.destruction.total_victims > 0) {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(9);
-                    doc.setTextColor(200, 0, 0); // Rojo oscuro
-                    doc.text('🔥 ZONA DE DESTRUCCIÓN TOTAL (0-5 km):', margin + 10, yPos);
-                    yPos += 6;
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(...textSecondary);
-                    doc.text(`• Lugares afectados: ${zones.destruction.places_count}`, margin + 15, yPos);
-                    yPos += 5;
-                    doc.text(`• Población: ${zones.destruction.total_population.toLocaleString()} personas`, margin + 15, yPos);
-                    yPos += 5;
-                    doc.text(`• Víctimas estimadas: ${zones.destruction.total_victims.toLocaleString()} (95%)`, margin + 15, yPos);
-                    yPos += 5;
-                    
-                    // Mostrar algunos lugares principales de esta zona
-                    if (zones.destruction.places && zones.destruction.places.length > 0) {
-                        const topPlaces = zones.destruction.places.slice(0, 3);
-                        topPlaces.forEach(place => {
-                            if (yPos > pageHeight - 40) {
-                                doc.addPage();
-                                yPos = 20;
-                            }
-                            doc.text(`  - ${place.nombre}: ${place.poblacion.toLocaleString()} hab (${place.distancia_km} km)`, margin + 20, yPos);
-                            yPos += 4;
-                        });
-                    }
-                    yPos += 5;
-                }
-                
-                // Zona de Daño Severo
-                if (zones.damage && zones.damage.total_victims > 0) {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(9);
-                    doc.setTextColor(180, 83, 9); // Naranja
-                    doc.text('⚠️ ZONA DE DAÑO SEVERO (5-10 km):', margin + 10, yPos);
-                    yPos += 6;
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(...textSecondary);
-                    doc.text(`• Lugares afectados: ${zones.damage.places_count}`, margin + 15, yPos);
-                    yPos += 5;
-                    doc.text(`• Población: ${zones.damage.total_population.toLocaleString()} personas`, margin + 15, yPos);
-                    yPos += 5;
-                    doc.text(`• Víctimas estimadas: ${zones.damage.total_victims.toLocaleString()} (15%)`, margin + 15, yPos);
-                    yPos += 5;
-                    
-                    // Mostrar algunos lugares principales de esta zona
-                    if (zones.damage.places && zones.damage.places.length > 0) {
-                        const topPlaces = zones.damage.places.slice(0, 3);
-                        topPlaces.forEach(place => {
-                            if (yPos > pageHeight - 40) {
-                                doc.addPage();
-                                yPos = 20;
-                            }
-                            doc.text(`  - ${place.nombre}: ${place.poblacion.toLocaleString()} hab (${place.distancia_km} km)`, margin + 20, yPos);
-                            yPos += 4;
-                        });
-                    }
-                    yPos += 5;
-                }
-                
-                // Zona Afectada
-                if (zones.affected && zones.affected.total_victims > 0) {
-                    doc.setFont('helvetica', 'bold');
-                    doc.setFontSize(9);
-                    doc.setTextColor(21, 128, 61); // Verde
-                    doc.text('🌪️ ZONA AFECTADA (10-20 km):', margin + 10, yPos);
-                    yPos += 6;
-                    
-                    doc.setFont('helvetica', 'normal');
-                    doc.setTextColor(...textSecondary);
-                    doc.text(`• Lugares afectados: ${zones.affected.places_count}`, margin + 15, yPos);
-                    yPos += 5;
-                    doc.text(`• Población: ${zones.affected.total_population.toLocaleString()} personas`, margin + 15, yPos);
-                    yPos += 5;
-                    doc.text(`• Víctimas estimadas: ${zones.affected.total_victims.toLocaleString()} (5%)`, margin + 15, yPos);
-                    yPos += 5;
-                    
-                    // Mostrar algunos lugares principales de esta zona
-                    if (zones.affected.places && zones.affected.places.length > 0) {
-                        const topPlaces = zones.affected.places.slice(0, 3);
-                        topPlaces.forEach(place => {
-                            if (yPos > pageHeight - 40) {
-                                doc.addPage();
-                                yPos = 20;
-                            }
-                            doc.text(`  - ${place.nombre}: ${place.poblacion.toLocaleString()} hab (${place.distancia_km} km)`, margin + 20, yPos);
-                            yPos += 4;
-                        });
-                    }
-                    yPos += 5;
-                }
-                
-                // Resumen total
-                doc.setFont('helvetica', 'bold');
-                doc.setFontSize(10);
-                doc.setTextColor(...textPrimary);
-                doc.text('RESUMEN TOTAL:', margin + 5, yPos);
+            // Zona de destrucción total
+            if (popData.destruction_zone_population) {
+                doc.setTextColor(...dangerColor);
+                doc.text('• Zona de Destrucción Total:', margin + 10, yPos);
+                doc.text(popData.destruction_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
                 yPos += 6;
-                
-                doc.setFont('helvetica', 'normal');
-                doc.setTextColor(...textSecondary);
-                doc.text(`• Población total en área de impacto: ${totalPopulation.toLocaleString()} personas`, margin + 10, yPos);
-                yPos += 5;
-                doc.text(`• Víctimas totales estimadas: ${totalVictims.toLocaleString()} personas`, margin + 10, yPos);
-                yPos += 5;
-                
-                const mortalityRate = totalPopulation > 0 ? (totalVictims / totalPopulation * 100).toFixed(1) : 0;
-                doc.text(`• Tasa de mortalidad estimada: ${mortalityRate}%`, margin + 10, yPos);
-                yPos += 8;
-                
-            } else {
-                // Fallback si no hay datos de zonas
-                let populationMessage = 'No hay población significativa en la zona de impacto';
-                
-                if (savedData && savedData.population && savedData.population.totalAffected > 0) {
-                    populationMessage = `Población total afectada: ${savedData.population.totalAffected.toLocaleString()} personas`;
-                }
-                
-                doc.setFont('helvetica', 'italic');
-                doc.setTextColor(100, 100, 100);
-                doc.text(populationMessage, margin + 5, yPos);
-                yPos += 7;
             }
             
-            console.log('📊 PDF: Mostrando datos de población con zonas de impacto');
+            // Zona de daño severo
+            if (popData.damage_zone_population) {
+                doc.setTextColor(255, 140, 0);
+                doc.text('• Zona de Daño Severo:', margin + 10, yPos);
+                doc.text(popData.damage_zone_population.toLocaleString() + ' personas', margin + 80, yPos);
+                yPos += 6;
+            }
+            
+            // Ciudades principales afectadas
+            if (popData.major_cities && popData.major_cities.length > 0) {
+                yPos += 5;
+                doc.setTextColor(0, 0, 0);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Ciudades Principales Afectadas:', margin + 5, yPos);
+                yPos += 7;
+                
+                doc.setFont('helvetica', 'normal');
+                popData.major_cities.slice(0, 5).forEach(city => {
+                    const cityText = `• ${city.name}: ${city.population.toLocaleString()} hab. (${city.distance_km.toFixed(1)} km del impacto)`;
+                    const splitText = doc.splitTextToSize(cityText, contentWidth - 15);
+                    doc.text(splitText, margin + 10, yPos);
+                    yPos += splitText.length * 5;
+                });
+            }
+        } else {
+            doc.setFont('helvetica', 'italic');
+            doc.setTextColor(100, 100, 100);
+            doc.text('No hay población significativa en la zona de impacto', margin + 5, yPos);
+            yPos += 7;
         }
         
         // ==========================================
@@ -6798,89 +5444,20 @@ function downloadSimulationPDF() {
         doc.setTextColor(0, 0, 0);
         doc.setFont('helvetica', 'normal');
         
-        // Calcular estrategias de mitigación específicas
-        const mitigationStrategies = calculateMitigationStrategies(fullResults);
+        const recommendations = [
+            'Evacuación inmediata de la población en un radio de ' + destructionRadius,
+            'Establecer un perímetro de seguridad ampliado',
+            'Alertar a servicios de emergencia y hospitales cercanos',
+            'Preparar refugios para la población desplazada',
+            'Monitorear actividad sísmica posterior al impacto',
+            'Coordinar con autoridades locales y nacionales'
+        ];
         
-        // Título de subsección
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(12);
-        doc.setTextColor(...primaryColor);
-        doc.text('ESTRATEGIAS DE MITIGACIÓN RECOMENDADAS:', margin + 5, yPos);
-        yPos += 8;
-        
-        // Estrategia principal
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(...successColor);
-        doc.text('ESTRATEGIA PRINCIPAL:', margin + 5, yPos);
-        yPos += 6;
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        const mainStrategy = doc.splitTextToSize(mitigationStrategies.mainStrategy, contentWidth - 10);
-        doc.text(mainStrategy, margin + 10, yPos);
-        yPos += mainStrategy.length * 5 + 5;
-        
-        // Estrategias alternativas
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(...warningColor);
-        doc.text('ESTRATEGIAS ALTERNATIVAS:', margin + 5, yPos);
-        yPos += 6;
-        
-        mitigationStrategies.alternatives.forEach((strategy, index) => {
-            if (yPos > pageHeight - 60) {
-                doc.addPage();
-                yPos = 20;
-            }
-            
-            doc.setFont('helvetica', 'bold');
-            doc.setFontSize(10);
-            doc.setTextColor(...textPrimary);
-            doc.text(`${index + 1}. ${strategy.name}:`, margin + 10, yPos);
-            yPos += 5;
-            
-            doc.setFont('helvetica', 'normal');
-            doc.setFontSize(9);
-            doc.setTextColor(...textSecondary);
-            const strategyText = doc.splitTextToSize(strategy.description, contentWidth - 15);
-            doc.text(strategyText, margin + 15, yPos);
-            yPos += strategyText.length * 4 + 3;
-        });
-        
-        // Tiempo de respuesta requerido
-        yPos += 5;
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(...dangerColor);
-        doc.text('TIEMPO DE RESPUESTA CRÍTICO:', margin + 5, yPos);
-        yPos += 6;
-        
-        doc.setFont('helvetica', 'normal');
-        doc.setFontSize(10);
-        doc.setTextColor(0, 0, 0);
-        const timeText = doc.splitTextToSize(mitigationStrategies.timeCritical, contentWidth - 10);
-        doc.text(timeText, margin + 10, yPos);
-        yPos += timeText.length * 5 + 5;
-        
-        // Recomendaciones de evacuación específicas
-        doc.setFont('helvetica', 'bold');
-        doc.setFontSize(11);
-        doc.setTextColor(...dangerColor);
-        doc.text('PLAN DE EVACUACIÓN:', margin + 5, yPos);
-        yPos += 6;
-        
-        mitigationStrategies.evacuation.forEach((rec, index) => {
-            if (yPos > pageHeight - 40) {
-                doc.addPage();
-                yPos = 20;
-            }
-            
+        recommendations.forEach((rec, index) => {
             const text = `${index + 1}. ${rec}`;
             const splitRec = doc.splitTextToSize(text, contentWidth - 10);
-            doc.text(splitRec, margin + 10, yPos);
-            yPos += splitRec.length * 4 + 3;
+            doc.text(splitRec, margin + 5, yPos);
+            yPos += splitRec.length * 5 + 5;
         });
         
         // ==========================================
@@ -6941,288 +5518,6 @@ function downloadSimulationPDF() {
         showNotification('Error al generar el PDF: ' + error.message, 'error');
     }
 }
-*/
-// LA NUEVA FUNCIÓN downloadSimulationPDF() ESTÁ EN pdf-generator.js Y USA EL BACKEND
-
-// ============================================
-// FUNCIONES PARA DESGLOSE DE VÍCTIMAS
-// ============================================
-
-// Variable global para almacenar los datos de la simulación actual
-let currentSimulationData = null;
-
-// Función para mostrar el desglose de víctimas
-async function showCasualtyBreakdown() {
-    console.log('🔍 Mostrando desglose de víctimas...');
-    
-    // Verificar que hay datos de simulación
-    if (!currentSimulationData) {
-        showNotification('Primero ejecuta una simulación', 'warning');
-        return;
-    }
-    
-    // Mostrar modal
-    const modal = document.getElementById('casualty-breakdown-modal');
-    if (!modal) {
-        console.error('Modal no encontrado');
-        return;
-    }
-    
-    modal.style.display = 'flex';
-    
-    // Preparar datos para la petición
-    const requestData = {
-        cities: currentSimulationData.cities || [],
-        destruction_radius_km: currentSimulationData.destructionRadius || 5,
-        damage_radius_km: currentSimulationData.damageRadius || 15,
-        air_pressure_radius_km: currentSimulationData.airPressureRadius || 22.5,
-        energy_megatons: currentSimulationData.energyMT || 1
-    };
-    
-    console.log('📤 Enviando petición de desglose:', requestData);
-    
-    try {
-        // Llamar al backend para calcular el desglose
-        const response = await fetch('/api/population/casualties', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json'
-            },
-            body: JSON.stringify(requestData)
-        });
-        
-        if (!response.ok) {
-            throw new Error(`Error HTTP ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('📥 Respuesta del servidor:', data);
-        
-        if (data.success) {
-            displayCasualtyBreakdown(data);
-        } else {
-            throw new Error(data.error || 'Error desconocido');
-        }
-        
-    } catch (error) {
-        console.error('❌ Error obteniendo desglose:', error);
-        
-        // Mostrar error en el modal
-        const content = document.getElementById('casualty-breakdown-content');
-        content.innerHTML = `
-            <div style="text-align: center; padding: 2rem; color: var(--danger);">
-                <h3>❌ Error al calcular el desglose</h3>
-                <p style="color: var(--text-secondary); margin-top: 1rem;">
-                    ${error.message}
-                </p>
-                <p style="color: var(--text-secondary); font-size: 0.9em; margin-top: 0.5rem;">
-                    Intenta ejecutar la simulación nuevamente
-                </p>
-            </div>
-        `;
-    }
-}
-
-// Función para mostrar los datos del desglose en el modal
-function displayCasualtyBreakdown(data) {
-    const content = document.getElementById('casualty-breakdown-content');
-    const breakdown = data.breakdown;
-    const totals = data.totals;
-    
-    // Crear HTML con el desglose detallado
-    const html = `
-        <div style="padding: 1rem;">
-            <!-- Resumen Total -->
-            <div style="background: linear-gradient(135deg, rgba(231, 76, 60, 0.2), rgba(192, 57, 43, 0.2)); 
-                        border-radius: 12px; padding: 1.5rem; margin-bottom: 2rem; border: 2px solid var(--danger);">
-                <h3 style="color: var(--text-light); text-align: center; margin-bottom: 1.5rem; font-size: 1.5em;">
-                    📊 RESUMEN TOTAL
-                </h3>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem;">
-                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 0.5rem;">👥 Población Total</div>
-                        <div style="color: var(--primary); font-size: 1.8em; font-weight: bold;">${totals.total_population.toLocaleString()}</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 0.5rem;">💀 Fallecidos</div>
-                        <div style="color: var(--danger); font-size: 1.8em; font-weight: bold;">${totals.total_deaths.toLocaleString()}</div>
-                        <div style="color: var(--text-secondary); font-size: 0.8em; margin-top: 0.3rem;">(${totals.overall_fatality_rate}%)</div>
-                    </div>
-                    <div style="background: rgba(0,0,0,0.3); padding: 1rem; border-radius: 8px; text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.9em; margin-bottom: 0.5rem;">🏥 Heridos</div>
-                        <div style="color: var(--warning); font-size: 1.8em; font-weight: bold;">${totals.total_injured.toLocaleString()}</div>
-                        <div style="color: var(--text-secondary); font-size: 0.8em; margin-top: 0.3rem;">(${totals.overall_injury_rate}%)</div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Desglose por Zonas -->
-            <h3 style="color: var(--text-light); margin-bottom: 1.5rem; font-size: 1.3em;">
-                🎯 DESGLOSE POR ZONAS DE IMPACTO
-            </h3>
-            
-            <!-- ZONA ROJA - Destrucción Total -->
-            <div style="background: rgba(231, 76, 60, 0.15); border-left: 4px solid var(--danger); 
-                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                <h4 style="color: var(--danger); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 1.5em;">🔴</span>
-                    ZONA ROJA - Destrucción Total
-                    <span style="font-size: 0.8em; color: var(--text-secondary);">(${breakdown.destruction_zone.cities_count} ubicaciones)</span>
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Población</div>
-                        <div style="color: var(--text-light); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.destruction_zone.total_population.toLocaleString()}
-                        </div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Fallecidos</div>
-                        <div style="color: var(--danger); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.destruction_zone.deaths.toLocaleString()}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.destruction_zone.fatality_rate}%)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Heridos</div>
-                        <div style="color: var(--warning); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.destruction_zone.injured.toLocaleString()}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.destruction_zone.injury_rate}%)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Sobrevivientes</div>
-                        <div style="color: var(--success); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.destruction_zone.survivors.toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85em; color: var(--text-secondary);">
-                    ⚠️ Zona de máxima destrucción: vaporización parcial, ondas de choque extremas, temperaturas >1000°C, y radiación térmica instantánea (70-85% mortalidad)
-                </div>
-            </div>
-            
-            <!-- ZONA NARANJA - Daño Severo -->
-            <div style="background: rgba(255, 140, 0, 0.15); border-left: 4px solid var(--warning); 
-                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                <h4 style="color: var(--warning); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 1.5em;">🟠</span>
-                    ZONA NARANJA - Daño Severo
-                    <span style="font-size: 0.8em; color: var(--text-secondary);">(${breakdown.damage_zone.cities_count} ubicaciones)</span>
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Población</div>
-                        <div style="color: var(--text-light); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.damage_zone.total_population.toLocaleString()}
-                        </div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Fallecidos</div>
-                        <div style="color: var(--danger); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.damage_zone.deaths.toLocaleString()}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.damage_zone.fatality_rate}%)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Heridos</div>
-                        <div style="color: var(--warning); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.damage_zone.injured.toLocaleString()}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.damage_zone.injury_rate}%)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Sobrevivientes</div>
-                        <div style="color: var(--success); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.damage_zone.survivors.toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85em; color: var(--text-secondary);">
-                    ⚠️ Zona de alto impacto: ondas de choque devastadoras (>20 psi), incendios masivos, colapso de edificios, y radiación térmica de segundo/tercer grado (35-50% mortalidad)
-                </div>
-            </div>
-            
-            <!-- ZONA AZUL - Presión de Aire -->
-            <div style="background: rgba(52, 152, 219, 0.15); border-left: 4px solid var(--info); 
-                        border-radius: 8px; padding: 1.5rem; margin-bottom: 1.5rem;">
-                <h4 style="color: var(--info); margin-bottom: 1rem; display: flex; align-items: center; gap: 0.5rem;">
-                    <span style="font-size: 1.5em;">🔵</span>
-                    ZONA AZUL - Presión de Aire
-                    <span style="font-size: 0.8em; color: var(--text-secondary);">(${breakdown.air_pressure_zone.cities_count} ubicaciones)</span>
-                </h4>
-                <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 1rem; margin-top: 1rem;">
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Población</div>
-                        <div style="color: var(--text-light); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.air_pressure_zone.total_population.toLocaleString()}
-                        </div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Fallecidos</div>
-                        <div style="color: var(--danger); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.air_pressure_zone.deaths.toLocaleString()}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.air_pressure_zone.fatality_rate}%)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Heridos</div>
-                        <div style="color: var(--warning); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.air_pressure_zone.injured.toLocaleString()}
-                        </div>
-                        <div style="color: var(--text-secondary); font-size: 0.75em;">(${breakdown.air_pressure_zone.injury_rate}%)</div>
-                    </div>
-                    <div style="text-align: center;">
-                        <div style="color: var(--text-secondary); font-size: 0.85em;">Sobrevivientes</div>
-                        <div style="color: var(--success); font-size: 1.4em; font-weight: bold; margin-top: 0.3rem;">
-                            ${breakdown.air_pressure_zone.survivors.toLocaleString()}
-                        </div>
-                    </div>
-                </div>
-                <div style="margin-top: 1rem; padding: 0.8rem; background: rgba(0,0,0,0.2); border-radius: 6px; font-size: 0.85em; color: var(--text-secondary);">
-                    ⚠️ Zona de impacto moderado: presión de aire (5-20 psi), ventanas rotas, estructuras dañadas, lesiones por escombros voladores y quemaduras menores (8-15% mortalidad)
-                </div>
-            </div>
-            
-            <!-- Nota metodológica -->
-            <div style="background: rgba(255, 255, 255, 0.05); border-radius: 8px; padding: 1rem; margin-top: 2rem; font-size: 0.85em;">
-                <h4 style="color: var(--text-light); margin-bottom: 0.8rem; font-size: 1em;">📋 Metodología de Cálculo</h4>
-                <p style="color: var(--text-secondary); line-height: 1.6; margin: 0 0 0.8rem 0;">
-                    <strong style="color: var(--text-light);">Fuentes científicas:</strong> Los cálculos se basan en estudios de impactos de asteroides (Evento de Tunguska 1908, 
-                    Chelyabinsk 2013), datos históricos de explosiones nucleares (Hiroshima/Nagasaki), 
-                    y modelos computacionales de propagación de ondas de choque desarrollados por NASA/ESA.
-                </p>
-                <p style="color: var(--text-secondary); line-height: 1.6; margin: 0;">
-                    <strong style="color: var(--text-light);">Tasas de mortalidad:</strong> Las tasas se ajustan dinámicamente según 
-                    la energía del impacto (${totals.total_affected > 0 ? ((totals.total_deaths / totals.total_population * 100).toFixed(1)) : '0'}% promedio en esta simulación) 
-                    y la distancia al epicentro. Los datos de población provienen de OpenStreetMap (Overpass API) con datos censales reales.
-                </p>
-            </div>
-        </div>
-    `;
-    
-    content.innerHTML = html;
-}
-
-// Función para cerrar el modal
-function closeCasualtyBreakdown() {
-    const modal = document.getElementById('casualty-breakdown-modal');
-    if (modal) {
-        modal.style.display = 'none';
-    }
-}
-
-// Cerrar modal al hacer click fuera de él
-document.addEventListener('DOMContentLoaded', function() {
-    const modal = document.getElementById('casualty-breakdown-modal');
-    if (modal) {
-        modal.addEventListener('click', function(event) {
-            if (event.target === modal) {
-                closeCasualtyBreakdown();
-            }
-        });
-    }
-});
 
 // Cerrar modal de deflexión con ESC
 document.addEventListener('keydown', (e) => {
@@ -7230,437 +5525,5 @@ document.addEventListener('keydown', (e) => {
         closeDeflectionModal();
     }
 });
-
-// ============================================
-// FUNCIÓN DE AUTO-ZOOM A ZONA DE IMPACTO
-// ============================================
-function zoomToImpactZone() {
-    // Verificar que tenemos datos procesados
-    if (!processedSimulationData) {
-        console.error('❌ No hay datos de simulación procesados para hacer zoom');
-        return;
-    }
-    
-    const { result } = processedSimulationData;
-    
-    if (!result || !result.input || !result.input.impact_location) {
-        console.error('❌ No hay ubicación de impacto en los datos procesados');
-        return;
-    }
-    
-    const lat = result.input.impact_location.lat;
-    const lon = result.input.impact_location.lon;
-    
-    if (!lat || !lon) {
-        console.error('❌ Coordenadas de impacto inválidas');
-        return;
-    }
-    
-    // Verificar que el mapa esté inicializado con un retry
-    let retryCount = 0;
-    const maxRetries = 10;
-    
-    const attemptZoom = () => {
-        if (!impactMap) {
-            retryCount++;
-            if (retryCount < maxRetries) {
-                setTimeout(attemptZoom, 500);
-                return;
-            } else {
-                console.error('❌ El mapa no se inicializó después de múltiples intentos');
-                return;
-            }
-        }
-        
-        // Calcular el zoom apropiado basado en el radio de destrucción
-        let zoomLevel = 10; // Zoom por defecto
-        
-        if (result.calculations && result.calculations.destruction_radius_km) {
-            const destructionRadius = result.calculations.destruction_radius_km;
-            
-            // Ajustar zoom basado en el radio de destrucción
-            if (destructionRadius < 5) {
-                zoomLevel = 12; // Zoom más cercano para impactos pequeños
-            } else if (destructionRadius < 20) {
-                zoomLevel = 11;
-            } else if (destructionRadius < 50) {
-                zoomLevel = 10;
-            } else {
-                zoomLevel = 9; // Zoom más lejano para impactos grandes
-            }
-        }
-        
-        // Hacer zoom suave a la ubicación de impacto
-        try {
-            // Asegurar que las coordenadas sean números válidos
-            const impactLat = parseFloat(lat);
-            const impactLon = parseFloat(lon);
-            
-            if (isNaN(impactLat) || isNaN(impactLon)) {
-                console.error('❌ Coordenadas no son números válidos:', lat, lon);
-                return;
-            }
-            
-            impactMap.flyTo([impactLat, impactLon], zoomLevel, {
-                duration: 2.5, // Duración de 2.5 segundos
-                easeLinearity: 0.25,
-                animate: true
-            });
-            
-        } catch (error) {
-            console.error('❌ Error al hacer zoom:', error);
-        }
-    };
-    
-    attemptZoom();
-}
-
-// Exponer la función globalmente
-window.zoomToImpactZone = zoomToImpactZone;
-
-// ============================================
-// IMPACTO DATA STORAGE FUNCTIONS
-// ============================================
-
-/**
- * Calcula la población afectada usando la API de Overpass
- * @param {number} lat - Latitud del impacto
- * @param {number} lon - Longitud del impacto
- * @param {number} radiusKm - Radio en kilómetros
- * @returns {Promise<Object>} Datos de población afectada
- */
-async function calculateAffectedPopulation(lat, lon, radiusKm) {
-    try {
-        console.log('🔍 Calculando población afectada usando API backend...');
-        console.log(`Coordenadas: ${lat}, ${lon}, Radio: ${radiusKm} km`);
-        
-        // Convertir radio a metros
-        const radiusMeters = Math.round(radiusKm * 1000);
-        
-        // Usar el endpoint del backend en lugar de Overpass directamente
-        const response = await fetch('/api/cities', {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify({
-                latitude: lat,
-                longitude: lon,
-                radius: radiusMeters
-            })
-        });
-        
-        if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
-        }
-        
-        const data = await response.json();
-        console.log('Respuesta del backend:', data);
-        
-        if (!data.success || !data.cities || data.cities.length === 0) {
-            console.log('❌ No se encontraron lugares poblados');
-            return {
-                totalPopulation: 0,
-                cities: [],
-                message: 'No hay población significativa en la zona de impacto'
-            };
-        }
-        
-        // Procesar los datos del backend con zonas de impacto
-        let totalPopulation = data.totalPopulation || 0;
-        let totalVictims = data.totalVictims || 0;
-        const cities = [];
-        const zones = data.zones || {};
-        
-        // Procesar ciudades por zona
-        data.cities.forEach(city => {
-            cities.push({
-                name: city.nombre,
-                population: city.poblacion,
-                victims: city.victimas_estimadas || 0,
-                distance: city.distancia_km,
-                type: city.tipo || 'unknown',
-                impact_zone: city.impact_zone || 'unknown',
-                zone_name: city.zone_name || 'Unknown',
-                lat: city.lat,
-                lon: city.lon
-            });
-            
-            console.log(`Ciudad encontrada: ${city.nombre}, Población: ${city.poblacion}, Víctimas: ${city.victimas_estimadas}, Zona: ${city.zone_name}`);
-        });
-        
-        // Log de zonas
-        console.log('🎯 Zonas de impacto encontradas:');
-        if (zones.destruction) {
-            console.log(`   🔥 Destrucción Total: ${zones.destruction.places_count} lugares, ${zones.destruction.total_victims} víctimas`);
-        }
-        if (zones.damage) {
-            console.log(`   ⚠️ Daño Severo: ${zones.damage.places_count} lugares, ${zones.damage.total_victims} víctimas`);
-        }
-        if (zones.affected) {
-            console.log(`   🌪️ Área Afectada: ${zones.affected.places_count} lugares, ${zones.affected.total_victims} víctimas`);
-        }
-        
-        console.log(`✅ Población total: ${totalPopulation.toLocaleString()}, Víctimas totales: ${totalVictims.toLocaleString()}`);
-        
-        return {
-            totalPopulation: totalPopulation,
-            totalVictims: totalVictims,
-            cities: cities,
-            zones: zones,
-            message: totalPopulation > 0 ? 
-                `${totalPopulation.toLocaleString()} personas en ${cities.length} lugares poblados (${totalVictims.toLocaleString()} víctimas estimadas)` :
-                'No hay población significativa en la zona de impacto'
-        };
-        
-    } catch (error) {
-        console.error('❌ Error calculando población:', error);
-        return {
-            totalPopulation: 0,
-            cities: [],
-            message: `Error consultando datos de población: ${error.message}`
-        };
-    }
-}
-
-/**
- * Guarda todos los datos del impacto calculados para generar PDF más rápidamente
- * @param {Object} impactData - Datos completos del impacto
- * @returns {Object} Datos guardados con metadata adicional
- */
-async function saveImpacto(impactData) {
-    try {
-        console.log('💾 Guardando datos de impacto...');
-        
-        // Validar que tenemos datos válidos
-        if (!impactData) {
-            throw new Error('No se proporcionaron datos de impacto');
-        }
-        
-        // Calcular población afectada si no está disponible o es 0
-        let populationData = impactData.population || {};
-        let affectedPopulation = impactData.affectedPopulation || 0;
-        
-        if (affectedPopulation === 0 && impactData.latitude && impactData.longitude) {
-            console.log('🔍 Calculando población afectada con Overpass API...');
-            
-            // Usar radio de destrucción o 5km por defecto
-            const radiusKm = (impactData.destructionRadius || 5000) / 1000; // Convertir metros a km
-            
-            const overpassData = await calculateAffectedPopulation(
-                impactData.latitude, 
-                impactData.longitude, 
-                radiusKm
-            );
-            
-            affectedPopulation = overpassData.totalPopulation;
-            populationData = {
-                ...populationData,
-                totalAffected: overpassData.totalPopulation,
-                totalVictims: overpassData.totalVictims || 0,
-                cities: overpassData.cities,
-                zones: overpassData.zones,
-                message: overpassData.message
-            };
-            
-            console.log(`✅ Población calculada: ${affectedPopulation.toLocaleString()} personas`);
-        }
-        
-        // Crear estructura completa de datos para almacenamiento
-        const dataToSave = {
-            // Datos básicos del impacto
-            basic: {
-                diameter: impactData.diameter || impactData.asteroid?.diameter || 0,
-                velocity: impactData.velocity || impactData.asteroid?.velocity || 0,
-                angle: impactData.angle || impactData.asteroid?.angle || 45,
-                composition: impactData.composition || impactData.asteroid?.composition || 'rocky',
-                latitude: impactData.latitude || impactData.location?.latitude || 0,
-                longitude: impactData.longitude || impactData.location?.longitude || 0
-            },
-            
-            // Cálculos principales
-            calculations: {
-                impactEnergy: impactData.impactEnergy || impactData.calculations?.impactEnergy || 0,
-                craterDiameter: impactData.craterDiameter || impactData.calculations?.craterDiameter || 0,
-                destructionRadius: impactData.destructionRadius || impactData.calculations?.destructionRadius || 0,
-                damageRadius: impactData.calculations?.damageRadius || 0,
-                airPressureRadius: impactData.calculations?.airPressureRadius || 0,
-                seismicMagnitude: impactData.calculations?.seismicMagnitude || 0,
-                tsunamiRisk: impactData.calculations?.tsunamiRisk || 'Bajo',
-                tsunamiHeight: impactData.calculations?.tsunamiHeight || 0,
-                tsunamiRadius: impactData.calculations?.tsunamiRadius || 0,
-                thermalRadius: impactData.calculations?.thermalRadius || 0,
-                ejectaRadius: impactData.calculations?.ejectaRadius || 0
-            },
-            
-            // Datos de población
-            population: {
-                totalAffected: affectedPopulation,
-                totalVictims: populationData.totalVictims || 0,
-                // Zonas de impacto
-                destructionZone: populationData.zones?.destruction?.total_victims || 0,
-                damageZone: populationData.zones?.damage?.total_victims || 0,
-                affectedZone: populationData.zones?.affected?.total_victims || 0,
-                // Detalles por zona
-                zones: populationData.zones || {},
-                cities: populationData.cities || [],
-                countries: impactData.population?.countries || [],
-                continents: impactData.population?.continents || [],
-                // Datos dinámicos de ciudades
-                citiesDetailed: populationData.citiesDetailed || populationData.cities || [],
-                totalCitiesFound: populationData.cities?.length || 0,
-                totalPopulationFromCities: affectedPopulation,
-                citiesByType: impactData.population?.citiesByType || {},
-                citiesByDistance: impactData.population?.citiesByDistance || [],
-                citiesInDestructionZone: populationData.zones?.destruction?.places || [],
-                citiesInDamageZone: populationData.zones?.damage?.places || [],
-                citiesInAffectedZone: populationData.zones?.affected?.places || []
-            },
-            
-            // Datos ambientales
-            environment: {
-                mostAffectedFauna: impactData.mostAffectedFauna || impactData.environment?.mostAffectedFauna || 'No detectada',
-                mostAffectedFlora: impactData.mostAffectedFlora || impactData.environment?.mostAffectedFlora || 'No detectada',
-                ecosystemDamage: impactData.environment?.ecosystemDamage || 'Desconocido',
-                biodiversityLoss: impactData.environment?.biodiversityLoss || 'Desconocido',
-                climateEffects: impactData.environment?.climateEffects || 'Desconocido',
-                atmosphericChanges: impactData.environment?.atmosphericChanges || 'Desconocido',
-                waterContamination: impactData.environment?.waterContamination || 'Desconocido',
-                soilContamination: impactData.environment?.soilContamination || 'Desconocido'
-            },
-            
-            // Datos de ubicación
-            location: {
-                latitude: impactData.latitude || impactData.location?.latitude || 0,
-                longitude: impactData.longitude || impactData.location?.longitude || 0,
-                city: impactData.location?.city || 'Ubicación desconocida',
-                country: impactData.location?.country || 'País desconocido',
-                continent: impactData.location?.continent || 'Continente desconocido',
-                elevation: impactData.location?.elevation || 0,
-                terrainType: impactData.location?.terrainType || 'unknown',
-                isOceanic: impactData.location?.isOceanic || false,
-                coastalDistance: impactData.location?.coastalDistance || 0
-            },
-            
-            // Datos del asteroide
-            asteroid: {
-                diameter: impactData.diameter || impactData.asteroid?.diameter || 0,
-                velocity: impactData.velocity || impactData.asteroid?.velocity || 0,
-                angle: impactData.angle || impactData.asteroid?.angle || 45,
-                composition: impactData.composition || impactData.asteroid?.composition || 'rocky',
-                mass: impactData.asteroid?.mass || 0,
-                density: impactData.asteroid?.density || 3000
-            },
-            
-            // Datos completos del resultado (para compatibilidad con PDF)
-            fullResults: currentFullResults || null,
-            
-            // Metadata
-            metadata: {
-                simulationId: generateSimulationId(),
-                timestamp: new Date().toISOString(),
-                calculationTime: impactData.metadata?.calculationTime || 0,
-                apiCalls: impactData.metadata?.apiCalls || 0,
-                confidence: impactData.metadata?.confidence || 0.85,
-                version: '1.0',
-                savedBy: 'saveImpacto'
-            }
-        };
-        
-        // Guardar en localStorage
-        localStorage.setItem('impactoData', JSON.stringify(dataToSave));
-        
-        console.log('✅ Datos de impacto guardados exitosamente');
-        console.log('📊 Resumen de datos guardados:', {
-            simulationId: dataToSave.metadata.simulationId,
-            timestamp: dataToSave.metadata.timestamp,
-            energy: dataToSave.calculations.impactEnergy,
-            population: dataToSave.population.totalAffected,
-            cities: dataToSave.population.totalCitiesFound
-        });
-        
-        return dataToSave;
-        
-    } catch (error) {
-        console.error('❌ Error al guardar datos de impacto:', error);
-        showNotification('Error al guardar datos de impacto', 'error');
-        return null;
-    }
-}
-
-/**
- * Genera un ID único para la simulación
- * @returns {string} ID único de simulación
- */
-function generateSimulationId() {
-    const timestamp = Date.now();
-    const random = Math.random().toString(36).substr(2, 9);
-    return `SIM_${timestamp}_${random}`.toUpperCase();
-}
-
-/**
- * Recupera los datos de impacto guardados
- * @returns {Object|null} Datos de impacto guardados o null si no existen
- */
-function getImpactoData() {
-    try {
-        const savedData = localStorage.getItem('impactoData');
-        if (!savedData) {
-            console.log('📭 No hay datos de impacto guardados');
-            return null;
-        }
-        
-        const data = JSON.parse(savedData);
-        console.log('📖 Datos de impacto recuperados:', {
-            simulationId: data.metadata?.simulationId,
-            timestamp: data.metadata?.timestamp,
-            energy: data.calculations?.impactEnergy,
-            population: data.population?.totalAffected
-        });
-        
-        return data;
-        
-    } catch (error) {
-        console.error('❌ Error al recuperar datos de impacto:', error);
-        showNotification('Error al recuperar datos de impacto', 'error');
-        return null;
-    }
-}
-
-/**
- * Limpia los datos de impacto guardados
- * @returns {boolean} true si se limpiaron exitosamente
- */
-function clearImpactoData() {
-    try {
-        localStorage.removeItem('impactoData');
-        console.log('🗑️ Datos de impacto limpiados exitosamente');
-        return true;
-    } catch (error) {
-        console.error('❌ Error al limpiar datos de impacto:', error);
-        return false;
-    }
-}
-
-/**
- * Verifica si hay datos de impacto guardados
- * @returns {boolean} true si hay datos guardados
- */
-function hasImpactoData() {
-    try {
-        const savedData = localStorage.getItem('impactoData');
-        return savedData !== null && savedData !== '';
-    } catch (error) {
-        console.error('❌ Error al verificar datos de impacto:', error);
-        return false;
-    }
-}
-
-// Exponer funciones globalmente
-window.saveImpacto = saveImpacto;
-window.getImpactoData = getImpactoData;
-window.clearImpactoData = clearImpactoData;
-window.hasImpactoData = hasImpactoData;
-window.calculateAffectedPopulation = calculateAffectedPopulation;
 
 

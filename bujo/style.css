@@ -927,115 +927,16 @@ body {
     margin-bottom: 1rem;
 }
 
-/* ========== CUSTOM MAP LAYERS CONTROL (Top Right) ========== */
-.custom-layers-control {
-    position: absolute !important;
-    top: auto !important;  /* ← Cambiado de bottom a top */
-    right: auto !important;  /* ← Cambiado de left a right */
-    left: 380px !important;
-    bottom: 20px !important;
-    z-index: 9999 !important;
-    background: var(--sidebar-bg);
-    border: 1px solid var(--sidebar-border);
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
-    overflow: hidden;
-    transition: all 0.3s ease;
-    pointer-events: auto;
-}
-
-.custom-layers-toggle {
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    padding: 12px 16px;
-    background: var(--sidebar-bg);
-    color: var(--text-light);
-    cursor: pointer;
-    font-size: 14px;
-    font-weight: 500;
-    transition: all 0.2s ease;
-    border: none;
-    width: 100%;
-    text-align: left;
-}
-
-.custom-layers-toggle:hover {
-    background: var(--input-bg);
-    color: var(--primary-blue);
-}
-
-.custom-layers-toggle .icon {
-    font-size: 18px;
-}
-
-.custom-layers-toggle .arrow {
-    margin-left: auto;
-    transition: transform 0.3s ease;
-    font-size: 12px;
-}
-
-.custom-layers-control.expanded .custom-layers-toggle .arrow {
-    transform: rotate(180deg);
-}
-
-.custom-layers-options {
-    max-height: 0;
-    overflow: hidden;
-    transition: max-height 0.3s ease;
-    background: var(--sidebar-bg);
-}
-
-.custom-layers-control.expanded .custom-layers-options {
-    max-height: 200px;
-    border-top: 1px solid var(--sidebar-border);
-}
-
-.custom-layer-option {
-    display: flex;
-    align-items: center;
-    gap: 10px;
-    padding: 10px 16px;
-    cursor: pointer;
-    transition: all 0.2s ease;
-    color: var(--text-light);
-    font-size: 14px;
-}
-
-.custom-layer-option:hover {
-    background: var(--input-bg);
-    color: var(--primary-blue);
-}
-
-.custom-layer-option.active {
-    background: var(--primary-blue);
-    color: white;
-}
-
-.custom-layer-option input[type="radio"] {
-    margin: 0;
-    accent-color: var(--primary-blue);
-}
-
-/* Ocultar el control de capas por defecto de Leaflet */
-.leaflet-control-layers {
-    display: none !important;
-}
-
-/* Responsive */
-@media (max-width: 768px) {
-    .custom-layers-control {
-        top: 10px !important;
-        right: 10px !important;
-    }
-}
-
 /* Responsive adjustments */
 @media (max-width: 768px) {
     .rewards-modal-content {
         width: 95%;
         margin: auto;
         max-height: 90vh;
+    }
+    
+    .modal-header {
+        padding: 1rem 1.5rem;
     }
     
     .modal-header h2 {
@@ -1410,119 +1311,6 @@ body {
     z-index: 700 !important;
 }
 
-.location-icon {
-    font-size: 1.1rem;
-}
-
-.location-text {
-    white-space: nowrap;
-}
-
-
-/* ========== MAP SEARCH CONTAINER ========== */
-.map-search-container {
-    position: absolute;
-    top: 20px;
-    right: 20px;
-    z-index: 1000;
-    width: 400px;
-}
-
-.map-search-box {
-    display: flex;
-    background: var(--sidebar-bg);
-    border: 1px solid var(--sidebar-border);
-    border-radius: 8px;
-    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
-    overflow: hidden;
-}
-
-.map-search-box input {
-    flex: 1;
-    background: transparent;
-    color: var(--text-light);
-    border: none;
-    padding: 0.75rem 1rem;
-    font-size: 0.9rem;
-    outline: none;
-}
-
-.map-search-box input::placeholder {
-    color: var(--text-medium);
-}
-
-.map-search-btn {
-    background: var(--primary-blue);
-    color: white;
-    border: none;
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.3s ease;
-}
-
-.map-search-btn:hover {
-    background: var(--primary-blue-hover);
-}
-
-.my-location-btn-inline {
-    background: var(--primary-blue);
-    color: white;
-    border: none;
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    font-size: 0.9rem;
-    transition: background 0.3s ease;
-    white-space: nowrap;
-}
-
-.my-location-btn-inline:hover {
-    background: var(--primary-blue-hover);
-}
-
-.map-search-results {
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--sidebar-bg);
-    border: 1px solid var(--sidebar-border);
-    border-top: none;
-    border-radius: 0 0 8px 8px;
-    max-height: 200px;
-    overflow-y: auto;
-    display: none;
-    z-index: 1001;
-}
-
-.map-search-results .search-result-item {
-    padding: 0.75rem 1rem;
-    cursor: pointer;
-    border-bottom: 1px solid var(--sidebar-border);
-    transition: background 0.2s ease;
-}
-
-.map-search-results .search-result-item:hover {
-    background: var(--input-bg);
-}
-
-.map-search-results .search-result-item:last-child {
-    border-bottom: none;
-}
-
-.map-search-results .search-result-name {
-    font-weight: 500;
-    color: var(--text-light);
-    font-size: 0.9rem;
-}
-
-.map-search-results .search-result-details {
-    font-size: 0.8rem;
-    color: var(--text-medium);
-    margin-top: 0.25rem;
-}
-
-
 /* ========== MAP LEGEND ========== */
 .map-legend {
     position: absolute;
@@ -1571,36 +1359,6 @@ body {
 .legend-dot.affected {
     background: var(--primary-blue);
     box-shadow: 0 0 8px var(--primary-blue);
-}
-
-/* Botón para limpiar el mapa */
-.clear-map-btn {
-    margin-top: 0.75rem;
-    padding: 0.5rem 0.75rem;
-    width: 100%;
-    background: rgba(255, 68, 68, 0.2);
-    color: var(--danger);
-    border: 1px solid var(--danger);
-    border-radius: 6px;
-    font-size: 0.75rem;
-    font-weight: 500;
-    cursor: pointer;
-    transition: all 0.3s ease;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.3rem;
-}
-
-.clear-map-btn:hover {
-    background: var(--danger);
-    color: white;
-    transform: translateY(-1px);
-    box-shadow: 0 2px 10px rgba(255, 68, 68, 0.3);
-}
-
-.clear-map-btn:active {
-    transform: translateY(0);
 }
 
 /* ========== VIEW RESULTS BUTTON ========== */
@@ -2759,165 +2517,108 @@ html {
     }
 }
 
-/* ========================================
-   MODAL: DESGLOSE DE VÍCTIMAS
-   ======================================== */
-
-#casualty-breakdown-modal {
-    display: none;
-    position: fixed;
-    z-index: 10000;
-    left: 0;
-    top: 0;
-    width: 100%;
-    height: 100%;
-    overflow: auto;
-    background-color: rgba(0, 0, 0, 0.85);
-    backdrop-filter: blur(5px);
-    align-items: center;
-    justify-content: center;
-}
-
-#casualty-breakdown-modal .modal-content {
-    background: linear-gradient(135deg, #1A1A1A 0%, #0F0F0F 100%);
-    margin: auto;
-    padding: 0;
-    border: 2px solid var(--danger);
-    border-radius: 16px;
-    max-width: 900px;
-    width: 90%;
-    max-height: 90vh;
+/* ========== CUSTOM MAP LAYERS CONTROL (Top Right) ========== */
+.custom-layers-control {
+    position: absolute !important;
+    top: auto !important;  /* ← Cambiado de bottom a top */
+    right: auto !important;  /* ← Cambiado de left a right */
+    left: 380px !important;
+    bottom: 20px !important;
+    z-index: 9999 !important;
+    background: var(--sidebar-bg);
+    border: 1px solid var(--sidebar-border);
+    border-radius: 8px;
+    box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     overflow: hidden;
-    box-shadow: 0 20px 60px rgba(255, 68, 68, 0.3);
-    animation: casualtyModalSlideIn 0.4s cubic-bezier(0.68, -0.55, 0.265, 1.55);
-}
-
-@keyframes casualtyModalSlideIn {
-    from {
-        transform: scale(0.8) translateY(-50px);
-        opacity: 0;
-    }
-    to {
-        transform: scale(1) translateY(0);
-        opacity: 1;
-    }
-}
-
-#casualty-breakdown-modal .modal-header {
-    background: linear-gradient(135deg, var(--danger) 0%, #C0392B 100%);
-    color: white;
-    padding: 1.5rem 2rem;
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    border-bottom: 2px solid rgba(255, 255, 255, 0.1);
-}
-
-#casualty-breakdown-modal .modal-header h2 {
-    margin: 0;
-    font-size: 1.5em;
-    font-weight: 700;
-}
-
-#casualty-breakdown-modal .modal-close {
-    background: rgba(255, 255, 255, 0.1);
-    border: none;
-    color: white;
-    font-size: 2em;
-    font-weight: bold;
-    cursor: pointer;
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    display: flex;
-    align-items: center;
-    justify-content: center;
     transition: all 0.3s ease;
+    pointer-events: auto;
 }
 
-#casualty-breakdown-modal .modal-close:hover {
-    background: rgba(255, 255, 255, 0.2);
-    transform: rotate(90deg);
-}
-
-#casualty-breakdown-modal .modal-body {
-    padding: 0;
-    max-height: calc(90vh - 180px);
-    overflow-y: auto;
-}
-
-/* Scrollbar personalizada para el modal */
-#casualty-breakdown-modal .modal-body::-webkit-scrollbar {
-    width: 10px;
-}
-
-#casualty-breakdown-modal .modal-body::-webkit-scrollbar-track {
-    background: rgba(0, 0, 0, 0.3);
-    border-radius: 10px;
-}
-
-#casualty-breakdown-modal .modal-body::-webkit-scrollbar-thumb {
-    background: var(--danger);
-    border-radius: 10px;
-    transition: background 0.3s ease;
-}
-
-#casualty-breakdown-modal .modal-body::-webkit-scrollbar-thumb:hover {
-    background: #C0392B;
-}
-
-#casualty-breakdown-modal .modal-footer {
-    background: rgba(0, 0, 0, 0.3);
-    padding: 1rem 2rem;
-    border-top: 1px solid rgba(255, 255, 255, 0.1);
+.custom-layers-toggle {
     display: flex;
-    justify-content: flex-end;
-    gap: 1rem;
+    align-items: center;
+    gap: 8px;
+    padding: 12px 16px;
+    background: var(--sidebar-bg);
+    color: var(--text-light);
+    cursor: pointer;
+    font-size: 14px;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    border: none;
+    width: 100%;
+    text-align: left;
 }
 
-/* Hacer clickeable la card de población */
-.population-card:hover {
-    transform: translateY(-5px) scale(1.02);
-    box-shadow: 0 15px 40px rgba(0, 168, 232, 0.3);
-    border-color: var(--primary-blue);
+.custom-layers-toggle:hover {
+    background: var(--input-bg);
+    color: var(--primary-blue);
 }
 
-.population-card {
-    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+.custom-layers-toggle .icon {
+    font-size: 18px;
 }
 
-/* Loading spinner para el modal */
-#casualty-breakdown-content .loading-spinner {
-    border: 4px solid rgba(255, 255, 255, 0.1);
-    border-radius: 50%;
-    border-top: 4px solid var(--danger);
-    width: 50px;
-    height: 50px;
-    animation: spin 1s linear infinite;
-    margin: 2rem auto;
+.custom-layers-toggle .arrow {
+    margin-left: auto;
+    transition: transform 0.3s ease;
+    font-size: 12px;
 }
 
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
+.custom-layers-control.expanded .custom-layers-toggle .arrow {
+    transform: rotate(180deg);
 }
 
-/* Responsive para el modal */
+.custom-layers-options {
+    max-height: 0;
+    overflow: hidden;
+    transition: max-height 0.3s ease;
+    background: var(--sidebar-bg);
+}
+
+.custom-layers-control.expanded .custom-layers-options {
+    max-height: 200px;
+    border-top: 1px solid var(--sidebar-border);
+}
+
+.custom-layer-option {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 10px 16px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    font-size: 13px;
+    color: var(--text-light);
+}
+
+.custom-layer-option:hover {
+    background: var(--input-bg);
+    color: var(--primary-blue);
+}
+
+.custom-layer-option.active {
+    background: rgba(0, 168, 232, 0.1);
+    color: var(--primary-blue);
+    font-weight: 500;
+}
+
+.custom-layer-option input[type="radio"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    accent-color: var(--primary-blue);
+}
+
+/* Ocultar el control de capas por defecto de Leaflet */
+.leaflet-control-layers {
+    display: none !important;
+}
+
+/* Responsive */
 @media (max-width: 768px) {
-    #casualty-breakdown-modal .modal-content {
-        width: 95%;
-        max-height: 95vh;
-    }
-    
-    #casualty-breakdown-modal .modal-header {
-        padding: 1rem 1.5rem;
-    }
-    
-    #casualty-breakdown-modal .modal-header h2 {
-        font-size: 1.2em;
-    }
-    
-    #casualty-breakdown-modal .modal-body {
-        max-height: calc(95vh - 160px);
+    .custom-layers-control {
+        top: 10px !important;
+        right: 10px !important;
     }
 }

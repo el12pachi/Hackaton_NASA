@@ -1,0 +1,2 @@
+# Dependencias para el calculador de impacto de meteorito
+requests>=2.25.0
