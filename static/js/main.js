@@ -1502,6 +1502,7 @@ function setupModeSwitching() {
 let impactMap = null;
 let currentMarker = null;
 let currentCircles = [];
+let currentCityLabels = [];
 let currentFullResults = null;
 let currentTileLayer = null;
 
@@ -1523,6 +1524,12 @@ function clearImpactMap() {
         impactMap.removeLayer(circle);
     });
     currentCircles = [];
+
+    // Eliminar etiquetas de ciudades
+    currentCityLabels.forEach(label => {
+        impactMap.removeLayer(label);
+    });
+    currentCityLabels = [];
     
     console.log('🗺️ Mapa limpiado completamente');
 }
@@ -3821,6 +3828,11 @@ function createCustomLayersControl(layers) {
                 impactMap.removeLayer(circle);
             });
             currentCircles = [];
+
+            currentCityLabels.forEach(label => {
+                impactMap.removeLayer(label);
+            });
+            currentCityLabels = [];
             
             // Add new marker with better visibility
             currentMarker = L.marker([e.latlng.lat, e.latlng.lng], {
@@ -3937,6 +3949,11 @@ async function updateImpactMap(result) {
         impactMap.removeLayer(circle);
     });
     currentCircles = [];
+
+    currentCityLabels.forEach(label => {
+        impactMap.removeLayer(label);
+    });
+    currentCityLabels = [];
     
     // Center on impact point
     impactMap.setView([lat, lon], 8);
@@ -4035,10 +4052,10 @@ async function updateImpactMap(result) {
     const airPressureRadius = calc.damage_radius_km * 1.5; // 50% más grande que zona de daño
     const airPressureCircle = L.circle([lat, lon], {
         radius: airPressureRadius * 1000,
-        color: '#4169E1',
-        weight: 2,
+        color: '#1E4EFF',
+        weight: 3,
         fillColor: '#4169E1',
-        fillOpacity: 0.2,
+        fillOpacity: 0.26,
         className: 'impact-circle air-pressure-zone'
     }).addTo(impactMap);
     
@@ -4051,11 +4068,11 @@ async function updateImpactMap(result) {
     // Add damage zone second (middle layer)
     const damageCircle = L.circle([lat, lon], {
         radius: calc.damage_radius_km * 1000,
-        color: '#FFB84D',
-        weight: 2,
-        fillColor: '#FFB84D',
-        fillOpacity: 0.3,
-        className: 'impact-circle'
+        color: '#FF8A00',
+        weight: 3,
+        fillColor: '#FF9A1F',
+        fillOpacity: 0.4,
+        className: 'impact-circle damage-zone'
     }).addTo(impactMap);
     
     damageCircle.bindPopup(`
@@ -4066,10 +4083,10 @@ async function updateImpactMap(result) {
     // Add destruction zone second (smaller circle, on top)
     const destructionCircle = L.circle([lat, lon], {
         radius: calc.destruction_radius_km * 1000,
-        color: '#FF4444',
-        weight: 3,
-        fillColor: '#FF4444',
-        fillOpacity: 0.7,
+        color: '#FF1F1F',
+        weight: 4,
+        fillColor: '#FF2B2B',
+        fillOpacity: 0.82,
         className: 'impact-circle destruction-zone'
     }).addTo(impactMap);
     
@@ -4127,6 +4144,34 @@ async function updateImpactMap(result) {
                 .openOn(impactMap);
         }
     });
+
+    // Mostrar nombres de ciudades en el mapa (priorizando las más pobladas)
+    if (result.cities && result.cities.length > 0) {
+        const maxLabels = 14;
+        const citiesToLabel = result.cities
+            .filter(city =>
+                typeof city.lat === 'number' &&
+                typeof city.lon === 'number' &&
+                typeof city.distancia_km === 'number' &&
+                city.distancia_km <= airPressureRadius
+            )
+            .sort((a, b) => (parseInt(b.poblacion, 10) || 0) - (parseInt(a.poblacion, 10) || 0))
+            .slice(0, maxLabels);
+
+        citiesToLabel.forEach(city => {
+            const label = L.marker([city.lat, city.lon], {
+                interactive: false,
+                zIndexOffset: 800,
+                icon: L.divIcon({
+                    className: 'city-map-label',
+                    html: `<span>${city.nombre}</span>`,
+                    iconSize: null
+                })
+            }).addTo(impactMap);
+
+            currentCityLabels.push(label);
+        });
+    }
     
     currentCircles.push(airPressureCircle, damageCircle, destructionCircle);
 }
@@ -4523,6 +4568,41 @@ function generateFullResultsHTML(result) {
     if (result.flora_fauna_analysis) {
         html += generateFloraFaunaAnalysisHTML(result.flora_fauna_analysis);
     }
+
+    // BOTÓN EIA — Evaluación de Impacto Ambiental completa
+    const lat = result.input?.impact_location?.lat || 0;
+    const lon = result.input?.impact_location?.lon || 0;
+    const dR  = result.calculations?.destruction_radius_km || 1;
+    const daR = result.calculations?.damage_radius_km || 5;
+    const eMT = result.calculations?.energy_megatons_tnt || 1;
+    html += `
+    <div style="margin: 1.5rem 0;">
+        <button
+            id="eia-launch-btn"
+            onclick="fetchAndShowEIA(${lat}, ${lon}, ${dR}, ${daR}, ${eMT})"
+            style="
+                width: 100%;
+                padding: 1rem 1.5rem;
+                background: linear-gradient(135deg, #0d7c3d 0%, #1db954 100%);
+                color: #fff;
+                border: none;
+                border-radius: 12px;
+                font-size: 15px;
+                font-weight: 700;
+                cursor: pointer;
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                gap: 0.6rem;
+                box-shadow: 0 4px 18px rgba(29,185,84,0.35);
+                transition: opacity 0.2s;
+            "
+            onmouseover="this.style.opacity='0.88'"
+            onmouseout="this.style.opacity='1'"
+        >
+            🌿 Ver Evaluación de Impacto Ambiental (EIA) Completa
+        </button>
+    </div>`;
     
     // AGREGAR EFECTOS SECUNDARIOS ANTES DEL RETURN
     if (result.secondary_effects && result.secondary_effects.length > 0) {
@@ -5672,10 +5752,192 @@ function calculateMitigationStrategies(simulationData) {
 }
 
 // ============================================
+// EIA — EVALUACIÓN DE IMPACTO AMBIENTAL
+// APIs: GBIF + Open-Meteo (extraídas del mismo proyecto)
+// ============================================
+
+async function fetchAndShowEIA(lat, lon, destructionR, damageR, energyMT) {
+    const btn = document.getElementById('eia-launch-btn');
+    if (btn) {
+        btn.disabled = true;
+        btn.innerHTML = '⏳ Consultando GBIF + Open-Meteo…';
+    }
+
+    try {
+        const res = await fetch('/api/eia/report', {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                latitude:              lat,
+                longitude:             lon,
+                destruction_radius_km: destructionR,
+                damage_radius_km:      damageR,
+                energy_megatons:       energyMT,
+            }),
+        });
+
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const data = await res.json();
+
+        if (!data.success) throw new Error(data.error || 'Error desconocido');
+
+        renderEIAModal(data);
+
+    } catch (err) {
+        console.error('EIA error:', err);
+        alert('No se pudo generar el EIA: ' + err.message);
+    } finally {
+        if (btn) {
+            btn.disabled = false;
+            btn.innerHTML = '🌿 Ver Evaluación de Impacto Ambiental (EIA) Completa';
+        }
+    }
+}
+
+function renderEIAModal(data) {
+    // Eliminar modal previo si existe
+    const prev = document.getElementById('eia-modal-overlay');
+    if (prev) prev.remove();
+
+    const { metadata, resumen, campaigns, climate, verdict } = data;
+
+    // ── Cabecera del veredicto ───────────────────────────────────────────────
+    const verdictHTML = `
+    <div class="eia-verdict" style="border-color:${verdict.color}; background:${verdict.color}18;">
+        <div class="eia-verdict-title" style="color:${verdict.color};">${verdict.verdict}</div>
+        <p class="eia-verdict-desc">${verdict.description}</p>
+        <p class="eia-verdict-rec"><strong>Recomendación:</strong> ${verdict.recommendation}</p>
+        ${verdict.biome_context ? `<p class="eia-verdict-biome">🌍 ${verdict.biome_context}</p>` : ''}
+        <div class="eia-verdict-stats">
+            <span>🐾 ${resumen.total_fauna} especies fauna</span>
+            <span>🌿 ${resumen.total_flora} especies flora</span>
+            <span>📐 ${metadata.area_total_ha.toLocaleString('es-ES')} ha totales</span>
+            <span>📅 ${metadata.fecha}</span>
+        </div>
+    </div>`;
+
+    // ── Campañas ─────────────────────────────────────────────────────────────
+    const campaignsHTML = campaigns.map(c => `
+    <div class="eia-campaign" style="border-top:3px solid ${c.color};">
+        <div class="eia-campaign-header">
+            <div>
+                <span class="eia-campaign-badge" style="background:${c.color}22; color:${c.color}; border:1px solid ${c.color}55;">${c.nivel_riesgo}</span>
+                <h3 class="eia-campaign-title">${c.title}</h3>
+            </div>
+            <div class="eia-campaign-meta">
+                <span>📏 ${c.radio_km} km</span>
+                <span>🗺 ${c.area_ha.toLocaleString('es-ES')} ha</span>
+            </div>
+        </div>
+        <p class="eia-campaign-desc">${c.descripcion}</p>
+
+        <div class="eia-mortality-row">
+            <div class="eia-mortality-bar">
+                <span>Mortalidad Fauna</span>
+                <div class="eia-bar-track">
+                    <div class="eia-bar-fill" style="width:${c.mortality_fauna}%; background:${c.color};"></div>
+                </div>
+                <strong style="color:${c.color}">${c.mortality_fauna}%</strong>
+            </div>
+            <div class="eia-mortality-bar">
+                <span>Mortalidad Flora</span>
+                <div class="eia-bar-track">
+                    <div class="eia-bar-fill" style="width:${c.mortality_flora}%; background:${c.color};"></div>
+                </div>
+                <strong style="color:${c.color}">${c.mortality_flora}%</strong>
+            </div>
+        </div>
+
+        <div class="eia-species-grid">
+            ${_renderSpeciesBlock('🐾 Fauna detectada', c.fauna, c.color)}
+            ${_renderSpeciesBlock('🌿 Flora detectada', c.flora, c.color)}
+        </div>
+
+        <div class="eia-mitigacion">
+            <strong>Medidas de mitigación</strong>
+            <ul>${c.mitigacion.map(m => `<li>${m}</li>`).join('')}</ul>
+        </div>
+
+        <div class="eia-recovery">
+            ⏱ <strong>Recuperación estimada:</strong> ${c.recuperacion}
+        </div>
+    </div>`).join('');
+
+    // ── Bloque clima Open-Meteo ───────────────────────────────────────────────
+    const climateHTML = climate ? `
+    <div class="eia-climate-block">
+        <strong>📡 Contexto climático (Open-Meteo API)</strong>
+        <div class="eia-climate-grid">
+            <span>🌡 ${climate.avg_temperature_c}°C media</span>
+            <span>💧 ${climate.avg_monthly_precipitation_mm} mm/mes</span>
+            <span>🌍 Bioma: ${climate.biome}</span>
+            <span>⚠️ ${climate.ecosystem_risk}</span>
+        </div>
+        ${climate.characteristic_fauna ? `<div class="eia-climate-fauna">Fauna característica del bioma: ${climate.characteristic_fauna.join(' · ')}</div>` : ''}
+    </div>` : '';
+
+    // ── Fuentes ───────────────────────────────────────────────────────────────
+    const sourceHTML = `
+    <div class="eia-sources">
+        <strong>Fuentes de datos</strong>
+        <span>GBIF Global Biodiversity Information Facility — <a href="https://www.gbif.org" target="_blank" style="color:#00A8E8;">gbif.org</a></span>
+        <span>Open-Meteo Climate API — <a href="https://open-meteo.com" target="_blank" style="color:#00A8E8;">open-meteo.com</a></span>
+    </div>`;
+
+    // ── Montar modal ──────────────────────────────────────────────────────────
+    const overlay = document.createElement('div');
+    overlay.id = 'eia-modal-overlay';
+    overlay.className = 'eia-overlay';
+    overlay.innerHTML = `
+    <div class="eia-modal">
+        <div class="eia-modal-header">
+            <div>
+                <h2>📋 Evaluación de Impacto Ambiental (EIA)</h2>
+                <p style="margin:0; font-size:13px; color:#888;">${metadata.metodologia}</p>
+            </div>
+            <button class="eia-close-btn" onclick="document.getElementById('eia-modal-overlay').remove()">✕</button>
+        </div>
+        <div class="eia-modal-body">
+            ${verdictHTML}
+            ${climateHTML}
+            ${campaignsHTML}
+            ${sourceHTML}
+        </div>
+    </div>`;
+
+    // Cerrar al clic fuera del modal
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.remove(); });
+    document.body.appendChild(overlay);
+}
+
+function _renderSpeciesBlock(title, species, color) {
+    if (!species || species.length === 0) {
+        return `<div class="eia-species-block"><strong>${title}</strong><p style="color:#555;font-size:12px;">Sin datos GBIF para esta zona</p></div>`;
+    }
+    const vulnColors = { crítica:'#FF4444', alta:'#FF8C00', media:'#FFB84D', baja:'#00E676' };
+    const rows = species.map(s => `
+        <div class="eia-species-row">
+            <div class="eia-species-info">
+                <span class="eia-species-name">${s.name || '—'}</span>
+                ${s.scientific_name && s.scientific_name !== s.name
+                    ? `<span class="eia-species-sci">${s.scientific_name}</span>` : ''}
+                ${s.class ? `<span class="eia-species-class">${s.class}</span>` : ''}
+            </div>
+            <div class="eia-species-right">
+                <span class="eia-vuln-badge" style="background:${(vulnColors[s.vulnerability]||'#888')}22; color:${vulnColors[s.vulnerability]||'#888'};">
+                    ${s.vulnerability || '—'}
+                </span>
+                <span class="eia-mort-pct" style="color:${color}">${s.mortality_pct}%</span>
+            </div>
+        </div>`).join('');
+    return `<div class="eia-species-block"><strong>${title}</strong>${rows}</div>`;
+}
+
+// ============================================
 // PDF GENERATION FUNCTIONALITY
 // ============================================
 
-function downloadSimulationPDF() {
+function downloadSimulationPDFLegacy() {
     // Primero intentar usar datos guardados para generación más rápida
     let dataSource = 'current';
     let fullResults = currentFullResults;

@@ -14,7 +14,7 @@ from datetime import datetime, timedelta
 from io import BytesIO
 from reportlab.lib.pagesizes import letter, A4
 from reportlab.lib.units import inch
-from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak
+from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, PageBreak, Image
 from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from reportlab.lib.enums import TA_CENTER, TA_LEFT, TA_JUSTIFY
 from reportlab.lib import colors
@@ -2893,6 +2893,265 @@ def analyze_impact_flora_fauna():
             'success': False,
             'error': f'Error en análisis: {str(e)}'
         }), 500
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# EIA — EVALUACIÓN DE IMPACTO AMBIENTAL
+# APIs usadas: GBIF (biodiversidad) + Open-Meteo (clima/ecosistema)
+# ══════════════════════════════════════════════════════════════════════════════
+
+@app.route('/api/eia/report', methods=['POST'])
+def generate_eia_report_route():
+    """
+    Genera un Informe de Evaluación de Impacto Ambiental (EIA) completo
+    con 4 campañas de campo (una por zona de impacto).
+    APIs: GBIF Global Biodiversity Information Facility + Open-Meteo.
+    """
+    try:
+        data               = request.json
+        lat                = float(data.get('latitude'))
+        lon                = float(data.get('longitude'))
+        destruction_r      = float(data.get('destruction_radius_km', 1.0))
+        damage_r           = float(data.get('damage_radius_km', 5.0))
+        energy_mt          = float(data.get('energy_megatons', 1.0))
+        air_pressure_r     = damage_r * 1.5
+
+        print(f"EIA: ({lat},{lon}) destR={destruction_r}km damR={damage_r}km E={energy_mt}MT")
+
+        # ── GBIF: fauna y flora en el área total afectada ─────────────────────
+        radius_deg = air_pressure_r / 111.0
+        bbox = {
+            'minLatitude':  lat - radius_deg, 'maxLatitude':  lat + radius_deg,
+            'minLongitude': lon - radius_deg, 'maxLongitude': lon + radius_deg,
+        }
+        fauna_all = search_gbif_species(bbox, 'ANIMALIA')
+        flora_all = search_gbif_species(bbox, 'PLANTAE')
+
+        # ── Open-Meteo: contexto climático/bioma ─────────────────────────────
+        climate = get_open_meteo_climate_for_fauna(lat, lon)
+
+        # ── Generar 4 campañas EIA por zona ──────────────────────────────────
+        campaigns = _build_eia_campaigns(
+            fauna_all, flora_all,
+            destruction_r, damage_r, air_pressure_r,
+            energy_mt
+        )
+
+        # ── Veredicto final EIA ───────────────────────────────────────────────
+        verdict = _eia_verdict(len(fauna_all) + len(flora_all), energy_mt, climate)
+
+        return jsonify({
+            'success': True,
+            'metadata': {
+                'fecha':        datetime.now().strftime('%d/%m/%Y %H:%M'),
+                'metodologia':  'GBIF Biodiversity + Open-Meteo Climate API',
+                'coordenadas':  {'lat': lat, 'lon': lon},
+                'area_total_ha': round(math.pi * air_pressure_r ** 2 * 100),
+                'radios': {
+                    'destruccion_km':  round(destruction_r, 2),
+                    'dano_km':         round(damage_r, 2),
+                    'presion_km':      round(air_pressure_r, 2),
+                },
+            },
+            'resumen': {
+                'total_fauna':  len(fauna_all),
+                'total_flora':  len(flora_all),
+                'total':        len(fauna_all) + len(flora_all),
+            },
+            'campaigns':     campaigns,
+            'climate':       climate,
+            'verdict':       verdict,
+        })
+
+    except Exception as e:
+        print(f"EIA error: {e}")
+        return jsonify({'success': False, 'error': str(e)}), 500
+
+
+def _species_vulnerability(species, kind):
+    """Clasifica vulnerabilidad de una especie según su clase taxonómica."""
+    tax  = species.get('class', '').lower()
+    name = species.get('name', '').lower()
+
+    if kind == 'fauna':
+        if tax == 'amphibia':
+            return 'crítica', 'Anfibio — alta sensibilidad a cambios térmicos e hídricos'
+        if tax in ('insecta', 'arachnida'):
+            return 'alta',    'Invertebrado — escasa capacidad de evasión'
+        if tax == 'reptilia':
+            return 'alta',    'Reptil — termorregulación alterada post-impacto'
+        if tax == 'mammalia':
+            return 'media',   'Mamífero — cierta capacidad de huida'
+        if tax == 'aves':
+            return 'baja',    'Ave — alta movilidad, posibilidad de evasión'
+        return 'media', 'Especie sin clasificar'
+    else:  # flora
+        if any(g in name for g in ('quercus','pinus','fagus','abies','cedrus','sequoia','roble','pino','haya')):
+            return 'crítica', 'Árbol maduro — recuperación > 100 años'
+        if any(g in name for g in ('shrub','arbusto','cistus','retama')):
+            return 'alta',    'Arbusto — recuperación 20-50 años'
+        return 'media', 'Planta herbácea — recuperación 5-15 años'
+
+
+def _build_eia_campaigns(fauna_all, flora_all, d_r, dam_r, ap_r, e_mt):
+    """Construye las 4 campañas de campo EIA, una por zona de impacto."""
+
+    def annotate(species_list, kind, mort_pct, max_n=6):
+        out = []
+        for s in species_list[:max_n]:
+            vuln, reason = _species_vulnerability(s, kind)
+            effective_mort = mort_pct if vuln in ('crítica', 'alta') else max(10, mort_pct - 35)
+            out.append({
+                'name':            s.get('name', '—'),
+                'scientific_name': s.get('scientific_name', ''),
+                'class':           s.get('class', ''),
+                'family':          s.get('family', ''),
+                'count':           s.get('count', 0),
+                'vulnerability':   vuln,
+                'vuln_reason':     reason,
+                'mortality_pct':   round(effective_mort, 1),
+            })
+        return out
+
+    M1_fauna = 100;       M1_flora = 100
+    M2_fauna = min(95, 80 + e_mt * 0.12);  M2_flora = min(90, 75 + e_mt * 0.10)
+    M3_fauna = min(60, 30 + e_mt * 0.30);  M3_flora = min(55, 25 + e_mt * 0.28)
+    M4_fauna = min(20, e_mt * 0.10);       M4_flora = min(15, e_mt * 0.06)
+
+    def rec(years_lo, years_hi):
+        return f'{years_lo}–{years_hi} años'
+
+    campaigns = [
+        {
+            'id':    1,
+            'title': 'Campaña 1 · Zona de Destrucción Total',
+            'zone':  'destruccion',
+            'color': '#FF4444',
+            'radio_km': round(d_r, 2),
+            'area_ha':  round(math.pi * d_r ** 2 * 100),
+            'mortality_fauna': M1_fauna,
+            'mortality_flora': M1_flora,
+            'nivel_riesgo':    'CATASTRÓFICO',
+            'descripcion': 'Zona de impacto directo. Cráter y onda expansiva primaria. '
+                           'Extinción local total garantizada.',
+            'fauna': annotate(fauna_all[:6],  'fauna', M1_fauna),
+            'flora': annotate(flora_all[:6],  'flora', M1_flora),
+            'mitigacion': [
+                'Zona inhabitable — sin posibilidad de mitigación in situ',
+                'Inventario y preservación de muestras ex-situ antes del evento',
+                'Registro genético de especies endémicas detectadas',
+            ],
+            'recuperacion': 'No aplicable — extinción local total',
+        },
+        {
+            'id':    2,
+            'title': 'Campaña 2 · Zona de Daño Severo',
+            'zone':  'dano_severo',
+            'color': '#FF8C00',
+            'radio_km': round(dam_r * 0.7, 2),
+            'area_ha':  round(math.pi * ((dam_r * 0.7) ** 2 - d_r ** 2) * 100),
+            'mortality_fauna': round(M2_fauna, 1),
+            'mortality_flora': round(M2_flora, 1),
+            'nivel_riesgo':    'SEVERO',
+            'descripcion': 'Ondas de choque, calor extremo y lluvia de escombros. '
+                           'Supervivencia muy baja para especies sésiles.',
+            'fauna': annotate(fauna_all[2:8],  'fauna', M2_fauna),
+            'flora': annotate(flora_all[2:8],  'flora', M2_flora),
+            'mitigacion': [
+                'Rescate urgente de fauna móvil (mamíferos, aves) antes del impacto',
+                'Trasplante de especímenes vegetales únicos a viveros de seguridad',
+                'Establecimiento de corredores de evacuación faunística',
+            ],
+            'recuperacion': rec(
+                max(50,  int(e_mt * 4)),
+                max(150, int(e_mt * 8)),
+            ),
+        },
+        {
+            'id':    3,
+            'title': 'Campaña 3 · Zona de Daño Moderado',
+            'zone':  'dano_moderado',
+            'color': '#FFB84D',
+            'radio_km': round(dam_r, 2),
+            'area_ha':  round(math.pi * (dam_r ** 2 - (dam_r * 0.7) ** 2) * 100),
+            'mortality_fauna': round(M3_fauna, 1),
+            'mortality_flora': round(M3_flora, 1),
+            'nivel_riesgo':    'MODERADO',
+            'descripcion': 'Incendios secundarios, colapso de hábitats y cambios '
+                           'microclimáticos. Recuperación posible con intervención.',
+            'fauna': annotate(fauna_all[4:10], 'fauna', M3_fauna),
+            'flora': annotate(flora_all[4:10], 'flora', M3_flora),
+            'mitigacion': [
+                'Plan de monitoreo de poblaciones durante 5 años post-impacto',
+                'Revegetación con especies autóctonas certificadas',
+                'Control de especies invasoras oportunistas',
+            ],
+            'recuperacion': rec(
+                max(10, int(e_mt * 1.5)),
+                max(30, int(e_mt * 3.5)),
+            ),
+        },
+        {
+            'id':    4,
+            'title': 'Campaña 4 · Zona de Efectos Indirectos',
+            'zone':  'efectos_indirectos',
+            'color': '#4169E1',
+            'radio_km': round(ap_r, 2),
+            'area_ha':  round(math.pi * (ap_r ** 2 - dam_r ** 2) * 100),
+            'mortality_fauna': round(M4_fauna, 1),
+            'mortality_flora': round(M4_flora, 1),
+            'nivel_riesgo':    'LEVE',
+            'descripcion': 'Perturbación acústica, polvo atmosférico y contaminación '
+                           'secundaria. El ecosistema puede recuperarse de forma natural.',
+            'fauna': annotate(fauna_all[6:12], 'fauna', M4_fauna),
+            'flora': annotate(flora_all[6:12], 'flora', M4_flora),
+            'mitigacion': [
+                'Monitoreo continuo de índices de biodiversidad',
+                'Restricción temporal de actividades humanas en la zona',
+                'Creación de corredores biológicos compensatorios',
+            ],
+            'recuperacion': rec(
+                max(2,  int(e_mt * 0.4)),
+                max(8,  int(e_mt * 0.9)),
+            ),
+        },
+    ]
+    return campaigns
+
+
+def _eia_verdict(total_species, energy_mt, climate):
+    """Calcula el veredicto final del Informe EIA."""
+    if energy_mt >= 100 or total_species >= 50:
+        verdict, color = 'IMPACTO CATASTRÓFICO', '#FF0000'
+        desc = 'Extinción local de ecosistemas completos. Recuperación en siglos.'
+        recom = 'Medidas de mitigación insuficientes. Documentación urgente de biodiversidad.'
+    elif energy_mt >= 10 or total_species >= 30:
+        verdict, color = 'IMPACTO SEVERO', '#FF4444'
+        desc = 'Pérdida masiva de biodiversidad. Alteración permanente del ecosistema.'
+        recom = 'Plan de Restauración Ecológica obligatorio (horizonte > 50 años).'
+    elif energy_mt >= 1 or total_species >= 15:
+        verdict, color = 'IMPACTO MODERADO', '#FFB84D'
+        desc = 'Afectación significativa de la biodiversidad local. Recuperación posible.'
+        recom = 'Plan de revegetación y reintroducción de fauna en 10–30 años.'
+    else:
+        verdict, color = 'IMPACTO LEVE', '#00E676'
+        desc = 'Efectos localizados. El ecosistema puede recuperarse de forma natural.'
+        recom = 'Monitoreo periódico 5 años. Intervención mínima recomendada.'
+
+    biome_ctx = ''
+    if climate:
+        biome_ctx = (f"Ecosistema {climate.get('biome','?')} · "
+                     f"T={climate.get('avg_temperature_c','?')}°C · "
+                     f"P={climate.get('avg_monthly_precipitation_mm','?')} mm/mes")
+
+    return {
+        'verdict':              verdict,
+        'color':                color,
+        'description':          desc,
+        'recommendation':       recom,
+        'biome_context':        biome_ctx,
+        'total_species_found':  total_species,
+    }
 
 
 def search_gbif_species(bounding_box, taxonomic_kingdom):

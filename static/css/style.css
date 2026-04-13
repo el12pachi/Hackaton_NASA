@@ -2592,9 +2592,38 @@ html {
     animation: pulse-circle 2s ease-in-out infinite;
 }
 
+.air-pressure-zone {
+    filter: saturate(1.15);
+}
+
+.damage-zone {
+    filter: saturate(1.2);
+}
+
 .destruction-zone {
     z-index: 1000 !important;
     pointer-events: auto !important;
+    filter: saturate(1.35) contrast(1.1);
+}
+
+.city-map-label {
+    background: transparent;
+    border: none;
+}
+
+.city-map-label span {
+    display: inline-block;
+    padding: 2px 6px;
+    border-radius: 4px;
+    background: rgba(0, 0, 0, 0.65);
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.8);
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.2);
+    white-space: nowrap;
+    transform: translateY(-10px);
 }
 
 @keyframes pulse-circle {
@@ -2921,3 +2950,303 @@ html {
         max-height: calc(95vh - 160px);
     }
 }
+
+/* ══════════════════════════════════════════════════════════════════════════════
+   EIA — Evaluación de Impacto Ambiental
+══════════════════════════════════════════════════════════════════════════════ */
+
+/* Overlay / fondo */
+.eia-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.82);
+    backdrop-filter: blur(6px);
+    -webkit-backdrop-filter: blur(6px);
+    z-index: 9000;
+    display: flex;
+    align-items: flex-start;
+    justify-content: center;
+    padding: 2rem 1rem;
+    overflow-y: auto;
+}
+
+/* Panel central */
+.eia-modal {
+    background: var(--bg-secondary, #1A1A1A);
+    border: 1px solid rgba(255,255,255,0.10);
+    border-radius: 18px;
+    width: 100%;
+    max-width: 820px;
+    box-shadow: 0 24px 80px rgba(0,0,0,0.7);
+    overflow: hidden;
+    animation: eia-slide-in 0.3s ease;
+}
+
+@keyframes eia-slide-in {
+    from { opacity: 0; transform: translateY(-20px); }
+    to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Header */
+.eia-modal-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.4rem 1.6rem;
+    background: rgba(255,255,255,0.04);
+    border-bottom: 1px solid rgba(255,255,255,0.08);
+}
+.eia-modal-header h2 {
+    margin: 0 0 0.2rem;
+    font-size: 1.2rem;
+    color: #1db954;
+}
+.eia-close-btn {
+    background: rgba(255,255,255,0.08);
+    border: none;
+    border-radius: 50%;
+    color: #aaa;
+    width: 32px; height: 32px;
+    font-size: 1rem;
+    cursor: pointer;
+    flex-shrink: 0;
+    display: flex; align-items: center; justify-content: center;
+    transition: background 0.15s, color 0.15s;
+}
+.eia-close-btn:hover { background: rgba(255,255,255,0.15); color: #fff; }
+
+/* Cuerpo scrollable */
+.eia-modal-body {
+    padding: 1.4rem 1.6rem;
+    display: flex;
+    flex-direction: column;
+    gap: 1.4rem;
+    max-height: calc(90vh - 90px);
+    overflow-y: auto;
+}
+
+/* ── Veredicto ─────────────────────────────────────────────────────────────── */
+.eia-verdict {
+    border-radius: 14px;
+    border: 2px solid;
+    padding: 1.2rem 1.4rem;
+}
+.eia-verdict-title {
+    font-size: 1.5rem;
+    font-weight: 800;
+    letter-spacing: 0.03em;
+    margin-bottom: 0.4rem;
+}
+.eia-verdict-desc  { margin: 0 0 0.35rem; font-size: 14px; color: #ccc; }
+.eia-verdict-rec   { margin: 0 0 0.35rem; font-size: 13px; color: #aaa; }
+.eia-verdict-biome { margin: 0; font-size: 12px; color: #777; }
+.eia-verdict-stats {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.8rem;
+    padding-top: 0.8rem;
+    border-top: 1px solid rgba(255,255,255,0.08);
+}
+.eia-verdict-stats span {
+    background: rgba(255,255,255,0.06);
+    padding: 0.3rem 0.75rem;
+    border-radius: 20px;
+    font-size: 12px;
+    color: #bbb;
+}
+
+/* ── Clima ─────────────────────────────────────────────────────────────────── */
+.eia-climate-block {
+    background: rgba(0,168,232,0.08);
+    border: 1px solid rgba(0,168,232,0.2);
+    border-radius: 12px;
+    padding: 1rem 1.2rem;
+    font-size: 13px;
+    color: #aaa;
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+}
+.eia-climate-block strong { color: #00A8E8; }
+.eia-climate-grid {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.6rem;
+    margin-top: 0.3rem;
+}
+.eia-climate-grid span {
+    background: rgba(0,168,232,0.10);
+    padding: 0.25rem 0.65rem;
+    border-radius: 16px;
+    font-size: 12px;
+}
+.eia-climate-fauna {
+    font-size: 12px;
+    color: #777;
+    margin-top: 0.2rem;
+}
+
+/* ── Campañas ──────────────────────────────────────────────────────────────── */
+.eia-campaign {
+    background: rgba(255,255,255,0.03);
+    border-radius: 14px;
+    border: 1px solid rgba(255,255,255,0.07);
+    padding: 1.2rem 1.4rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.9rem;
+}
+.eia-campaign-header {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.8rem;
+    flex-wrap: wrap;
+}
+.eia-campaign-badge {
+    display: inline-block;
+    padding: 0.15rem 0.6rem;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    margin-bottom: 0.4rem;
+}
+.eia-campaign-title {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    color: #e0e0e0;
+}
+.eia-campaign-meta {
+    display: flex;
+    gap: 0.6rem;
+    flex-wrap: wrap;
+    font-size: 12px;
+    color: #666;
+}
+.eia-campaign-desc {
+    margin: 0;
+    font-size: 13px;
+    color: #888;
+    line-height: 1.55;
+}
+
+/* Barras de mortalidad */
+.eia-mortality-row {
+    display: flex;
+    gap: 1rem;
+    flex-wrap: wrap;
+}
+.eia-mortality-bar {
+    flex: 1;
+    min-width: 160px;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-size: 12px;
+    color: #888;
+}
+.eia-bar-track {
+    flex: 1;
+    height: 6px;
+    background: rgba(255,255,255,0.08);
+    border-radius: 3px;
+    overflow: hidden;
+}
+.eia-bar-fill {
+    height: 100%;
+    border-radius: 3px;
+    transition: width 0.6s ease;
+}
+
+/* Grid especies */
+.eia-species-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.8rem;
+}
+@media (max-width: 600px) { .eia-species-grid { grid-template-columns: 1fr; } }
+
+.eia-species-block {
+    background: rgba(0,0,0,0.18);
+    border-radius: 10px;
+    padding: 0.8rem 0.9rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.45rem;
+}
+.eia-species-block > strong {
+    font-size: 11px;
+    text-transform: uppercase;
+    letter-spacing: 0.07em;
+    color: #666;
+    display: block;
+    margin-bottom: 0.2rem;
+}
+.eia-species-row {
+    display: flex;
+    align-items: flex-start;
+    justify-content: space-between;
+    gap: 0.4rem;
+    padding: 0.3rem 0;
+    border-bottom: 1px solid rgba(255,255,255,0.05);
+}
+.eia-species-row:last-child { border-bottom: none; }
+.eia-species-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.1rem;
+    min-width: 0;
+}
+.eia-species-name  { font-size: 13px; font-weight: 600; color: #d4d4d4; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.eia-species-sci   { font-size: 11px; color: #666; font-style: italic; }
+.eia-species-class { font-size: 10px; color: #555; }
+.eia-species-right {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 0.2rem;
+    flex-shrink: 0;
+}
+.eia-vuln-badge {
+    font-size: 10px;
+    font-weight: 700;
+    padding: 0.1rem 0.45rem;
+    border-radius: 10px;
+    white-space: nowrap;
+}
+.eia-mort-pct { font-size: 12px; font-weight: 700; }
+
+/* Mitigación */
+.eia-mitigacion {
+    background: rgba(29,185,84,0.06);
+    border: 1px solid rgba(29,185,84,0.15);
+    border-radius: 10px;
+    padding: 0.75rem 1rem;
+    font-size: 13px;
+}
+.eia-mitigacion strong { color: #1db954; display: block; margin-bottom: 0.4rem; }
+.eia-mitigacion ul { margin: 0; padding-left: 1.2rem; color: #888; }
+.eia-mitigacion li { margin-bottom: 0.25rem; }
+
+/* Recuperación */
+.eia-recovery {
+    font-size: 13px;
+    color: #666;
+}
+.eia-recovery strong { color: #00A8E8; }
+
+/* Fuentes */
+.eia-sources {
+    display: flex;
+    flex-direction: column;
+    gap: 0.3rem;
+    font-size: 11px;
+    color: #555;
+    padding-top: 0.6rem;
+    border-top: 1px solid rgba(255,255,255,0.06);
+}
+.eia-sources strong { color: #666; }
